@@ -1,0 +1,5 @@
+add_executable( bae src/main.cpp )
+target_link_libraries( bae PUBLIC bgfx imgui glfw glm )
+target_include_directories( bae PUBLIC include )
+set_target_properties( bae PROPERTIES FOLDER "bae" )
+configure_debugging( bae WORKING_DIR ${CMAKE_CURRENT_BINARY_DIR} )
