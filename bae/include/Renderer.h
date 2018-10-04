@@ -1,5 +1,6 @@
 #pragma once
 #include <memory>
+#include <stdexcept>
 
 #include <GLFW/glfw3.h>
 #include <bgfx/bgfx.h>

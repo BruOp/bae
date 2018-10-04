@@ -1,5 +1,4 @@
 #include "Renderer.h"
-#include <memory>
 
 namespace bae
 {
@@ -55,10 +54,7 @@ bool Renderer::update()
     {
         return false;
     }
-
-    float lastTime = 0;
-    float dt;
-    float time;
+    return true;
 }
 
 void Renderer::renderFrame()

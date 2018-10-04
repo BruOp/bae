@@ -1,5 +1,5 @@
 #pragma once
-#include <exception>
+#include <stdexcept>
 
 #include <bgfx/platform.h>
 #include <GLFW/glfw3.h>

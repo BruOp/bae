@@ -1,6 +1,4 @@
-# This is free and unencumbered software released into the public domain.
-
-cmake_minimum_required( VERSION 3.1...3.12 )
+cmake_minimum_required( VERSION 3.1 )
 project(bae VERSION 0.1
         DESCRIPTION "Bruno's Awful Engine"
         LANGUAGES CXX)
