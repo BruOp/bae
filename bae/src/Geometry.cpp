@@ -6,12 +6,12 @@ Geometry::Geometry(
     const std::vector<Vertex> &vertices,
     const std::vector<uint16_t> &indices) noexcept
 {
-    const bgfx::Memory *vertMemory = bgfx::copy(vertices.data(), vertices.size());
+    const bgfx::Memory *vertMemory = bgfx::copy(vertices.data(), sizeof(vertices[0]) * vertices.size());
     m_vertexBuffer = bgfx::createVertexBuffer(
         vertMemory,
         Vertex::ms_declaration);
 
-    const bgfx::Memory *indexMemory = bgfx::copy(indices.data(), indices.size());
+    const bgfx::Memory *indexMemory = bgfx::copy(indices.data(), sizeof(uint16_t) * indices.size());
     m_indexBuffer = bgfx::createIndexBuffer(indexMemory);
 }
 

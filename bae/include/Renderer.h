@@ -6,9 +6,8 @@
 #include <bgfx/bgfx.h>
 #include <bgfx/platform.h>
 #include <glm/glm.hpp>
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/transform.hpp>
 
+#include "Camera.h"
 #include "Mesh.h"
 #include "Window.h"
 #include "utils/Vertex.h"
@@ -32,6 +31,7 @@ class Renderer
     float m_lastTime = 0;
     uint64_t m_state;
 
+    std::unique_ptr<Camera> m_camera = nullptr;
     std::unique_ptr<Geometry> m_geom = nullptr;
     std::unique_ptr<MaterialType> m_mat = nullptr;
     std::unique_ptr<Mesh> m_mesh = nullptr;

@@ -1,14 +1,14 @@
 #include "Renderer.h"
 
 const std::vector<bae::Vertex> cubeVertices{
-    {glm::vec3{-1.0f, 1.0f, 1.0f}, glm::vec4{0.0f, 0.0f, 0.0f, 1.0f}},
-    {glm::vec3{1.0f, 1.0f, 1.0f}, glm::vec4{0.0f, 1.0f, 0.0f, 1.0f}},
-    {glm::vec3{-1.0f, -1.0f, 1.0f}, glm::vec4{1.0f, 1.0f, 0.0f, 1.0f}},
-    {glm::vec3{1.0f, -1.0f, 1.0f}, glm::vec4{0.0f, 0.0f, 1.0f, 1.0f}},
-    {glm::vec3{-1.0f, 1.0f, -1.0f}, glm::vec4{1.0f, 0.0f, 1.0f, 1.0f}},
-    {glm::vec3{1.0f, 1.0f, -1.0f}, glm::vec4{0.0f, 1.0f, 1.0f, 1.0f}},
-    {glm::vec3{-1.0f, -1.0f, -1.0f}, glm::vec4{1.0f, 1.0f, 1.0f, 1.0f}},
-    {glm::vec3{1.0f, -1.0f, -1.0f}, glm::vec4{1.0f, 0.0f, 0.0f, 1.0f}},
+    {glm::vec3{-1.0f, 1.0f, 1.0f}, 0xff000000 },
+    {glm::vec3{1.0f, 1.0f, 1.0f}, 0xff0000ff },
+    {glm::vec3{-1.0f, -1.0f, 1.0f}, 0xff00ff00 },
+    {glm::vec3{1.0f, -1.0f, 1.0f}, 0xffff0000 },
+    {glm::vec3{-1.0f, 1.0f, -1.0f}, 0xff00ffff },
+    {glm::vec3{1.0f, 1.0f, -1.0f}, 0xffff00ff },
+    {glm::vec3{-1.0f, -1.0f, -1.0f}, 0xffffff00 },
+    {glm::vec3{1.0f, -1.0f, -1.0f}, 0xffffffff },
 };
 
 const std::vector<uint16_t> cubeIndices{
@@ -17,43 +17,46 @@ const std::vector<uint16_t> cubeIndices{
     2, // 0
     1,
     3,
-    2,
+    2, // 1
     4,
     6,
     5, // 2
     5,
     6,
-    7,
+    7, // 3
     0,
     2,
     4, // 4
     4,
     2,
-    6,
+    6, // 5
     1,
     5,
     3, // 6
     5,
     7,
-    3,
+    3, // 7
     0,
     4,
     1, // 8
     4,
     5,
-    1,
+    1, // 9
     2,
     3,
     6, // 10
     6,
     3,
-    7,
+    7, // 11
 };
 
 namespace bae
 {
 Renderer::~Renderer() noexcept
 {
+    m_mesh = nullptr;
+    m_mat = nullptr;
+    m_geom = nullptr;
     // Shutdown application and glfw
     bgfx::shutdown();
     glfwTerminate();
@@ -95,13 +98,21 @@ void Renderer::init(uint32_t width, uint32_t height)
         1.0f,
         0);
 
+    m_camera = std::make_unique<Camera>(
+        glm::vec3{5.0f, 2.0f, 10.0f},
+        glm::vec3{0.0f, 0.0f, -1.0f},
+        m_width,
+        m_height,
+        60.0f
+    );
+
     m_lastTime = (float)glfwGetTime();
     m_geom = std::make_unique<Geometry>(cubeVertices, cubeIndices);
     m_mat = std::make_unique<MaterialType>("basic", "basic_vs.bin", "basic_fs.bin");
     m_mesh = std::make_unique<Mesh>(*m_geom, *m_mat);
 
-    m_state = BGFX_STATE_DEFAULT;
-    // 0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CW;
+    m_state =
+        0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CCW;
 }
 
 bool Renderer::update()
@@ -117,25 +128,24 @@ bool Renderer::update()
 
 void Renderer::renderFrame()
 {
+    bgfx::ViewId viewId{ 0 };
     float time = (float)glfwGetTime();
     float dt = time - m_lastTime;
     m_lastTime = time;
 
     // Set view 0 default viewport.
-    bgfx::setViewRect(0, 0, 0, uint16_t(m_width), uint16_t(m_height));
+    bgfx::setViewRect(viewId, 0, 0, uint16_t(m_width), uint16_t(m_height));
 
     // This dummy draw call is here to make sure that view 0 is cleared
     // if no other draw calls are submitted to view 0.
-    bgfx::touch(0);
+    bgfx::touch(viewId);
 
-    glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, -35.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    glm::mat4 proj = glm::perspective(glm::radians(60.0f), float(m_width) / m_height, 0.1f, 100.0f);
-    bgfx::setViewTransform(0, &view[0][0], &proj[0][0]);
+    m_camera->setViewTransform(viewId);
 
     glm::mat4 mtx{};
-    bgfx::setTransform(&mtx[0][0]);
+    //bgfx::setTransform(&mtx[0][0]);
 
-    m_mesh->draw(0, m_state);
+    m_mesh->draw(viewId, m_state);
 
     // Advance to next frame. Rendering thread will be kicked to
     // process submitted rendering primitives.

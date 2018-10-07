@@ -7,7 +7,7 @@ MaterialType::MaterialType(
     const std::string &vertShaderName,
     const std::string &fragShaderName)
     : name{name},
-      m_program{ShaderUtils::loadProgram(vertShaderName, vertShaderName)}
+      m_program{ShaderUtils::loadProgram(vertShaderName, fragShaderName)}
 {
 }
 

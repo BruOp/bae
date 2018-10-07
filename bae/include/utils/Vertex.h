@@ -9,7 +9,7 @@ namespace bae
 struct Vertex
 {
     glm::vec3 pos;
-    glm::vec4 color;
+    uint32_t color;
     // glm::vec2 texCoord;
 
     static bgfx::VertexDecl ms_declaration;

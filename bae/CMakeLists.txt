@@ -10,7 +10,8 @@ add_dependencies( bae bgfx imgui glfw glm )
 target_include_directories( bae PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include )
 set_target_properties( bae PROPERTIES FOLDER "bae" )
 
-set(SHADER_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/compiled_shaders)
+
+set(SHADER_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 
 add_shader( shaders/basic_vs.sc VERTEX OUTPUT ${SHADER_OUTPUT_DIR} DX11_MODEL 5_0 GLSL 130 )
 add_shader( shaders/basic_fs.sc FRAGMENT OUTPUT ${SHADER_OUTPUT_DIR} DX11_MODEL 5_0 GLSL 130 )
@@ -18,7 +19,5 @@ add_shader( shaders/basic_fs.sc FRAGMENT OUTPUT ${SHADER_OUTPUT_DIR} DX11_MODEL 
 # foreach(SHADER in BAE_FRAG_SHADERS)
 # add_shader( SHADER FRAGMENT OUTPUT ${SHADER_OUTPUT_DIR} DX11_MODEL 5_0 GLSL 130 )  
 # endforeach(SHADER)
-
-add_compile_definitions(SHADER_OUTPUT_DIR=\"${SHADER_OUTPUT_DIR}/\")
 
 configure_debugging( bae WORKING_DIR ${CMAKE_CURRENT_BINARY_DIR} )

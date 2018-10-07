@@ -27,8 +27,7 @@ namespace ShaderUtils
 {
 bgfx::ShaderHandle loadShader(const std::string &shaderName)
 {
-    std::string folder_path = SHADER_OUTPUT_DIR;
-    folder_path += "/glsl/";
+    std::string folder_path = "shaders/glsl/";
     std::string full_path = folder_path + shaderName;
     const bgfx::Memory *pShaderMemory = Utils::loadMemory(full_path);
     bgfx::ShaderHandle shaderHandle = bgfx::createShader(pShaderMemory);
