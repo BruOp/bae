@@ -1,20 +1,9 @@
 #pragma once
 #include <stdexcept>
 
+#include "SDL.h"
+#include "SDL_syswm.h"
 #include <bgfx/platform.h>
-#include <GLFW/glfw3.h>
-
-#if BX_PLATFORM_LINUX || BX_PLATFORM_BSD
-#define GLFW_EXPOSE_NATIVE_X11
-#define GLFW_EXPOSE_NATIVE_GLX
-#elif BX_PLATFORM_OSX
-#define GLFW_EXPOSE_NATIVE_COCOA
-#define GLFW_EXPOSE_NATIVE_NSGL
-#elif BX_PLATFORM_WINDOWS
-#define GLFW_EXPOSE_NATIVE_WIN32
-#define GLFW_EXPOSE_NATIVE_WGL
-#endif
-#include <GLFW/glfw3native.h>
 
 namespace bae
 {
@@ -35,20 +24,16 @@ class Window
     Window &operator=(Window &&otherWindow);
 
     void destroy();
-    bool shouldClose() const;
+    bool shouldClose(const SDL_Event &event) const;
 
-    inline uint32_t getWidth() const { return _width; }
-    inline uint32_t getHeight() const { return _height; }
-    inline GLFWwindow *getWindowPtr() const { return _pWindow; }
+    inline uint32_t getWidth() const { return m_width; }
+    inline uint32_t getHeight() const { return m_height; }
+    inline SDL_Window *getWindowPtr() const { return m_pWindow; }
     bgfx::PlatformData getPlatformData();
 
-    void pollWindowEvents();
-
   private:
-    GLFWwindow *_pWindow;
-    uint32_t _width;
-    uint32_t _height;
-
-    void *getNativeHandle();
+    SDL_Window *m_pWindow;
+    uint32_t m_width;
+    uint32_t m_height;
 };
 } // namespace bae

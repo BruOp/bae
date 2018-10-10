@@ -1,14 +1,14 @@
 #include "Renderer.h"
 
 const std::vector<bae::Vertex> cubeVertices{
-    {glm::vec3{-1.0f, 1.0f, 1.0f}, 0xff000000 },
-    {glm::vec3{1.0f, 1.0f, 1.0f}, 0xff0000ff },
-    {glm::vec3{-1.0f, -1.0f, 1.0f}, 0xff00ff00 },
-    {glm::vec3{1.0f, -1.0f, 1.0f}, 0xffff0000 },
-    {glm::vec3{-1.0f, 1.0f, -1.0f}, 0xff00ffff },
-    {glm::vec3{1.0f, 1.0f, -1.0f}, 0xffff00ff },
-    {glm::vec3{-1.0f, -1.0f, -1.0f}, 0xffffff00 },
-    {glm::vec3{1.0f, -1.0f, -1.0f}, 0xffffffff },
+    {glm::vec3{-1.0f, 1.0f, 1.0f}, 0xff000000},
+    {glm::vec3{1.0f, 1.0f, 1.0f}, 0xff0000ff},
+    {glm::vec3{-1.0f, -1.0f, 1.0f}, 0xff00ff00},
+    {glm::vec3{1.0f, -1.0f, 1.0f}, 0xffff0000},
+    {glm::vec3{-1.0f, 1.0f, -1.0f}, 0xff00ffff},
+    {glm::vec3{1.0f, 1.0f, -1.0f}, 0xffff00ff},
+    {glm::vec3{-1.0f, -1.0f, -1.0f}, 0xffffff00},
+    {glm::vec3{1.0f, -1.0f, -1.0f}, 0xffffffff},
 };
 
 const std::vector<uint16_t> cubeIndices{
@@ -57,9 +57,9 @@ Renderer::~Renderer() noexcept
     m_mesh = nullptr;
     m_mat = nullptr;
     m_geom = nullptr;
-    // Shutdown application and glfw
+    // Shutdown application and SDL
     bgfx::shutdown();
-    glfwTerminate();
+    SDL_Quit();
 }
 
 void Renderer::init(uint32_t width, uint32_t height)
@@ -67,9 +67,11 @@ void Renderer::init(uint32_t width, uint32_t height)
     m_width = width;
     m_height = height;
 
-    if (!glfwInit())
+    startOffset = bx::getHPCounter();
+
+    if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
     {
-        throw std::runtime_error("Could not initialize glfw");
+        throw std::runtime_error("Could not initialize SDL2");
     }
 
     // Create a window
@@ -103,10 +105,9 @@ void Renderer::init(uint32_t width, uint32_t height)
         glm::vec3{0.0f, 0.0f, -1.0f},
         m_width,
         m_height,
-        60.0f
-    );
+        60.0f);
 
-    m_lastTime = (float)glfwGetTime();
+    m_lastTime = getTime(startOffset);
     m_geom = std::make_unique<Geometry>(cubeVertices, cubeIndices);
     m_mat = std::make_unique<MaterialType>("basic", "basic_vs.bin", "basic_fs.bin");
     m_mesh = std::make_unique<Mesh>(*m_geom, *m_mat);
@@ -117,21 +118,25 @@ void Renderer::init(uint32_t width, uint32_t height)
 
 bool Renderer::update()
 {
-    glfwPollEvents();
-
-    if (m_pWindow->shouldClose())
+    SDL_Event event;
+    while (SDL_PollEvent(&event))
     {
-        return false;
+        // Eventually we're going to need something a bit more robust than this.
+        if (m_pWindow->shouldClose(event))
+        {
+            return false;
+        }
     }
+
     return true;
 }
 
 void Renderer::renderFrame()
 {
-    bgfx::ViewId viewId{ 0 };
-    float time = (float)glfwGetTime();
-    float dt = time - m_lastTime;
-    m_lastTime = time;
+    bgfx::ViewId viewId{0};
+    float time_ = getTime(startOffset);
+    float dt = time_ - m_lastTime;
+    m_lastTime = time_;
 
     // Set view 0 default viewport.
     bgfx::setViewRect(viewId, 0, 0, uint16_t(m_width), uint16_t(m_height));
@@ -150,5 +155,10 @@ void Renderer::renderFrame()
     // Advance to next frame. Rendering thread will be kicked to
     // process submitted rendering primitives.
     bgfx::frame();
+}
+
+float Renderer::getTime(const uint64_t startOffset)
+{
+    return (float)((bx::getHPCounter() - startOffset) / double(bx::getHPFrequency()));
 }
 } // namespace bae

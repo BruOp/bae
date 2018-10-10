@@ -1,6 +1,5 @@
-#include <iostream>
-
 #include "Renderer.h"
+#include <iostream>
 
 int main()
 {
