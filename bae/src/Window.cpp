@@ -11,7 +11,7 @@ Window::Window(const uint32_t width, const uint32_t height)
       m_height(height),
       m_pWindow(nullptr)
 {
-    SDL_CreateWindow(
+    m_pWindow = SDL_CreateWindow(
         "Bruno's Awful Engine",
         SDL_WINDOWPOS_UNDEFINED,
         SDL_WINDOWPOS_UNDEFINED,
@@ -61,9 +61,11 @@ bool Window::shouldClose(const SDL_Event &event) const
 bgfx::PlatformData Window::getPlatformData()
 {
     SDL_SysWMinfo wmi;
-    if (SDL_GetWindowWMInfo(m_pWindow, &wmi) == 0)
+    SDL_VERSION(&wmi.version);
+    if (SDL_GetWindowWMInfo(m_pWindow, &wmi) != SDL_TRUE)
     {
-        throw std::runtime_error("Could not get driver info of window");
+        const std::string error = SDL_GetError();
+        throw std::runtime_error(error);
     }
     auto &info = wmi.info;
     bgfx::PlatformData pd;

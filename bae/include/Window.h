@@ -32,7 +32,7 @@ class Window
     bgfx::PlatformData getPlatformData();
 
   private:
-    SDL_Window *m_pWindow;
+    SDL_Window *m_pWindow = nullptr;
     uint32_t m_width;
     uint32_t m_height;
 };
