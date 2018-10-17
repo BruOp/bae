@@ -73,6 +73,7 @@ void Renderer::init(uint32_t width, uint32_t height)
     {
         throw std::runtime_error("Could not initialize SDL2");
     }
+    // SDL_SetRelativeMouseMode(SDL_TRUE);
 
     // Create a window
     m_pWindow = std::make_unique<bae::Window>(m_width, m_height);
@@ -112,22 +113,21 @@ void Renderer::init(uint32_t width, uint32_t height)
     m_mat = std::make_unique<MaterialType>("basic", "basic_vs.bin", "basic_fs.bin");
     m_mesh = std::make_unique<Mesh>(*m_geom, *m_mat);
 
+    cameraControls = FPSControls{*m_camera};
+
     m_state =
         0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CCW;
 }
 
 bool Renderer::update()
 {
-    SDL_Event event;
-    while (SDL_PollEvent(&event))
+    auto res = m_eventQueue.pump();
+    auto eventhandleResult = windowInputHandler.handleEvents(m_eventQueue);
+    if (eventhandleResult == EventHandleResult::EVENT_RESULT_SHUTDOWN)
     {
-        // Eventually we're going to need something a bit more robust than this.
-        if (m_pWindow->shouldClose(event))
-        {
-            return false;
-        }
+        return false;
     }
-
+    auto inputHandleResult = cameraControls.handleEvents(m_eventQueue);
     return true;
 }
 

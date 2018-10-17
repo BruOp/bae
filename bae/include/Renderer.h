@@ -9,6 +9,9 @@
 #include <glm/glm.hpp>
 
 #include "Camera.h"
+#include "EventHandlers.h"
+#include "EventQueue.h"
+#include "FPSControls.h"
 #include "Mesh.h"
 #include "Window.h"
 #include "utils/Vertex.h"
@@ -36,6 +39,10 @@ class Renderer
     uint64_t startOffset = 0;
     uint64_t m_lastTime = 0;
     uint64_t m_state = 0;
+
+    EventQueue m_eventQueue;
+    WindowInputHandler windowInputHandler;
+    FPSControls cameraControls;
 
     std::unique_ptr<Camera> m_camera = nullptr;
     std::unique_ptr<Geometry> m_geom = nullptr;

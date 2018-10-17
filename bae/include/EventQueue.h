@@ -1,31 +1,88 @@
 #pragma once
 
-#include <array>
+#include "SDL.h"
+#include <vector>
 
 namespace bae
 {
-template <enum Event, size_t bufferSize>
 class EventQueue
 {
-  public:
-    void registerEvent(Event event)
+    typedef std::vector<SDL_Event> EventList;
+    typedef EventList::iterator iterator;
+    typedef EventList::const_iterator const_iterator;
+
+    enum PumpResult
     {
-        m_queue[m_end] = event;
+        RESULT_SUCCESS,
+        RESULT_EMPTY,
+        RESULT_FULL
     };
 
-    void reset()
+  public:
+    EventQueue() : EventQueue(EventQueue::defaultSize)
+    {
+    }
+
+    EventQueue(size_t bufferSize)
+        : m_bufferSize{bufferSize},
+          m_queue(bufferSize)
+    {
+    }
+
+    void registerEvent(SDL_Event event) noexcept
+    {
+        m_queue[m_end] = event;
+        ++m_end;
+    };
+
+    PumpResult pump()
+    {
+        reset();
+
+        SDL_Event event;
+        while (SDL_PollEvent(&event))
+        {
+            registerEvent(event);
+        }
+
+        if (isEmpty())
+        {
+            return PumpResult::RESULT_SUCCESS;
+        }
+        else if (isFull())
+        {
+            return PumpResult::RESULT_FULL;
+        }
+        else
+        {
+            return PumpResult::RESULT_SUCCESS;
+        }
+    };
+
+    void
+    reset()
     {
         m_end = 0;
     };
 
-    std::array<Event, bufferSize>::const_iterator begin() const
+    // iterator begin()
+    // {
+    //     return m_queue.begin();
+    // };
+
+    // iterator end()
+    // {
+    //     return m_queue.begin() + m_end;
+    // };
+
+    const_iterator begin() const
     {
-        return m_queue.begin();
+        return m_queue.cbegin();
     };
 
-    std::array<Event, bufferSize>::const_iterator end() const
+    const_iterator end() const
     {
-        return m_queue.begin() + m_end;
+        return m_queue.cbegin() + m_end;
     };
 
     size_t size() const
@@ -35,7 +92,7 @@ class EventQueue
 
     bool isFull() const
     {
-        return m_end == bufferSize - 1;
+        return m_end == m_bufferSize - 1;
     }
 
     bool isEmpty() const
@@ -44,7 +101,10 @@ class EventQueue
     }
 
   private:
-    std::array<Event, bufferSize> m_queue;
     size_t m_end = 0;
+    size_t m_bufferSize;
+    EventList m_queue;
+
+    static constexpr size_t defaultSize = 32;
 };
 } // namespace bae

@@ -11,7 +11,7 @@ Camera::Camera(
     const float fovInDegrees)
     : m_position{position},
       m_direction{glm::normalize(direction)},
-      m_right{-glm::cross(Camera::up, direction)},
+      m_right{-glm::cross(Camera::WorldUp, direction)},
       m_fov{glm::radians(fovInDegrees)},
       m_aspectRatio{(float)width / height},
       m_projection{calcProjection(m_fov, m_aspectRatio)}
@@ -25,6 +25,11 @@ void Camera::setViewTransform(const bgfx::ViewId viewId) const
     bgfx::setViewTransform(viewId, &view[0][0], &m_projection[0][0]);
 }
 
+void Camera::moveAlongDirection(const glm::vec3 &direction, const float movementSpeed)
+{
+    m_position += (movementSpeed * direction);
+}
+
 glm::mat4 Camera::calcProjection(
     const float &fov,
     const float aspectRatio)
@@ -33,5 +38,5 @@ glm::mat4 Camera::calcProjection(
     return proj;
 }
 
-const glm::vec3 Camera::up{0.0f, 1.0f, 0.0f};
+const glm::vec3 Camera::WorldUp{0.0f, 1.0f, 0.0f};
 } // namespace bae
