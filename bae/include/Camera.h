@@ -18,6 +18,8 @@ class Camera
         const uint32_t height,
         const float fovInDegrees = 45.0);
 
+    void updateViewMatrix();
+
     void setViewTransform(const bgfx::ViewId viewId) const;
     // void updateProjection(const float &fov, const float aspectRatio);
 
@@ -34,6 +36,7 @@ class Camera
     float m_fov;
     float m_aspectRatio;
 
+    glm::mat4 m_view;
     glm::mat4 m_projection;
 
     static glm::mat4 calcProjection(

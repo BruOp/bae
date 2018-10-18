@@ -13,53 +13,118 @@ FPSControls::FPSControls(
 EventHandleResult FPSControls::handleEvents(
     const EventQueue &eventQueue)
 {
-    glm::vec3 direction = glm::vec3(0.0f, 0.0f, 0.0f);
     for (const auto &event : eventQueue)
     {
-        if (event.type == SDL_KEYDOWN)
+        if (event.type == SDL_KEYDOWN && event.key.repeat == 0)
         {
-            direction += handleKeydown(event);
+            handleKeydown(event);
         }
-        if (event.type == SDL_MOUSEMOTION)
+        else if (event.type == SDL_KEYUP && event.key.repeat == 0)
+        {
+            handleKeyup(event);
+        }
+        else if (event.type == SDL_MOUSEMOTION)
         {
             handleMouseMovement(event);
         }
     }
-    if (glm::length(direction) != 0.0f)
-    {
-        m_pCamera->moveAlongDirection(direction, m_movementSpeed);
-    }
-
     return EventHandleResult::EVENT_RESULT_CONTINUE;
 }
 
-glm::vec3 FPSControls::handleKeydown(const SDL_Event &event) const
+void FPSControls::handleKeydown(const SDL_Event &event)
 {
     switch (event.key.keysym.sym)
     {
     case SDLK_w:
-        return m_pCamera->m_direction;
+        std::cout << "Pressed W" << '\n';
+        currentDirection.z += 1.0f;
+        // keysPressed |= KEYS::W;
+        return;
     case SDLK_s:
-        return -m_pCamera->m_direction;
+        std::cout << "Pressed S" << '\n';
+        currentDirection.z -= 1.0f;
+        // keysPressed |= KEYS::S;
+        return;
     case SDLK_d:
-        return m_pCamera->m_right;
+        std::cout << "Pressed D" << '\n';
+        currentDirection.x += 1.0f;
+        // keysPressed |= KEYS::D;
+        return;
     case SDLK_a:
-        return -m_pCamera->m_right;
+        std::cout << "Pressed A" << '\n';
+        currentDirection.x -= 1.0f;
+        // keysPressed |= KEYS::A;
+        return;
     default:
-        return glm::vec3(0.0f, 0.0f, 0.0f);
+        return;
+    }
+}
+
+void FPSControls::handleKeyup(const SDL_Event &event)
+{
+    switch (event.key.keysym.sym)
+    {
+    case SDLK_w:
+        std::cout << "Released W" << '\n';
+        currentDirection.z -= 1.0f;
+        // keysPressed &= ~KEYS::W;
+        return;
+    case SDLK_s:
+        std::cout << "Released S" << '\n';
+        currentDirection.z += 1.0f;
+        // keysPressed &= ~KEYS::S;
+        return;
+    case SDLK_d:
+        std::cout << "Released D" << '\n';
+        currentDirection.x -= 1.0f;
+        // keysPressed &= ~KEYS::D;
+        return;
+    case SDLK_a:
+        std::cout << "Released A" << '\n';
+        currentDirection.x += 1.0f;
+        // keysPressed &= ~KEYS::A;
+        return;
+    default:
+        return;
     }
 }
 
 void FPSControls::handleMouseMovement(const SDL_Event &event)
 {
+    const float twoPi = 2.0f * glm::pi<float>();
+
     m_yaw += event.motion.xrel * m_sensitivity;
-    m_pitch -= event.motion.yrel * m_sensitivity;
+    if (m_yaw < 0.0f)
+    {
+        m_yaw += twoPi;
+    }
+    else if (m_yaw > twoPi)
+    {
+        m_yaw -= twoPi;
+    }
+
+    m_pitch = glm::clamp<float>(
+        m_pitch - event.motion.yrel * m_sensitivity,
+        -glm::half_pi<float>(),
+        glm::half_pi<float>());
+}
+
+void FPSControls::update()
+{
     glm::vec3 front{
         glm::cos(m_yaw) * glm::cos(m_pitch),
         glm::sin(m_pitch),
         glm::cos(m_pitch) * glm::sin(m_yaw)};
-    front = glm::normalize(front);
     m_pCamera->m_direction = glm::normalize(front);
-    m_pCamera->m_right = glm::cross(m_pCamera->m_direction, glm::vec3{0.0f, 1.0f, 0.0f});
+    m_pCamera->m_right = glm::cross(m_pCamera->m_direction, Camera::WorldUp);
+    m_pCamera->updateViewMatrix();
+
+    if (glm::length(currentDirection) != 0)
+    {
+        glm::vec3 movementVector = glm::normalize(
+            currentDirection.z * m_pCamera->m_direction +
+            currentDirection.x * m_pCamera->m_right);
+        m_pCamera->moveAlongDirection(movementVector, m_movementSpeed);
+    }
 }
 } // namespace bae

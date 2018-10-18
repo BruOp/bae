@@ -128,6 +128,7 @@ bool Renderer::update()
         return false;
     }
     auto inputHandleResult = cameraControls.handleEvents(m_eventQueue);
+    cameraControls.update();
     return true;
 }
 

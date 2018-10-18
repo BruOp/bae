@@ -18,11 +18,15 @@ Camera::Camera(
 {
 }
 
-void Camera::setViewTransform(const bgfx::ViewId viewId) const
+void Camera::updateViewMatrix()
 {
     glm::vec3 up = glm::normalize(glm::cross(m_right, m_direction));
-    glm::mat4 view = glm::lookAt(m_position, m_position + m_direction, up);
-    bgfx::setViewTransform(viewId, &view[0][0], &m_projection[0][0]);
+    m_view = glm::lookAt(m_position, m_position + m_direction, up);
+}
+
+void Camera::setViewTransform(const bgfx::ViewId viewId) const
+{
+    bgfx::setViewTransform(viewId, &m_view[0][0], &m_projection[0][0]);
 }
 
 void Camera::moveAlongDirection(const glm::vec3 &direction, const float movementSpeed)
