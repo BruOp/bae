@@ -30,8 +30,6 @@ class Camera
     glm::vec3 m_direction;
     glm::vec3 m_right;
 
-    float m_yaw = glm::pi<float>();
-    float m_pitch = 0.0f;
     // Projection
     float m_fov;
     float m_aspectRatio;
