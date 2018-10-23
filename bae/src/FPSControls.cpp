@@ -36,26 +36,16 @@ void FPSControls::handleKeydown(const SDL_Event &event)
     switch (event.key.keysym.sym)
     {
     case SDLK_w:
-        std::cout << "Pressed W" << '\n';
         currentDirection.z += 1.0f;
-        // keysPressed |= KEYS::W;
         return;
     case SDLK_s:
-        std::cout << "Pressed S" << '\n';
         currentDirection.z -= 1.0f;
-        // keysPressed |= KEYS::S;
         return;
     case SDLK_d:
-        std::cout << "Pressed D" << '\n';
         currentDirection.x += 1.0f;
-        // keysPressed |= KEYS::D;
         return;
     case SDLK_a:
-        std::cout << "Pressed A" << '\n';
         currentDirection.x -= 1.0f;
-        // keysPressed |= KEYS::A;
-        return;
-    default:
         return;
     }
 }
@@ -65,48 +55,28 @@ void FPSControls::handleKeyup(const SDL_Event &event)
     switch (event.key.keysym.sym)
     {
     case SDLK_w:
-        std::cout << "Released W" << '\n';
         currentDirection.z -= 1.0f;
-        // keysPressed &= ~KEYS::W;
         return;
     case SDLK_s:
-        std::cout << "Released S" << '\n';
         currentDirection.z += 1.0f;
-        // keysPressed &= ~KEYS::S;
         return;
     case SDLK_d:
-        std::cout << "Released D" << '\n';
         currentDirection.x -= 1.0f;
-        // keysPressed &= ~KEYS::D;
         return;
     case SDLK_a:
-        std::cout << "Released A" << '\n';
         currentDirection.x += 1.0f;
-        // keysPressed &= ~KEYS::A;
-        return;
-    default:
         return;
     }
 }
 
 void FPSControls::handleMouseMovement(const SDL_Event &event)
 {
-    const float twoPi = 2.0f * glm::pi<float>();
-
-    m_yaw += event.motion.xrel * m_sensitivity;
-    if (m_yaw < 0.0f)
-    {
-        m_yaw += twoPi;
-    }
-    else if (m_yaw > twoPi)
-    {
-        m_yaw -= twoPi;
-    }
+    m_yaw = glm::wrapAngle(m_yaw + event.motion.xrel * m_sensitivity);
 
     m_pitch = glm::clamp<float>(
         m_pitch - event.motion.yrel * m_sensitivity,
-        -glm::half_pi<float>(),
-        glm::half_pi<float>());
+        s_lowerPitchLimit,
+        s_upperPitchLimit);
 }
 
 void FPSControls::update()
@@ -116,7 +86,7 @@ void FPSControls::update()
         glm::sin(m_pitch),
         glm::cos(m_pitch) * glm::sin(m_yaw)};
     m_pCamera->m_direction = glm::normalize(front);
-    m_pCamera->m_right = glm::cross(m_pCamera->m_direction, Camera::WorldUp);
+    m_pCamera->m_right = glm::normalize(glm::cross(m_pCamera->m_direction, Camera::WorldUp));
     m_pCamera->updateViewMatrix();
 
     if (glm::length(currentDirection) != 0)
