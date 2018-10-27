@@ -86,7 +86,7 @@ void FPSControls::update()
         glm::sin(m_pitch),
         glm::cos(m_pitch) * glm::sin(m_yaw)};
     m_pCamera->m_direction = glm::normalize(front);
-    m_pCamera->m_right = glm::normalize(glm::cross(m_pCamera->m_direction, Camera::WorldUp));
+    m_pCamera->m_right = crossAndNormalize(m_pCamera->m_direction, Camera::WorldUp);
     m_pCamera->updateViewMatrix();
 
     if (glm::length(currentDirection) != 0)

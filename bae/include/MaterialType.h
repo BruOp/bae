@@ -27,4 +27,8 @@ class MaterialType
     std::string name;
     bgfx::ProgramHandle m_program;
 };
+
+class MaterialDescriptorSet
+{
+}
 } // namespace bae

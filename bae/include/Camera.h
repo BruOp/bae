@@ -6,6 +6,8 @@
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/gtx/transform.hpp>
 
+#include "utils/Geometric.h"
+
 namespace bae
 {
 class Camera
@@ -23,14 +25,14 @@ class Camera
     void setViewTransform(const bgfx::ViewId viewId) const;
     // void updateProjection(const float &fov, const float aspectRatio);
 
-    void moveAlongDirection(const glm::vec3 &direction, const float movementSpeed);
+    void moveAlongDirection(const Direction &direction, const float movementSpeed);
 
     friend class FPSControls;
 
   private:
-    glm::vec3 m_position;
-    glm::vec3 m_direction;
-    glm::vec3 m_right;
+    bae::Position m_position;
+    bae::Direction m_direction;
+    bae::Direction m_right;
 
     // Projection
     float m_fov;
@@ -43,6 +45,6 @@ class Camera
         const float &fov,
         const float aspectRatio);
 
-    static const glm::vec3 WorldUp;
+    static const bae::Direction WorldUp;
 };
 } // namespace bae

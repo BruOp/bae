@@ -29,7 +29,7 @@ void Camera::setViewTransform(const bgfx::ViewId viewId) const
     bgfx::setViewTransform(viewId, &m_view[0][0], &m_projection[0][0]);
 }
 
-void Camera::moveAlongDirection(const glm::vec3 &direction, const float movementSpeed)
+void Camera::moveAlongDirection(const bae::Direction &direction, const float movementSpeed)
 {
     m_position += (movementSpeed * direction);
 }
@@ -42,5 +42,5 @@ glm::mat4 Camera::calcProjection(
     return proj;
 }
 
-const glm::vec3 Camera::WorldUp{0.0f, 1.0f, 0.0f};
+const bae::Direction Camera::WorldUp{0.0f, 1.0f, 0.0f};
 } // namespace bae
