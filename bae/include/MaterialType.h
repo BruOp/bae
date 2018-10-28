@@ -28,7 +28,10 @@ class MaterialType
     bgfx::ProgramHandle m_program;
 };
 
+// Trying to specify what's required for the material, in terms of uniforms. So maybe
+// this is just a list of Uniforms... But does it make sense of this to handle the creation of the UniformHandles or should that happen as part of the material?
+// 
 class MaterialDescriptorSet
 {
-}
+};
 } // namespace bae

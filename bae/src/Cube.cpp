@@ -1,5 +1,6 @@
-#include "Vertex.h"
 #include <vector>
+
+#include "utils/Vertex.h"
 
 namespace bae
 {

@@ -1,7 +1,7 @@
 #include "Renderer.h"
 #include <iostream>
 
-int main()
+int main(int argc, char *argv[])
 {
     uint32_t width = 1280;
     uint32_t height = 720;

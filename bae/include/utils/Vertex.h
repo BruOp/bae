@@ -1,6 +1,5 @@
 #pragma once
 
-#include <GLFW/glfw3.h>
 #include <bgfx/bgfx.h>
 #include <glm/glm.hpp>
 
