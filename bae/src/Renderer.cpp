@@ -1,65 +1,29 @@
 #include "Renderer.h"
-
-const std::vector<bae::Vertex> cubeVertices{
-    {glm::vec3{-1.0f, 1.0f, 1.0f}, 0xff000000},
-    {glm::vec3{1.0f, 1.0f, 1.0f}, 0xff0000ff},
-    {glm::vec3{-1.0f, -1.0f, 1.0f}, 0xff00ff00},
-    {glm::vec3{1.0f, -1.0f, 1.0f}, 0xffff0000},
-    {glm::vec3{-1.0f, 1.0f, -1.0f}, 0xff00ffff},
-    {glm::vec3{1.0f, 1.0f, -1.0f}, 0xffff00ff},
-    {glm::vec3{-1.0f, -1.0f, -1.0f}, 0xffffff00},
-    {glm::vec3{1.0f, -1.0f, -1.0f}, 0xffffffff},
-};
-
-const std::vector<uint16_t> cubeIndices{
-    0,
-    1,
-    2, // 0
-    1,
-    3,
-    2, // 1
-    4,
-    6,
-    5, // 2
-    5,
-    6,
-    7, // 3
-    0,
-    2,
-    4, // 4
-    4,
-    2,
-    6, // 5
-    1,
-    5,
-    3, // 6
-    5,
-    7,
-    3, // 7
-    0,
-    4,
-    1, // 8
-    4,
-    5,
-    1, // 9
-    2,
-    3,
-    6, // 10
-    6,
-    3,
-    7, // 11
-};
+#include "Cube.cpp"
+#include <iostream>
 
 namespace bae
 {
+namespace MatTypes
+{
+MaterialType basic = MaterialType{"basic"};
+UniformSetPrototype basicUniformPrototypeSet{{{"color", bgfx::UniformType::Vec4}}};
+
+void init()
+{
+    basic.init();
+}
+
+void destroy()
+{
+    basic.destroy();
+}
+}; // namespace MatTypes
+
 Renderer::~Renderer() noexcept
 {
-    m_mesh = nullptr;
-    m_mat = nullptr;
-    m_geom = nullptr;
-    // Shutdown application and SDL
-    bgfx::shutdown();
-    SDL_Quit();
+    bgfx::destroy(u_color);
+    MatTypes::destroy();
 }
 
 void Renderer::init(uint32_t width, uint32_t height)
@@ -69,30 +33,15 @@ void Renderer::init(uint32_t width, uint32_t height)
 
     startOffset = bx::getHPCounter();
 
-    if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
-    {
-        throw std::runtime_error("Could not initialize SDL2");
-    }
-    // SDL_SetRelativeMouseMode(SDL_TRUE);
+    m_instance.initSDL();
 
     // Create a window
     m_pWindow = std::make_unique<bae::Window>(m_width, m_height);
     auto platformData = m_pWindow->getPlatformData();
 
-    bgfx::setPlatformData(platformData);
-    bgfx::Init init{};
-    init.type = bgfx::RendererType::OpenGL;
-
-    init.vendorId = BGFX_PCI_ID_NONE;
-    init.deviceId = 0;
-    init.resolution.width = m_width;
-    init.resolution.height = m_height;
-    init.resolution.reset = BGFX_RESET_VSYNC;
-
-    bgfx::init(init);
-    bgfx::setDebug(BGFX_DEBUG_TEXT);
-
+    m_instance.initBgfx(platformData, m_width, m_height);
     Vertex::init();
+    MatTypes::init();
 
     bgfx::setViewClear(
         0,
@@ -109,11 +58,11 @@ void Renderer::init(uint32_t width, uint32_t height)
         60.0f);
 
     m_lastTime = getTime(startOffset);
-    m_geom = std::make_unique<Geometry>(cubeVertices, cubeIndices);
-    m_mat = std::make_unique<MaterialType>("basic", "basic_vs.bin", "basic_fs.bin");
-    m_mesh = std::make_unique<Mesh>(*m_geom, *m_mat);
+    m_geom = Geometry{cubeVertices, cubeIndices};
 
-    cameraControls = FPSControls{*m_camera};
+    m_cameraControls = FPSControls{*m_camera};
+    m_mesh = std::make_unique<Mesh>(m_geom, MatTypes::basic);
+    u_color = bgfx::createUniform("color", bgfx::UniformType::Vec4);
 
     m_state =
         0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CCW;
@@ -127,8 +76,12 @@ bool Renderer::update()
     {
         return false;
     }
-    auto inputHandleResult = cameraControls.handleEvents(m_eventQueue);
-    cameraControls.update();
+    auto inputHandleResult = m_cameraControls.handleEvents(m_eventQueue);
+    if (inputHandleResult == EventHandleResult::EVENT_RESULT_SHUTDOWN)
+    {
+        return false;
+    }
+    m_cameraControls.update();
     return true;
 }
 
@@ -148,9 +101,12 @@ void Renderer::renderFrame()
 
     m_camera->setViewTransform(viewId);
 
-    glm::mat4 mtx{};
+    std::cout << m_camera->m_direction.x << m_camera->m_direction.y << m_camera->m_direction.z << std::endl;
+
+    // glm::mat4 mtx{};
     //bgfx::setTransform(&mtx[0][0]);
 
+    float color[4] = {0.0f, 1.0f, 0.0f, 1.0f};
     m_mesh->draw(viewId, m_state);
 
     // Advance to next frame. Rendering thread will be kicked to

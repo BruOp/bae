@@ -44,6 +44,16 @@ bgfx::ProgramHandle loadProgram(
     auto program = bgfx::createProgram(vertShaderHandle, fragShaderHandle, true);
     return program;
 }
+
+bgfx::ProgramHandle loadProgram(
+    const std::string &shaderName)
+{
+    std::string vertShaderName = shaderName + "_vs.bin";
+    std::string fragShaderName = shaderName + "_fs.bin";
+    auto program = loadProgram(vertShaderName, fragShaderName);
+    return program;
+}
+
 } // namespace ShaderUtils
 
 } // namespace bae

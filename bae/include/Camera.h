@@ -13,6 +13,7 @@ namespace bae
 class Camera
 {
   public:
+    Camera() = default;
     Camera(
         const glm::vec3 position,
         const glm::vec3 direction,
@@ -29,17 +30,17 @@ class Camera
 
     friend class FPSControls;
 
-  private:
-    bae::Position m_position;
-    bae::Direction m_direction;
-    bae::Direction m_right;
-
-    // Projection
-    float m_fov;
-    float m_aspectRatio;
+    bae::Position m_position = glm::vec3(0.0f, 0.0f, 0.0f);
+    bae::Direction m_direction = glm::vec3(0.0f, 0.0f, -1.0f);
+    bae::Direction m_right = glm::vec3(1.0f, 0.0f, 0.0f);
 
     glm::mat4 m_view;
     glm::mat4 m_projection;
+
+  private:
+    // Projection
+    float m_fov;
+    float m_aspectRatio;
 
     static glm::mat4 calcProjection(
         const float &fov,

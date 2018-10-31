@@ -17,6 +17,10 @@ EventHandleResult FPSControls::handleEvents(
     {
         if (event.type == SDL_KEYDOWN && event.key.repeat == 0)
         {
+            if (event.key.keysym.sym == SDLK_ESCAPE)
+            {
+                return EventHandleResult::EVENT_RESULT_SHUTDOWN;
+            }
             handleKeydown(event);
         }
         else if (event.type == SDL_KEYUP && event.key.repeat == 0)

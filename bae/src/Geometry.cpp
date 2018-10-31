@@ -15,6 +15,24 @@ Geometry::Geometry(
     m_indexBuffer = bgfx::createIndexBuffer(indexMemory);
 }
 
+Geometry::Geometry(Geometry &&other)
+    : m_indexBuffer(other.m_indexBuffer),
+      m_vertexBuffer(other.m_vertexBuffer)
+{
+    other.m_indexBuffer = bgfx::IndexBufferHandle{};
+    other.m_vertexBuffer = bgfx::VertexBufferHandle{};
+};
+
+Geometry &Geometry::operator=(Geometry &&other)
+{
+    if (this != &other)
+    {
+        std::swap(m_indexBuffer, other.m_indexBuffer);
+        std::swap(m_vertexBuffer, other.m_vertexBuffer);
+    }
+    return *this;
+};
+
 Geometry::~Geometry()
 {
     bgfx::destroy(m_indexBuffer);

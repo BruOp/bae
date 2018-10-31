@@ -7,11 +7,13 @@
 #include <bgfx/platform.h>
 #include <bx/timer.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "Camera.h"
 #include "EventHandlers.h"
 #include "EventQueue.h"
 #include "FPSControls.h"
+#include "Instance.h"
 #include "Mesh.h"
 #include "Window.h"
 #include "utils/Vertex.h"
@@ -40,14 +42,17 @@ class Renderer
     uint64_t m_lastTime = 0;
     uint64_t m_state = 0;
 
+    Instance m_instance = Instance{};
+
     EventQueue m_eventQueue;
     WindowInputHandler windowInputHandler;
-    FPSControls cameraControls;
 
+    bgfx::UniformHandle u_color;
     std::unique_ptr<Camera> m_camera = nullptr;
-    std::unique_ptr<Geometry> m_geom = nullptr;
-    std::unique_ptr<MaterialType> m_mat = nullptr;
+    Geometry m_geom = Geometry{};
     std::unique_ptr<Mesh> m_mesh = nullptr;
+
+    FPSControls m_cameraControls;
 
     static float getTime(const uint64_t startOffset);
 };
