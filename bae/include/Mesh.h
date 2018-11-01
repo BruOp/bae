@@ -8,13 +8,13 @@ namespace bae
 class Mesh
 {
   public:
-    Mesh() = default;
+    Mesh();
     Mesh(const Geometry &geometry, const MaterialType &materialType);
 
     void draw(const bgfx::ViewId viewId, const uint64_t state) const;
 
   private:
-    Geometry const *m_pGeometry = nullptr;
-    MaterialType const *m_pMaterialType = nullptr;
+    Geometry m_geometry;
+    bgfx::ProgramHandle m_program;
 };
 } // namespace bae

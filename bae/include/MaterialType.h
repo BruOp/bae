@@ -24,9 +24,7 @@ class MaterialType
 
     void init();
     void destroy();
-    void submit(const bgfx::ViewId viewId) const;
 
-  private:
     std::string m_name = "";
     bgfx::ProgramHandle m_program;
 };

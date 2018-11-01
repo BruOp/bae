@@ -26,11 +26,6 @@ void MaterialType::destroy()
     bgfx::destroy(m_program);
 }
 
-void MaterialType::submit(const bgfx::ViewId viewId) const
-{
-    bgfx::submit(viewId, m_program);
-}
-
 // ----------- UNIFORM SETS -----------
 
 UniformSet::UniformSet(const UniformSetPrototype &uniformSetProtype)

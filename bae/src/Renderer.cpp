@@ -23,6 +23,7 @@ void destroy()
 Renderer::~Renderer() noexcept
 {
     bgfx::destroy(u_color);
+    m_geom.destroy();
     MatTypes::destroy();
 }
 
@@ -37,7 +38,7 @@ void Renderer::init(uint32_t width, uint32_t height)
 
     // Create a window
     m_pWindow = std::make_unique<bae::Window>(m_width, m_height);
-    auto platformData = m_pWindow->getPlatformData();
+    bgfx::PlatformData platformData = m_pWindow->getPlatformData();
 
     m_instance.initBgfx(platformData, m_width, m_height);
     Vertex::init();
@@ -50,18 +51,18 @@ void Renderer::init(uint32_t width, uint32_t height)
         1.0f,
         0);
 
-    m_camera = std::make_unique<Camera>(
+    m_camera = Camera{
         glm::vec3{5.0f, 2.0f, 10.0f},
         glm::vec3{0.0f, 0.0f, -1.0f},
         m_width,
         m_height,
-        60.0f);
+        60.0f};
 
     m_lastTime = getTime(startOffset);
     m_geom = Geometry{cubeVertices, cubeIndices};
 
-    m_cameraControls = FPSControls{*m_camera};
-    m_mesh = std::make_unique<Mesh>(m_geom, MatTypes::basic);
+    m_cameraControls = FPSControls{m_camera};
+    m_mesh = Mesh(m_geom, MatTypes::basic);
     u_color = bgfx::createUniform("color", bgfx::UniformType::Vec4);
 
     m_state =
@@ -99,15 +100,14 @@ void Renderer::renderFrame()
     // if no other draw calls are submitted to view 0.
     bgfx::touch(viewId);
 
-    m_camera->setViewTransform(viewId);
+    m_camera.setViewTransform(viewId);
 
-    std::cout << m_camera->m_direction.x << m_camera->m_direction.y << m_camera->m_direction.z << std::endl;
+    glm::mat4 mtx{};
+    // bgfx::setTransform(glm::value_ptr(mtx));
 
-    // glm::mat4 mtx{};
-    //bgfx::setTransform(&mtx[0][0]);
-
-    float color[4] = {0.0f, 1.0f, 0.0f, 1.0f};
-    m_mesh->draw(viewId, m_state);
+    glm::vec4 color{0.0f, 1.0f, 0.0f, 1.0f};
+    bgfx::setUniform(u_color, &color.x);
+    m_mesh.draw(viewId, m_state);
 
     // Advance to next frame. Rendering thread will be kicked to
     // process submitted rendering primitives.

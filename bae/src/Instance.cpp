@@ -27,7 +27,7 @@ void Instance::initSDL()
 }
 
 void Instance::initBgfx(
-    const bgfx::PlatformData &platformData,
+    const bgfx::PlatformData platformData,
     const uint32_t width,
     const uint32_t height)
 {

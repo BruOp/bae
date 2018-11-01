@@ -30,7 +30,7 @@ class Camera
 
     friend class FPSControls;
 
-    bae::Position m_position = glm::vec3(0.0f, 0.0f, 0.0f);
+    bae::Position m_position = glm::vec3(0.0f, 0.0f, 10.0f);
     bae::Direction m_direction = glm::vec3(0.0f, 0.0f, -1.0f);
     bae::Direction m_right = glm::vec3(1.0f, 0.0f, 0.0f);
 

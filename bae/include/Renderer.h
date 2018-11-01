@@ -7,7 +7,6 @@
 #include <bgfx/platform.h>
 #include <bx/timer.h>
 #include <glm/glm.hpp>
-#include <glm/gtc/type_ptr.hpp>
 
 #include "Camera.h"
 #include "EventHandlers.h"
@@ -48,9 +47,9 @@ class Renderer
     WindowInputHandler windowInputHandler;
 
     bgfx::UniformHandle u_color;
-    std::unique_ptr<Camera> m_camera = nullptr;
+    Camera m_camera;
     Geometry m_geom = Geometry{};
-    std::unique_ptr<Mesh> m_mesh = nullptr;
+    Mesh m_mesh;
 
     FPSControls m_cameraControls;
 
