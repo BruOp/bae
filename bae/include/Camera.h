@@ -34,13 +34,13 @@ class Camera
     bae::Direction m_direction = glm::vec3(0.0f, 0.0f, -1.0f);
     bae::Direction m_right = glm::vec3(1.0f, 0.0f, 0.0f);
 
-    glm::mat4 m_view;
-    glm::mat4 m_projection;
-
   private:
     // Projection
     float m_fov;
     float m_aspectRatio;
+
+    glm::mat4 m_view;
+    glm::mat4 m_projection;
 
     static glm::mat4 calcProjection(
         const float &fov,
