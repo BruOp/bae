@@ -1,30 +1,14 @@
 #include "Renderer.h"
 #include "Cube.cpp"
-#include <iostream>
 
-namespace bae
-{
-namespace MatTypes
-{
-MaterialType basic = MaterialType{"basic"};
-UniformSetPrototype basicUniformPrototypeSet{{{"color", bgfx::UniformType::Vec4}}};
-
-void init()
-{
-    basic.init();
-}
-
-void destroy()
-{
-    basic.destroy();
-}
+namespace bae {
+namespace MatTypes {
 }; // namespace MatTypes
 
 Renderer::~Renderer() noexcept
 {
-    bgfx::destroy(u_color);
+    Materials::basic.destroy();
     m_geom.destroy();
-    MatTypes::destroy();
 }
 
 void Renderer::init(uint32_t width, uint32_t height)
@@ -42,7 +26,7 @@ void Renderer::init(uint32_t width, uint32_t height)
 
     m_instance.initBgfx(platformData, m_width, m_height);
     Vertex::init();
-    MatTypes::init();
+    Materials::basic.init();
 
     bgfx::setViewClear(
         0,
@@ -52,34 +36,32 @@ void Renderer::init(uint32_t width, uint32_t height)
         0);
 
     m_camera = Camera{
-        glm::vec3{5.0f, 2.0f, 10.0f},
-        glm::vec3{0.0f, 0.0f, -1.0f},
+        glm::vec3{ 5.0f, 2.0f, 10.0f },
+        glm::vec3{ 0.0f, 0.0f, -1.0f },
         m_width,
         m_height,
-        60.0f};
+        60.0f
+    };
 
     m_lastTime = getTime(startOffset);
-    m_geom = Geometry{cubeVertices, cubeIndices};
+    m_geom = Geometry{ cubeVertices, cubeIndices };
 
-    m_cameraControls = FPSControls{m_camera};
-    m_mesh = Mesh(m_geom, MatTypes::basic);
-    u_color = bgfx::createUniform("color", bgfx::UniformType::Vec4);
+    m_cameraControls = FPSControls{ m_camera };
+    Materials::Basic material{ glm::vec4(1.0f, 0.0f, 0.0f, 1.0f) };
+    meshes.addMesh(m_geom, std::move(material));
 
-    m_state =
-        0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CCW;
+    m_state = 0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CCW;
 }
 
 bool Renderer::update()
 {
     auto res = m_eventQueue.pump();
     auto eventhandleResult = windowInputHandler.handleEvents(m_eventQueue);
-    if (eventhandleResult == EventHandleResult::EVENT_RESULT_SHUTDOWN)
-    {
+    if (eventhandleResult == EventHandleResult::EVENT_RESULT_SHUTDOWN) {
         return false;
     }
     auto inputHandleResult = m_cameraControls.handleEvents(m_eventQueue);
-    if (inputHandleResult == EventHandleResult::EVENT_RESULT_SHUTDOWN)
-    {
+    if (inputHandleResult == EventHandleResult::EVENT_RESULT_SHUTDOWN) {
         return false;
     }
     m_cameraControls.update();
@@ -88,7 +70,7 @@ bool Renderer::update()
 
 void Renderer::renderFrame()
 {
-    bgfx::ViewId viewId{0};
+    bgfx::ViewId viewId{ 0 };
     float time_ = getTime(startOffset);
     float dt = time_ - m_lastTime;
     m_lastTime = time_;
@@ -105,9 +87,7 @@ void Renderer::renderFrame()
     glm::mat4 mtx{};
     // bgfx::setTransform(glm::value_ptr(mtx));
 
-    glm::vec4 color{0.0f, 1.0f, 0.0f, 1.0f};
-    bgfx::setUniform(u_color, &color.x);
-    m_mesh.draw(viewId, m_state);
+    meshes.draw(viewId, m_state);
 
     // Advance to next frame. Rendering thread will be kicked to
     // process submitted rendering primitives.

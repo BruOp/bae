@@ -5,25 +5,40 @@
 
 #include "Mesh.h"
 
-namespace bae
-{
+namespace bae {
 
-class MeshManager
-{
-  public:
-    MeshManager()
+template <class Material>
+class MeshManager {
+public:
+    MeshManager() = default;
+
+    MeshManager(const MeshManager&) = delete;
+    MeshManager& operator=(const MeshManager) = delete;
+
+    MeshManager(MeshManager&&) = default;
+    MeshManager& operator=(MeshManager&&) = default;
+
+    void addMesh(Mesh<Material>&& mesh)
     {
-        m_meshes.resize(128);
+        meshes.push_back(std::move(mesh));
     };
-    ~MeshManager()
+
+    void addMesh(const Geometry& geom, Material&& material)
     {
-    }
+        addMesh(Mesh<Material>{ geom, std::move(material) });
+    };
 
-    void addMesh(const Geometry &geom, const MaterialType &material);
+    void draw(const bgfx::ViewId viewId, const uint64_t state) const
+    {
+        bgfx::ProgramHandle program = Material::materialType->program;
+        for (auto& mesh : meshes) {
+            mesh.setup(viewId);
+            bgfx::setState(state);
+            bgfx::submit(viewId, program);
+        }
+    };
 
-  private:
-    typedef std::unique_ptr<Mesh> UniqMesh;
-
-    std::vector<UniqMesh> m_meshes;
+private:
+    std::vector<Mesh<Material>> meshes;
 };
 } // namespace bae

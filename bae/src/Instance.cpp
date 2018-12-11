@@ -1,16 +1,13 @@
 #include "Instance.h"
 
-namespace bae
-{
+namespace bae {
 Instance::~Instance() noexcept
 {
-    if (m_bfgx_initialized)
-    {
+    if (m_bfgx_initialized) {
         bgfx::shutdown();
         m_bfgx_initialized = false;
     }
-    if (m_sdl_initialized)
-    {
+    if (m_sdl_initialized) {
         SDL_Quit();
         m_sdl_initialized = false;
     }
@@ -18,11 +15,10 @@ Instance::~Instance() noexcept
 
 void Instance::initSDL()
 {
-    if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
-    {
+    if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
         throw std::runtime_error("Could not initialize SDL2");
     }
-    SDL_SetRelativeMouseMode(SDL_TRUE);
+    // SDL_SetRelativeMouseMode(SDL_TRUE);
     m_sdl_initialized = true;
 }
 

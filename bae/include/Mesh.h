@@ -2,19 +2,33 @@
 #include "Geometry.h"
 #include "MaterialType.h"
 
-namespace bae
-{
+namespace bae {
+template <class Material>
+class Mesh {
+public:
+    Mesh() = default;
+    Mesh(const Geometry& geometry, Material&& material)
+        : geometry{ geometry }
+        , material{ std::move(material) } {};
 
-class Mesh
-{
-  public:
-    Mesh();
-    Mesh(const Geometry &geometry, const MaterialType &materialType);
+    // ~Mesh()
+    // {
+    //     material.destroy();
+    // };
 
-    void draw(const bgfx::ViewId viewId, const uint64_t state) const;
+    Mesh(const Mesh&) = delete;
+    Mesh& operator=(const Mesh&) = delete;
+    Mesh(Mesh&&) = default;
+    Mesh& operator=(Mesh&&) = default;
 
-  private:
-    Geometry m_geometry;
-    bgfx::ProgramHandle m_program;
+    inline void setup(const bgfx::ViewId viewId) const
+    {
+        // Set vertex and index buffer.
+        geometry.set(viewId);
+        material.setUniforms();
+    }
+
+    Geometry geometry;
+    Material material;
 };
 } // namespace bae

@@ -13,19 +13,20 @@
 #include "EventQueue.h"
 #include "FPSControls.h"
 #include "Instance.h"
+#include "MaterialType.h"
 #include "Mesh.h"
+#include "MeshManager.h"
 #include "Window.h"
+#include "materials/Basic.h"
 #include "utils/Vertex.h"
 
 #if BX_PLATFORM_WINDOWS
 #define SDL_MAIN_HANDLED
 #endif // BX_PLATFORM_WINDOWS
 
-namespace bae
-{
-class Renderer
-{
-  public:
+namespace bae {
+class Renderer {
+public:
     Renderer() = default;
     ~Renderer() noexcept;
 
@@ -33,7 +34,7 @@ class Renderer
     bool update();
     void renderFrame();
 
-  private:
+private:
     uint32_t m_width = 0;
     uint32_t m_height = 0;
     std::unique_ptr<bae::Window> m_pWindow = nullptr;
@@ -46,10 +47,9 @@ class Renderer
     EventQueue m_eventQueue;
     WindowInputHandler windowInputHandler;
 
-    bgfx::UniformHandle u_color;
     Camera m_camera;
     Geometry m_geom = Geometry{};
-    Mesh m_mesh;
+    MeshManager<Materials::Basic> meshes;
 
     FPSControls m_cameraControls;
 
