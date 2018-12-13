@@ -15,8 +15,8 @@ namespace Materials {
 
         Basic(const Basic&) = delete;
         Basic& operator=(const Basic&) = delete;
-        Basic(Basic&&) = default;
-        Basic& operator=(Basic&&) = default;
+        Basic(Basic&&) noexcept = default;
+        Basic& operator=(Basic&&) noexcept = default;
 
         inline void setUniforms() const
         {

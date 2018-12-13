@@ -11,7 +11,6 @@ file(GLOB BAE_FRAG_SHADERS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders
 
 add_executable( bae ${BAE_SOURCE} ${BAE_INCLUDE} shaders/basic_vs.sc shaders/basic_fs.sc )
 target_link_libraries( bae PUBLIC bgfx imgui glm ${SDL2_LIBRARY})
-add_dependencies( bae bgfx imgui glm )
 target_include_directories( bae PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${SDL2_INCLUDE_DIR})
 set_target_properties( bae PROPERTIES FOLDER "bae" )
 

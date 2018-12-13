@@ -11,15 +11,10 @@ public:
         : geometry{ geometry }
         , material{ std::move(material) } {};
 
-    // ~Mesh()
-    // {
-    //     material.destroy();
-    // };
-
     Mesh(const Mesh&) = delete;
     Mesh& operator=(const Mesh&) = delete;
-    Mesh(Mesh&&) = default;
-    Mesh& operator=(Mesh&&) = default;
+    Mesh(Mesh&&) noexcept = default;
+    Mesh& operator=(Mesh&&) noexcept = default;
 
     inline void setup(const bgfx::ViewId viewId) const
     {
