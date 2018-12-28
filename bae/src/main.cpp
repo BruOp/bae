@@ -1,18 +1,8 @@
-#include "Renderer.h"
-#include <iostream>
+#include "BasicGame.h"
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
-    uint32_t width = 1280;
-    uint32_t height = 720;
-
-    bae::Renderer renderer{};
-    renderer.init(width, height);
-
-    while (renderer.update())
-    {
-        renderer.renderFrame();
-    }
-
+    bae::BasicGame game{};
+    game.start();
     return 0;
 }

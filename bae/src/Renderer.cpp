@@ -16,8 +16,6 @@ void Renderer::init(uint32_t width, uint32_t height)
     m_width = width;
     m_height = height;
 
-    startOffset = bx::getHPCounter();
-
     m_instance.initSDL();
 
     // Create a window
@@ -43,7 +41,6 @@ void Renderer::init(uint32_t width, uint32_t height)
         60.0f
     };
 
-    m_lastTime = getTime(startOffset);
     m_geom = Geometry{ cubeVertices, cubeIndices };
 
     m_cameraControls = FPSControls{ m_camera };
@@ -53,7 +50,7 @@ void Renderer::init(uint32_t width, uint32_t height)
     m_state = 0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CCW;
 }
 
-bool Renderer::update()
+bool Renderer::update(const float dt)
 {
     auto res = m_eventQueue.pump();
     auto eventhandleResult = windowInputHandler.handleEvents(m_eventQueue);
@@ -64,16 +61,13 @@ bool Renderer::update()
     if (inputHandleResult == EventHandleResult::EVENT_RESULT_SHUTDOWN) {
         return false;
     }
-    m_cameraControls.update();
+    m_cameraControls.update(dt);
     return true;
 }
 
-void Renderer::renderFrame()
+void Renderer::renderFrame(const float dt)
 {
     bgfx::ViewId viewId{ 0 };
-    float time_ = getTime(startOffset);
-    float dt = time_ - m_lastTime;
-    m_lastTime = time_;
 
     // Set view 0 default viewport.
     bgfx::setViewRect(viewId, 0, 0, uint16_t(m_width), uint16_t(m_height));
@@ -92,10 +86,5 @@ void Renderer::renderFrame()
     // Advance to next frame. Rendering thread will be kicked to
     // process submitted rendering primitives.
     bgfx::frame();
-}
-
-float Renderer::getTime(const uint64_t startOffset)
-{
-    return (float)((bx::getHPCounter() - startOffset) / double(bx::getHPFrequency()));
 }
 } // namespace bae

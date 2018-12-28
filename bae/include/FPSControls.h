@@ -10,33 +10,31 @@
 #include "utils/Constants.h"
 #include "utils/Geometric.h"
 
-namespace bae
-{
-class FPSControls : public EventSubscriber
-{
+namespace bae {
+class FPSControls : public EventSubscriber {
 
-  public:
+public:
     FPSControls() = default;
     FPSControls(
-        Camera &camera,
+        Camera& camera,
         const float sensitivity = 0.002,
-        const float movementSpeed = 0.1);
+        const float movementSpeed = 1.0);
 
-    EventHandleResult handleEvents(const EventQueue &eventQueue) override final;
+    EventHandleResult handleEvents(const EventQueue& eventQueue) override final;
 
-    void update();
+    void update(const float dt);
 
-  private:
-    Camera *m_pCamera = nullptr;
-    bae::Direction currentDirection = {0.0f, 0.0f, 0.0f};
+private:
+    Camera* m_pCamera = nullptr;
+    bae::Direction currentDirection = { 0.0f, 0.0f, 0.0f };
     float m_sensitivity;
     float m_movementSpeed;
     float m_yaw = -HALF_PI;
     float m_pitch = 0.0f;
 
-    void handleKeydown(const SDL_Event &event);
-    void handleKeyup(const SDL_Event &event);
-    void handleMouseMovement(const SDL_Event &event);
+    void handleKeydown(const SDL_Event& event);
+    void handleKeyup(const SDL_Event& event);
+    void handleMouseMovement(const SDL_Event& event);
 
     constexpr static float s_upperPitchLimit = HALF_PI - 0.1;
     constexpr static float s_lowerPitchLimit = -HALF_PI + 0.1;

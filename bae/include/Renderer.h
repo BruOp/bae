@@ -31,15 +31,13 @@ public:
     ~Renderer() noexcept;
 
     void init(uint32_t width, uint32_t height);
-    bool update();
-    void renderFrame();
+    bool update(const float dt);
+    void renderFrame(const float dt);
 
 private:
     uint32_t m_width = 0;
     uint32_t m_height = 0;
     std::unique_ptr<bae::Window> m_pWindow = nullptr;
-    uint64_t startOffset = 0;
-    uint64_t m_lastTime = 0;
     uint64_t m_state = 0;
 
     Instance m_instance = Instance{};
@@ -52,7 +50,5 @@ private:
     MeshManager<Materials::Basic> meshes;
 
     FPSControls m_cameraControls;
-
-    static float getTime(const uint64_t startOffset);
 };
 } // namespace bae
