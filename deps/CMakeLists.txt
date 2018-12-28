@@ -16,3 +16,6 @@ include( glm.cmake )
 
 # imgui
 include( imgui.cmake )
+
+# entt
+add_subdirectory( entt )
