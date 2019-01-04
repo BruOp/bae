@@ -1,37 +1,26 @@
 #pragma once
+#include <glm/glm.hpp>
+
 #include "MaterialType.h"
 #include "Uniforms.h"
-#include <glm/glm.hpp>
 
 namespace bae {
 namespace Materials {
     extern MaterialType basic;
 
-    class Basic {
-    public:
-        Basic() = default;
-        Basic(const glm::vec4& color)
-            : color{ "color", color } {};
-
-        Basic(const Basic&) = delete;
-        Basic& operator=(const Basic&) = delete;
-        Basic(Basic&&) noexcept = default;
-        Basic& operator=(Basic&&) noexcept = default;
+    struct Basic {
+        Vec4Uniform color;
+        const static MaterialType* materialType;
 
         inline void setUniforms() const
         {
             color.setUniform();
         };
 
-        inline void destroy()
+        static Basic create(const glm::vec4& color)
         {
-            color.destroy();
+            return Basic{ { color, materialType->getHandle("color") } };
         };
-
-        const static MaterialType* materialType;
-
-    private:
-        Vec4Uniform color = Vec4Uniform{ "color", glm::vec4{ 0.0f, 0.0f, 0.0f, 1.0f } };
     };
 }
 }

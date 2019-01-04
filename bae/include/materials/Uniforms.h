@@ -19,65 +19,13 @@ namespace Materials {
     relevant data. This at least lets you very explicitly control the padding in your memory
     */
     struct Vec4Uniform {
-        Vec4Uniform()
-        {
-            handle.idx = bgfx::kInvalidHandle;
-        };
-        Vec4Uniform(const std::string& name, const glm::vec4& data)
-            : name{ name }
-            , handle{ bgfx::createUniform(this->name.c_str(), bgfx::UniformType::Vec4) }
-            , data{ data } {};
-
-        ~Vec4Uniform() noexcept
-        {
-            if (bgfx::isValid(handle)) {
-                destroy();
-            }
-        };
-
-        Vec4Uniform(const Vec4Uniform&) = delete;
-        Vec4Uniform& operator=(const Vec4Uniform&) = delete;
-
-        Vec4Uniform(Vec4Uniform&& other) noexcept
-            : name{ other.name }
-            , handle{ other.handle }
-            , data{ other.data }
-        {
-            other.invalidateHandle();
-        };
-
-        Vec4Uniform& operator=(Vec4Uniform&& other) noexcept
-        {
-            if (this != &other) {
-                name = other.name;
-                data = other.data;
-                handle = other.handle;
-
-                other.invalidateHandle();
-            }
-            return *this;
-        }
-
-        inline void destroy()
-        {
-            bgfx::destroy(handle);
-            invalidateHandle();
-        }
+        glm::vec4 data;
+        bgfx::UniformHandle handle;
 
         inline void setUniform() const
         {
             bgfx::setUniform(handle, &(data.x));
         };
-
-        std::string name;
-        bgfx::UniformHandle handle;
-        glm::vec4 data;
-
-    private:
-        inline void invalidateHandle()
-        {
-            handle.idx = bgfx::kInvalidHandle;
-        }
     };
 }
 } // bae
