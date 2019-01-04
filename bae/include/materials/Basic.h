@@ -12,14 +12,18 @@ namespace Materials {
         Vec4Uniform color;
         const static MaterialType* materialType;
 
+        Basic()
+            : Basic{
+                glm::vec4{ 0.0f, 0.0f, 0.0f, 1.0f }
+            } {};
+        Basic(const glm::vec4& color)
+            : color{ color, materialType->getHandle("color") }
+        {
+        }
+
         inline void setUniforms() const
         {
             color.setUniform();
-        };
-
-        static Basic create(const glm::vec4& color)
-        {
-            return Basic{ { color, materialType->getHandle("color") } };
         };
     };
 }

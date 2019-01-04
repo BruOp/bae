@@ -10,7 +10,6 @@ MaterialType::MaterialType(
     : name{ name }
     , program{}
     , uniformHandleMap{ uniformHandleMap }
-
 {
 }
 

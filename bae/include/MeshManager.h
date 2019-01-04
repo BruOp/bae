@@ -30,7 +30,7 @@ public:
 
     void draw(const bgfx::ViewId viewId, const uint64_t state) const
     {
-        bgfx::ProgramHandle program = Material::materialType->program;
+        bgfx::ProgramHandle program = Material::materialType->getProgram();
         for (auto& mesh : meshes) {
             mesh.setup(viewId);
             bgfx::setState(state);

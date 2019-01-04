@@ -4,6 +4,7 @@ namespace bae {
 
 BasicGame::BasicGame()
     : renderer{}
+    , registry{}
     , startOffset{ bx::getHPCounter() }
     , lastTime{ getTime(startOffset) }
 {
@@ -11,6 +12,11 @@ BasicGame::BasicGame()
     uint32_t height = 720;
 
     renderer.init(width, height);
+
+    auto entity = registry.create();
+    registry.assign<Position>(entity, 0.0f, 0.0f, 0.0f);
+
+    registry.assign<Materials::Basic>(entity, glm::vec4(1.0f, 0.0f, 1.0f, 1.0f));
 }
 
 BasicGame::~BasicGame() {}

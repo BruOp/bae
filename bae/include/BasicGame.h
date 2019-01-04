@@ -1,4 +1,6 @@
 #pragma once
+#include <entt/entt.hpp>
+
 #include "IGame.h"
 #include "Renderer.h"
 #include "utils/Common.h"
@@ -14,6 +16,7 @@ public:
 
 private:
     Renderer renderer;
+    entt::DefaultRegistry registry;
     uint64_t startOffset = 0;
     float lastTime = 0;
 };
