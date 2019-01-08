@@ -6,16 +6,17 @@
 #include <bgfx/bgfx.h>
 #include <bgfx/platform.h>
 #include <bx/timer.h>
+#include <entt/entt.hpp>
+#include <glm/ext/matrix_transform.hpp>
 #include <glm/glm.hpp>
 
 #include "Camera.h"
 #include "EventHandlers.h"
 #include "EventQueue.h"
 #include "FPSControls.h"
+#include "Geometry.h"
 #include "Instance.h"
 #include "MaterialType.h"
-#include "Mesh.h"
-#include "MeshManager.h"
 #include "Window.h"
 #include "materials/Basic.h"
 #include "utils/Vertex.h"
@@ -32,9 +33,8 @@ public:
 
     void init(uint32_t width, uint32_t height);
     bool update(const float dt);
-    void renderFrame(const float dt);
+    void renderFrame(const float dt, entt::DefaultRegistry& registry);
 
-private:
     uint32_t m_width = 0;
     uint32_t m_height = 0;
     std::unique_ptr<bae::Window> m_pWindow = nullptr;
@@ -45,10 +45,9 @@ private:
     EventQueue m_eventQueue;
     WindowInputHandler windowInputHandler;
 
-    Camera m_camera;
-    Geometry m_geom = Geometry{};
-    MeshManager<Materials::Basic> meshes;
+    GeometryRegistry geoRegistry;
 
+    Camera m_camera;
     FPSControls m_cameraControls;
 };
 } // namespace bae

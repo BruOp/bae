@@ -8,7 +8,6 @@ namespace MatTypes {
 Renderer::~Renderer() noexcept
 {
     Materials::basic.destroy();
-    m_geom.destroy();
 }
 
 void Renderer::init(uint32_t width, uint32_t height)
@@ -41,11 +40,9 @@ void Renderer::init(uint32_t width, uint32_t height)
         60.0f
     };
 
-    m_geom = Geometry{ cubeVertices, cubeIndices };
+    geoRegistry.create("cube", cubeVertices, cubeIndices);
 
     m_cameraControls = FPSControls{ m_camera };
-    Materials::Basic material{ glm::vec4(1.0f, 0.0f, 0.0f, 1.0f) };
-    meshes.addMesh(m_geom, std::move(material));
 
     m_state = 0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CCW;
 }
@@ -65,7 +62,7 @@ bool Renderer::update(const float dt)
     return true;
 }
 
-void Renderer::renderFrame(const float dt)
+void Renderer::renderFrame(const float dt, entt::DefaultRegistry& registry)
 {
     bgfx::ViewId viewId{ 0 };
 
@@ -77,11 +74,20 @@ void Renderer::renderFrame(const float dt)
     bgfx::touch(viewId);
 
     m_camera.setViewTransform(viewId);
+    auto state = m_state;
+    bgfx::ProgramHandle program = Materials::basic.getProgram();
+    registry.view<Position, Geometry, Materials::Basic>().each(
+        [dt, program, viewId, state](const auto&, const Position& pos, const auto& geo, const auto& mat) {
+            glm::mat4 mtx = glm::translate(glm::identity<glm::mat4>(), pos);
+            bgfx::setTransform(glm::value_ptr(mtx));
 
-    glm::mat4 mtx{};
-    // bgfx::setTransform(glm::value_ptr(mtx));
+            geo.set(viewId);
+            mat.setUniforms();
+            bgfx::setState(state);
+            bgfx::submit(viewId, program);
+        });
 
-    meshes.draw(viewId, m_state);
+    // meshes.draw(viewId, m_state);
 
     // Advance to next frame. Rendering thread will be kicked to
     // process submitted rendering primitives.

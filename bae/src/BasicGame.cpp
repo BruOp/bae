@@ -14,8 +14,10 @@ BasicGame::BasicGame()
     renderer.init(width, height);
 
     auto entity = registry.create();
-    registry.assign<Position>(entity, 0.0f, 0.0f, 0.0f);
 
+    // Create our mesh
+    registry.assign<Position>(entity, 0.0f, 0.0f, 0.0f);
+    registry.assign<Geometry>(entity, renderer.geoRegistry.get("cube"));
     registry.assign<Materials::Basic>(entity, glm::vec4(1.0f, 0.0f, 1.0f, 1.0f));
 }
 
@@ -35,7 +37,7 @@ bool BasicGame::update()
     if (!renderer.update(dt)) {
         return false;
     };
-    renderer.renderFrame(dt);
+    renderer.renderFrame(dt, registry);
     lastTime = _time;
     return true;
 }
