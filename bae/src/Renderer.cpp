@@ -12,16 +12,16 @@ Renderer::~Renderer() noexcept
 
 void Renderer::init(uint32_t width, uint32_t height)
 {
-    m_width = width;
-    m_height = height;
+    this->width = width;
+    this->height = height;
 
-    m_instance.initSDL();
+    instance.initSDL();
 
     // Create a window
-    m_pWindow = std::make_unique<bae::Window>(m_width, m_height);
-    bgfx::PlatformData platformData = m_pWindow->getPlatformData();
+    pWindow = std::make_unique<bae::Window>(width, height);
+    bgfx::PlatformData platformData = pWindow->getPlatformData();
 
-    m_instance.initBgfx(platformData, m_width, m_height);
+    instance.initBgfx(platformData, width, height);
     Vertex::init();
     Materials::basic.init();
 
@@ -32,33 +32,33 @@ void Renderer::init(uint32_t width, uint32_t height)
         1.0f,
         0);
 
-    m_camera = Camera{
+    camera = Camera{
         glm::vec3{ 5.0f, 2.0f, 10.0f },
         glm::vec3{ 0.0f, 0.0f, -1.0f },
-        m_width,
-        m_height,
+        width,
+        height,
         60.0f
     };
 
     geoRegistry.create("cube", cubeVertices, cubeIndices);
 
-    m_cameraControls = FPSControls{ m_camera };
+    cameraControls = FPSControls{ camera };
 
-    m_state = 0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CCW;
+    state = 0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CCW;
 }
 
 bool Renderer::update(const float dt)
 {
-    auto res = m_eventQueue.pump();
-    auto eventhandleResult = windowInputHandler.handleEvents(m_eventQueue);
+    auto res = eventQueue.pump();
+    auto eventhandleResult = windowInputHandler.handleEvents(eventQueue);
     if (eventhandleResult == EventHandleResult::EVENT_RESULT_SHUTDOWN) {
         return false;
     }
-    auto inputHandleResult = m_cameraControls.handleEvents(m_eventQueue);
+    auto inputHandleResult = cameraControls.handleEvents(eventQueue);
     if (inputHandleResult == EventHandleResult::EVENT_RESULT_SHUTDOWN) {
         return false;
     }
-    m_cameraControls.update(dt);
+    cameraControls.update(dt);
     return true;
 }
 
@@ -67,23 +67,22 @@ void Renderer::renderFrame(const float dt, entt::DefaultRegistry& registry)
     bgfx::ViewId viewId{ 0 };
 
     // Set view 0 default viewport.
-    bgfx::setViewRect(viewId, 0, 0, uint16_t(m_width), uint16_t(m_height));
+    bgfx::setViewRect(viewId, 0, 0, uint16_t(width), uint16_t(height));
 
     // This dummy draw call is here to make sure that view 0 is cleared
     // if no other draw calls are submitted to view 0.
     bgfx::touch(viewId);
-
-    m_camera.setViewTransform(viewId);
-    auto state = m_state;
+    auto stateCopy = state;
+    camera.setViewTransform(viewId);
     bgfx::ProgramHandle program = Materials::basic.getProgram();
     registry.view<Position, Geometry, Materials::Basic>().each(
-        [dt, program, viewId, state](const auto&, const Position& pos, const auto& geo, const auto& mat) {
+        [dt, program, viewId, stateCopy](const auto&, const Position& pos, const auto& geo, const auto& mat) {
             glm::mat4 mtx = glm::translate(glm::identity<glm::mat4>(), pos);
             bgfx::setTransform(glm::value_ptr(mtx));
 
             geo.set(viewId);
             mat.setUniforms();
-            bgfx::setState(state);
+            bgfx::setState(stateCopy);
             bgfx::submit(viewId, program);
         });
 

@@ -35,19 +35,19 @@ public:
     bool update(const float dt);
     void renderFrame(const float dt, entt::DefaultRegistry& registry);
 
-    uint32_t m_width = 0;
-    uint32_t m_height = 0;
-    std::unique_ptr<bae::Window> m_pWindow = nullptr;
-    uint64_t m_state = 0;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    std::unique_ptr<bae::Window> pWindow = nullptr;
+    uint64_t state = 0;
 
-    Instance m_instance = Instance{};
+    Instance instance = Instance{};
 
-    EventQueue m_eventQueue;
+    EventQueue eventQueue;
     WindowInputHandler windowInputHandler;
 
     GeometryRegistry geoRegistry;
 
-    Camera m_camera;
-    FPSControls m_cameraControls;
+    Camera camera;
+    FPSControls cameraControls;
 };
 } // namespace bae
