@@ -16,7 +16,9 @@
 #include "FPSControls.h"
 #include "Geometry.h"
 #include "Instance.h"
+#include "Light.h"
 #include "MaterialType.h"
+#include "Scene.h"
 #include "Window.h"
 #include "materials/Basic.h"
 #include "utils/Vertex.h"
@@ -35,6 +37,28 @@ public:
     bool update(const float dt);
     void renderFrame(const float dt, entt::DefaultRegistry& registry);
 
+    template <typename Light>
+    void setupLighting(entt::DefaultRegistry& registry, LightUniformSet& uniformSet)
+    {
+        auto view = registry.view<Position, Light>();
+        uniformSet.lightCount = view.size();
+
+        size_t counter = 0;
+        view.each(
+            [&uniformSet, &counter](const auto&, const Position& pos, const Light& light) {
+                uniformSet.lightPosData[counter] = {
+                    pos.x, pos.y, pos.z, 0.0f
+                };
+                uniformSet.lightColorIntensityData[counter] = {
+                    light.color.x,
+                    light.color.y,
+                    light.color.z,
+                    light.intensity
+                };
+                ++counter;
+            });
+    };
+
     uint32_t width = 0;
     uint32_t height = 0;
     std::unique_ptr<bae::Window> pWindow = nullptr;
@@ -46,6 +70,7 @@ public:
     WindowInputHandler windowInputHandler;
 
     GeometryRegistry geoRegistry;
+    LightUniformSet pointLightUniforms = { "pointLight" };
 
     Camera camera;
     FPSControls cameraControls;

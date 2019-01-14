@@ -6,9 +6,6 @@
 
 namespace bae {
 namespace Materials {
-
-    constexpr bgfx::UniformHandle nullUniformHandle{};
-
     /*
     Lets us create uniform handles, store the data for later use.
 
@@ -20,7 +17,7 @@ namespace Materials {
     */
     struct Vec4Uniform {
         glm::vec4 data;
-        bgfx::UniformHandle handle;
+        bgfx::UniformHandle handle = BGFX_INVALID_HANDLE;
 
         inline void setUniform() const
         {

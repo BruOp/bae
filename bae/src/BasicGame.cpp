@@ -19,6 +19,14 @@ BasicGame::BasicGame()
     registry.assign<Position>(entity, 0.0f, 0.0f, 0.0f);
     registry.assign<Geometry>(entity, renderer.geoRegistry.get("cube"));
     registry.assign<Materials::Basic>(entity, glm::vec4(1.0f, 0.0f, 1.0f, 1.0f));
+
+    auto light = registry.create();
+    registry.assign<Position>(light, 10.0f, 10.0f, 0.0f);
+    registry.assign<PointLightEmitter>(light, glm::vec3{ 1.0f }, 100.0f);
+
+    auto light2 = registry.create();
+    registry.assign<Position>(light2, -10.0f, 10.0f, 0.0f);
+    registry.assign<PointLightEmitter>(light2, glm::vec3{ 1.0f }, 100.0f);
 }
 
 BasicGame::~BasicGame() {}

@@ -7,6 +7,7 @@ namespace MatTypes {
 
 Renderer::~Renderer() noexcept
 {
+    pointLightUniforms.destroy();
     Materials::basic.destroy();
 }
 
@@ -41,10 +42,10 @@ void Renderer::init(uint32_t width, uint32_t height)
     };
 
     geoRegistry.create("cube", cubeVertices, cubeIndices);
-
+    pointLightUniforms.init();
     cameraControls = FPSControls{ camera };
 
-    state = 0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CCW;
+    state = 0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CW;
 }
 
 bool Renderer::update(const float dt)
@@ -72,6 +73,9 @@ void Renderer::renderFrame(const float dt, entt::DefaultRegistry& registry)
     // This dummy draw call is here to make sure that view 0 is cleared
     // if no other draw calls are submitted to view 0.
     bgfx::touch(viewId);
+
+    setupLighting<PointLightEmitter>(registry, pointLightUniforms);
+
     auto stateCopy = state;
     camera.setViewTransform(viewId);
     bgfx::ProgramHandle program = Materials::basic.getProgram();
@@ -85,8 +89,6 @@ void Renderer::renderFrame(const float dt, entt::DefaultRegistry& registry)
             bgfx::setState(stateCopy);
             bgfx::submit(viewId, program);
         });
-
-    // meshes.draw(viewId, m_state);
 
     // Advance to next frame. Rendering thread will be kicked to
     // process submitted rendering primitives.
