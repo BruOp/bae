@@ -2,17 +2,16 @@
 
 #include "utils/Vertex.h"
 
-namespace bae
-{
-const std::vector<bae::Vertex> cubeVertices{
-    {glm::vec3{-1.0f, 1.0f, 1.0f}, 0xff000000},
-    {glm::vec3{1.0f, 1.0f, 1.0f}, 0xff0000ff},
-    {glm::vec3{-1.0f, -1.0f, 1.0f}, 0xff00ff00},
-    {glm::vec3{1.0f, -1.0f, 1.0f}, 0xffff0000},
-    {glm::vec3{-1.0f, 1.0f, -1.0f}, 0xff00ffff},
-    {glm::vec3{1.0f, 1.0f, -1.0f}, 0xffff00ff},
-    {glm::vec3{-1.0f, -1.0f, -1.0f}, 0xffffff00},
-    {glm::vec3{1.0f, -1.0f, -1.0f}, 0xffffffff},
+namespace bae {
+const std::vector<bae::PosColorVertex> cubeVertices{
+    { glm::vec3{ -1.0f, 1.0f, 1.0f }, 0xff000000 },
+    { glm::vec3{ 1.0f, 1.0f, 1.0f }, 0xff0000ff },
+    { glm::vec3{ -1.0f, -1.0f, 1.0f }, 0xff00ff00 },
+    { glm::vec3{ 1.0f, -1.0f, 1.0f }, 0xffff0000 },
+    { glm::vec3{ -1.0f, 1.0f, -1.0f }, 0xff00ffff },
+    { glm::vec3{ 1.0f, 1.0f, -1.0f }, 0xffff00ff },
+    { glm::vec3{ -1.0f, -1.0f, -1.0f }, 0xffffff00 },
+    { glm::vec3{ 1.0f, -1.0f, -1.0f }, 0xffffffff },
 };
 
 const std::vector<uint16_t> cubeIndices{

@@ -2,6 +2,7 @@ if (WIN32)
     set(SDL2_PATH D:/Repos/SDL2-2.0.8 CACHE STRING "Where the SDL2 Folder can be found")
 endif()
 find_package(SDL2 REQUIRED)
+find_package(ASSIMP REQUIRED)
 
 file(GLOB_RECURSE BAE_SOURCE CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 file(GLOB_RECURSE BAE_INCLUDE CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/include/**/*.h)
@@ -10,8 +11,8 @@ file(GLOB BAE_VERT_SHADERS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders
 file(GLOB BAE_FRAG_SHADERS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*_fs.sc)
 
 add_executable( bae ${BAE_SOURCE} ${BAE_INCLUDE} shaders/basic_vs.sc shaders/basic_fs.sc )
-target_link_libraries( bae PUBLIC bgfx imgui glm EnTT ${SDL2_LIBRARY})
-target_include_directories( bae PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${SDL2_INCLUDE_DIR})
+target_link_libraries( bae PUBLIC bgfx imgui glm EnTT ${SDL2_LIBRARY} ${ASSIMP_LIBRARIES})
+target_include_directories( bae PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${SDL2_INCLUDE_DIR} ${ASSIMP_INCLUDE_DIR})
 set_target_properties( bae PROPERTIES FOLDER "bae" )
 
 set(SHADER_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/shaders)

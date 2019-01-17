@@ -18,6 +18,7 @@
 #include "Instance.h"
 #include "Light.h"
 #include "MaterialType.h"
+#include "ModelLoader.h"
 #include "Scene.h"
 #include "Window.h"
 #include "materials/Basic.h"

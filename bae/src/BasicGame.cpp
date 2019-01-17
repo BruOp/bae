@@ -17,7 +17,7 @@ BasicGame::BasicGame()
 
     // Create our mesh
     registry.assign<Position>(entity, 0.0f, 0.0f, 0.0f);
-    registry.assign<Geometry>(entity, renderer.geoRegistry.get("cube"));
+    registry.assign<Geometry>(entity, renderer.geoRegistry.get("bunny"));
     registry.assign<Materials::Basic>(entity, glm::vec4(1.0f, 0.0f, 1.0f, 1.0f));
 
     auto light = registry.create();

@@ -23,7 +23,8 @@ void Renderer::init(uint32_t width, uint32_t height)
     bgfx::PlatformData platformData = pWindow->getPlatformData();
 
     instance.initBgfx(platformData, width, height);
-    Vertex::init();
+    PosColorVertex::init();
+    PosTexNormalVertex::init();
     Materials::basic.init();
 
     bgfx::setViewClear(
@@ -42,6 +43,9 @@ void Renderer::init(uint32_t width, uint32_t height)
     };
 
     geoRegistry.create("cube", cubeVertices, cubeIndices);
+    ModelLoader loader{ &geoRegistry };
+    loader.loadModel("bunny", "/home/bruno/Documents/graphics/bae/assets/bunny.obj");
+
     pointLightUniforms.init();
     cameraControls = FPSControls{ camera };
 
