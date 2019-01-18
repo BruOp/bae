@@ -6,7 +6,7 @@
 namespace bae {
 struct LightUniformSet {
     std::string lightName;
-    uint16_t lightCount = 0;
+    uint8_t lightCount = 0;
     uint16_t maxLightCount = 10; // Has to match whatever we have set in the shader...
 
     // params.x = lightCount
@@ -37,16 +37,16 @@ struct LightUniformSet {
         bgfx::destroy(lightColorIntensity);
     }
 
-    void setPointLightUniforms()
+    void set()
     {
-        float paramsArr[4] = {
+        float paramsArr[4]{
             float(lightCount),
             0.0f,
             0.0f,
             0.0f
         };
         bgfx::setUniform(params, paramsArr);
-        bgfx::setUniform(lightColorIntensity, lightColorIntensityData.data(), maxLightCount);
+        bgfx::setUniform(lightPos, lightPosData.data(), maxLightCount);
         bgfx::setUniform(lightColorIntensity, lightColorIntensityData.data(), maxLightCount);
     }
 };

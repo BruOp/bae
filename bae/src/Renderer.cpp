@@ -77,8 +77,8 @@ void Renderer::renderFrame(const float dt, entt::DefaultRegistry& registry)
     // This dummy draw call is here to make sure that view 0 is cleared
     // if no other draw calls are submitted to view 0.
     bgfx::touch(viewId);
-
     setupLighting<PointLightEmitter>(registry, pointLightUniforms);
+    pointLightUniforms.set();
 
     auto stateCopy = state;
     camera.setViewTransform(viewId);
