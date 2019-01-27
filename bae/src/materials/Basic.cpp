@@ -2,11 +2,11 @@
 
 namespace bae {
 namespace Materials {
-    MaterialType basic = MaterialType{
-        "basic",
-        { { "color", { bgfx::UniformType::Vec4 } } }
-    };
+    MaterialType basic{};
 
     const MaterialType* Basic::materialType = &basic;
+    const UniformInfoMap Basic::uniformInfoMap = {
+        { "color", { bgfx::UniformType::Vec4 } },
+    };
 }
 }

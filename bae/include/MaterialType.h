@@ -8,37 +8,38 @@
 namespace bae {
 struct UniformHandleInfo {
     bgfx::UniformType::Enum type;
-    bgfx::UniformHandle handle = { bgfx::kInvalidHandle };
+    bgfx::UniformHandle handle = BGFX_INVALID_HANDLE;
 };
 
-// This class represents a shader program. Each instance is unique.
-class MaterialType {
-public:
-    MaterialType(
-        const std::string& name,
-        const std::unordered_map<std::string, UniformHandleInfo>& uniformHandleMap);
-    ~MaterialType() = default;
-    MaterialType(const MaterialType&) = delete;
-    MaterialType& operator=(const MaterialType&) = delete;
-    MaterialType(MaterialType&&) = delete;
-    MaterialType& operator=(MaterialType&&) = delete;
+typedef std::unordered_map<std::string, UniformHandleInfo> UniformInfoMap;
 
-    void init() noexcept;
-    void destroy() noexcept;
-
-    inline bgfx::ProgramHandle getProgram() const
-    {
-        return program;
-    };
+struct MaterialType {
+    bgfx::ProgramHandle program = BGFX_INVALID_HANDLE;
+    UniformInfoMap uniformHandleMap;
 
     inline bgfx::UniformHandle getHandle(const std::string& name) const
     {
         return uniformHandleMap.at(name).handle;
     }
 
+    void destroy() noexcept;
+};
+
+class MaterialTypeManager {
+
+public:
+    MaterialTypeManager() = default;
+    ~MaterialTypeManager();
+    MaterialTypeManager(const MaterialTypeManager&) = delete;
+    MaterialTypeManager& operator=(const MaterialTypeManager&) = delete;
+    MaterialTypeManager(MaterialTypeManager&&) = default;
+    MaterialTypeManager& operator=(MaterialTypeManager&&) = default;
+
+    MaterialType createMaterialType(
+        const std::string& name,
+        const UniformInfoMap& uniformHandleMap) noexcept;
+
 private:
-    std::string name;
-    bgfx::ProgramHandle program;
-    std::unordered_map<std::string, UniformHandleInfo> uniformHandleMap;
+    std::unordered_map<std::string, MaterialType> materialTypes;
 };
 } // namespace bae

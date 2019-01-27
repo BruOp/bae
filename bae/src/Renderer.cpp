@@ -8,7 +8,6 @@ namespace MatTypes {
 Renderer::~Renderer() noexcept
 {
     pointLightUniforms.destroy();
-    Materials::basic.destroy();
 }
 
 void Renderer::init(uint32_t width, uint32_t height)
@@ -25,7 +24,7 @@ void Renderer::init(uint32_t width, uint32_t height)
     instance.initBgfx(platformData, width, height);
     PosColorVertex::init();
     PosTexNormalVertex::init();
-    Materials::basic.init();
+    Materials::basic = matTypeManager.createMaterialType("basic", Materials::Basic::uniformInfoMap);
 
     bgfx::setViewClear(
         0,
@@ -82,7 +81,7 @@ void Renderer::renderFrame(const float dt, entt::DefaultRegistry& registry)
 
     auto stateCopy = state;
     camera.setViewTransform(viewId);
-    bgfx::ProgramHandle program = Materials::basic.getProgram();
+    bgfx::ProgramHandle program = Materials::basic.program;
     registry.view<Position, Geometry, Materials::Basic>().each(
         [dt, program, viewId, stateCopy](const auto&, const Position& pos, const auto& geo, const auto& mat) {
             glm::mat4 mtx = glm::translate(glm::identity<glm::mat4>(), pos);

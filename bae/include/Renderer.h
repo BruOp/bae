@@ -19,7 +19,6 @@
 #include "Light.h"
 #include "MaterialType.h"
 #include "ModelLoader.h"
-#include "Scene.h"
 #include "Window.h"
 #include "materials/Basic.h"
 #include "utils/Vertex.h"
@@ -72,6 +71,7 @@ public:
 
     GeometryRegistry geoRegistry;
     LightUniformSet pointLightUniforms = { "pointLight" };
+    MaterialTypeManager matTypeManager;
 
     Camera camera;
     FPSControls cameraControls;
