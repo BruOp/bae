@@ -18,7 +18,7 @@ public:
     FPSControls(
         Camera& camera,
         const float sensitivity = 0.002,
-        const float movementSpeed = 1.0);
+        const float movementSpeed = 5.0);
 
     EventHandleResult handleEvents(const EventQueue& eventQueue) override final;
 

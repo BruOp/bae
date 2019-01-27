@@ -11,7 +11,20 @@ BasicGame::BasicGame()
     uint32_t width = 1280;
     uint32_t height = 720;
 
-    renderer.init(width, height);
+    initSDL();
+
+    pWindow = std::make_unique<bae::Window>(width, height);
+
+    renderer.init(pWindow.get());
+
+    camera = Camera{
+        Position{ 5.0f, 2.0f, 10.0f },
+        Direction{ 0.0f, 0.0f, -1.0f },
+        width,
+        height,
+        60.0f
+    };
+    cameraControls = FPSControls{ camera };
 
     auto entity = registry.create();
 
@@ -29,7 +42,10 @@ BasicGame::BasicGame()
     registry.assign<PointLightEmitter>(light2, glm::vec3{ 1.0f, 0.0f, 0.0f }, 100.0f);
 }
 
-BasicGame::~BasicGame() {}
+BasicGame::~BasicGame()
+{
+    SDL_Quit();
+}
 
 void BasicGame::start()
 {
@@ -41,11 +57,18 @@ bool BasicGame::update()
 {
     float _time = getTime(startOffset);
     float dt = _time - lastTime;
-    // TODO: Remove all the logic from renderer update. There's no reason for it to own all this stuff
-    if (!renderer.update(dt)) {
+
+    auto res = eventQueue.pump();
+    auto eventhandleResult = windowInputHandler.handleEvents(eventQueue);
+    if (eventhandleResult == EventHandleResult::EVENT_RESULT_SHUTDOWN) {
         return false;
-    };
-    renderer.renderFrame(dt, registry);
+    }
+    auto inputHandleResult = cameraControls.handleEvents(eventQueue);
+    if (inputHandleResult == EventHandleResult::EVENT_RESULT_SHUTDOWN) {
+        return false;
+    }
+    cameraControls.update(dt);
+    renderer.renderFrame(dt, camera, registry);
     lastTime = _time;
     return true;
 }

@@ -14,8 +14,8 @@ class Camera {
 public:
     Camera() = default;
     Camera(
-        const glm::vec3 position,
-        const glm::vec3 direction,
+        const Position position,
+        const Direction direction,
         const uint32_t width,
         const uint32_t height,
         const float fovInDegrees = 45.0);
@@ -29,9 +29,9 @@ public:
 
     friend class FPSControls;
 
-    bae::Position m_position = glm::vec3(0.0f, 0.0f, 10.0f);
-    bae::Direction m_direction = glm::vec3(0.0f, 0.0f, -1.0f);
-    bae::Direction m_right = glm::vec3(1.0f, 0.0f, 0.0f);
+    bae::Position m_position = Position(0.0f, 0.0f, 10.0f);
+    bae::Direction m_direction = Direction(0.0f, 0.0f, -1.0f);
+    bae::Direction m_right = Direction(1.0f, 0.0f, 0.0f);
     float m_fov;
     float m_aspectRatio;
     glm::mat4 m_projection;

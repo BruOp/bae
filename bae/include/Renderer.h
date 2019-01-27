@@ -33,9 +33,8 @@ public:
     Renderer() = default;
     ~Renderer() noexcept;
 
-    void init(uint32_t width, uint32_t height);
-    bool update(const float dt);
-    void renderFrame(const float dt, entt::DefaultRegistry& registry);
+    void init(Window* pWindow);
+    void renderFrame(const float dt, Camera& camera, entt::DefaultRegistry& registry);
 
     template <typename Light>
     void setupLighting(entt::DefaultRegistry& registry, LightUniformSet& uniformSet)
@@ -61,19 +60,13 @@ public:
 
     uint32_t width = 0;
     uint32_t height = 0;
-    std::unique_ptr<bae::Window> pWindow = nullptr;
+    bae::Window* pWindow = nullptr;
     uint64_t state = 0;
 
     Instance instance = Instance{};
 
-    EventQueue eventQueue;
-    WindowInputHandler windowInputHandler;
-
     GeometryRegistry geoRegistry;
     LightUniformSet pointLightUniforms = { "pointLight" };
     MaterialTypeManager matTypeManager;
-
-    Camera camera;
-    FPSControls cameraControls;
 };
 } // namespace bae

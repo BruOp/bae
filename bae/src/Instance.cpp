@@ -3,23 +3,10 @@
 namespace bae {
 Instance::~Instance() noexcept
 {
-    if (m_bfgx_initialized) {
+    if (bfgx_initialized) {
         bgfx::shutdown();
-        m_bfgx_initialized = false;
+        bfgx_initialized = false;
     }
-    if (m_sdl_initialized) {
-        SDL_Quit();
-        m_sdl_initialized = false;
-    }
-}
-
-void Instance::initSDL()
-{
-    if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
-        throw std::runtime_error("Could not initialize SDL2");
-    }
-    // SDL_SetRelativeMouseMode(SDL_TRUE);
-    m_sdl_initialized = true;
 }
 
 void Instance::initBgfx(
@@ -38,7 +25,7 @@ void Instance::initBgfx(
     init.resolution.reset = BGFX_RESET_VSYNC;
 
     bgfx::init(init);
-    m_bfgx_initialized = true;
+    bfgx_initialized = true;
     bgfx::setDebug(BGFX_DEBUG_TEXT);
 }
 } // namespace bae

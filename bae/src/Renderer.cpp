@@ -10,15 +10,13 @@ Renderer::~Renderer() noexcept
     pointLightUniforms.destroy();
 }
 
-void Renderer::init(uint32_t width, uint32_t height)
+void Renderer::init(Window* pWindow)
 {
-    this->width = width;
-    this->height = height;
-
-    instance.initSDL();
+    this->pWindow = pWindow;
+    width = pWindow->getWidth();
+    height = pWindow->getHeight();
 
     // Create a window
-    pWindow = std::make_unique<bae::Window>(width, height);
     bgfx::PlatformData platformData = pWindow->getPlatformData();
 
     instance.initBgfx(platformData, width, height);
@@ -33,40 +31,16 @@ void Renderer::init(uint32_t width, uint32_t height)
         1.0f,
         0);
 
-    camera = Camera{
-        glm::vec3{ 5.0f, 2.0f, 10.0f },
-        glm::vec3{ 0.0f, 0.0f, -1.0f },
-        width,
-        height,
-        60.0f
-    };
-
     geoRegistry.create("cube", cubeVertices, cubeIndices);
     ModelLoader loader{ &geoRegistry };
     loader.loadModel("bunny", "/home/bruno/Documents/graphics/bae/assets/bunny.obj");
 
     pointLightUniforms.init();
-    cameraControls = FPSControls{ camera };
 
     state = 0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CW;
 }
 
-bool Renderer::update(const float dt)
-{
-    auto res = eventQueue.pump();
-    auto eventhandleResult = windowInputHandler.handleEvents(eventQueue);
-    if (eventhandleResult == EventHandleResult::EVENT_RESULT_SHUTDOWN) {
-        return false;
-    }
-    auto inputHandleResult = cameraControls.handleEvents(eventQueue);
-    if (inputHandleResult == EventHandleResult::EVENT_RESULT_SHUTDOWN) {
-        return false;
-    }
-    cameraControls.update(dt);
-    return true;
-}
-
-void Renderer::renderFrame(const float dt, entt::DefaultRegistry& registry)
+void Renderer::renderFrame(const float dt, Camera& camera, entt::DefaultRegistry& registry)
 {
     bgfx::ViewId viewId{ 0 };
 
