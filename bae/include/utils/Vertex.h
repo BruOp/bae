@@ -1,13 +1,14 @@
 #pragma once
-
 #include <bgfx/bgfx.h>
+#include <functional>
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
+#include <glm/gtx/hash.hpp>
 
 namespace bae {
 struct PosColorVertex {
     glm::vec3 pos;
     uint32_t color;
-    // glm::vec2 texCoord;
 
     static bgfx::VertexDecl ms_declaration;
 
@@ -38,5 +39,23 @@ struct PosTexNormalVertex {
             .add(bgfx::Attrib::Normal, 3, bgfx::AttribType::Float, true)
             .end();
     };
+    bool operator==(const PosTexNormalVertex& other) const
+    {
+        return pos == other.pos && u == other.u && v == other.v && normal == other.normal;
+    }
 };
 } // namespace bae
+
+namespace std {
+template <>
+struct hash<bae::PosTexNormalVertex> {
+    size_t operator()(const bae::PosTexNormalVertex& vertex) const
+    {
+        return ((hash<glm::vec3>()(vertex.pos)
+                    ^ (hash<int16_t>()(vertex.u) << 1))
+                   ^ (hash<int16_t>()(vertex.v) << 1)
+                       >> 1)
+            ^ (hash<glm::vec3>()(vertex.normal) << 1);
+    }
+};
+}

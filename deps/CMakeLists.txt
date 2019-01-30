@@ -19,3 +19,10 @@ include( imgui.cmake )
 
 # entt
 add_subdirectory( entt )
+
+set(TINY_OBJ_LOADER_INCLUDE "${CMAKE_CURRENT_LIST_DIR}/headers/tiny_obj_loader.h" )
+add_library(
+	tiny_obj_loader
+	INTERFACE
+)
+target_include_directories( tiny_obj_loader INTERFACE ${CMAKE_CURRENT_LIST_DIR}/headers/tiny_obj_loader )
