@@ -8,7 +8,7 @@
 	path = deps/glm
 	url = git@github.com:g-truc/glm.git
 [submodule "deps/imgui"]
-	path = deps/imgui
+	path = external/imgui/imgui
 	url = git@github.com:ocornut/imgui.git
 [submodule "deps/entt"]
 	path = deps/entt

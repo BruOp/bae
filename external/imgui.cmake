@@ -6,4 +6,5 @@ add_library(
 	${CMAKE_CURRENT_LIST_DIR}/imgui/imgui_draw.cpp
 )
 target_include_directories( imgui PUBLIC ${CMAKE_CURRENT_LIST_DIR}/imgui )
+target_sources( imgui PUBLIC ${CMAKE_CURRENT_LIST_DIR}/imgui )
 set_target_properties( imgui PROPERTIES FOLDER "imgui" )

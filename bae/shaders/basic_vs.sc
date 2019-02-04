@@ -11,16 +11,16 @@ uniform vec4 pointLight_lightPos[MAX_LIGHT_COUNT];
 
 void main()
 {
-    vec3 position = mul(u_model[0], vec4(a_position, 1.0)).xyz;
-    gl_Position = mul(u_modelViewProj, vec4(a_position, 1.0));
+    vec4 position = mul(u_model[0], vec4(a_position, 1.0));
+    gl_Position = mul(u_modelViewProj, position);
     vec3 color = vec3(0.0);
-    
-    int lightCount = min(int(pointLight_params.x), MAX_LIGHT_COUNT);
+
+    int lightCount = min(2, MAX_LIGHT_COUNT);
     for (int i = 0; i < lightCount; ++i) {
-        float _distance = distance(pointLight_lightPos[i].xyz, position);
+        float _distance = distance(pointLight_lightPos[i].xyz, position.xyz);
         color += pointLight_lightColorIntensity[i].xyz / _distance;
     }
 
     v_color0 = vec4(color, 1.0);
-    
+
 }

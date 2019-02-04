@@ -11,5 +11,8 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
 
 add_subdirectory( deps )
 include( deps/bgfx.cmake/cmake/util/ConfigureDebugging.cmake )
+add_subdirectory( external )
 
 add_subdirectory( bae )
+
+add_definitions(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON)

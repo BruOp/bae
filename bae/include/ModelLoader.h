@@ -1,6 +1,6 @@
 #pragma once
-#include "tiny_obj_loader.h"
 #include <exception>
+#include <tiny_obj_loader/tiny_obj_loader.h>
 
 #include "Geometry.h"
 #include "utils/Vertex.h"
