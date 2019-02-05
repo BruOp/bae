@@ -1,15 +1,3 @@
 [submodule "deps/bgfx.cmake"]
 	path = deps/bgfx.cmake
 	url = git@github.com:JoshuaBrookover/bgfx.cmake.git
-[submodule "deps/glfw"]
-	path = deps/glfw
-	url = git@github.com:glfw/glfw.git
-[submodule "deps/glm"]
-	path = deps/glm
-	url = git@github.com:g-truc/glm.git
-[submodule "deps/imgui"]
-	path = external/imgui/imgui
-	url = git@github.com:ocornut/imgui.git
-[submodule "deps/entt"]
-	path = deps/entt
-	url = git@github.com:skypjack/entt.git
