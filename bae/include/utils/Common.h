@@ -5,6 +5,6 @@
 namespace bae {
 inline float getTime(const uint64_t startOffset)
 {
-    return (float)((bx::getHPCounter() - startOffset) / double(bx::getHPFrequency()));
+    return static_cast<float>((bx::getHPCounter() - startOffset) / static_cast<double>(bx::getHPFrequency()));
 }
 } // namespace bae

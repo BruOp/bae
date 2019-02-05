@@ -33,7 +33,10 @@ void Renderer::init(Window* pWindow)
 
     geoRegistry.create("cube", cubeVertices, cubeIndices);
     ModelLoader loader{ &geoRegistry };
-    loader.loadModel("bunny", "/home/bruno/Documents/graphics/bae/assets/bunny.obj");
+
+	std::string bunny_path = ASSETS_DIR;
+	bunny_path += "/bunny.obj";
+    loader.loadModel("bunny", bunny_path);
 
     pointLightUniforms.init();
 

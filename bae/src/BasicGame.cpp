@@ -5,7 +5,7 @@ namespace bae {
 BasicGame::BasicGame()
     : renderer{}
     , registry{}
-    , startOffset{ bx::getHPCounter() }
+    , startOffset{ static_cast<uint64_t>(bx::getHPCounter()) }
     , lastTime{ getTime(startOffset) }
 {
     uint32_t width = 1280;
