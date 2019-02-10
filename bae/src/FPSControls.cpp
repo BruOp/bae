@@ -42,6 +42,13 @@ void FPSControls::handleKeydown(const SDL_Event& event)
     case SDLK_a:
         currentDirection.x -= 1.0f;
         return;
+    case SDLK_SPACE:
+        currentDirection.y += 0.1f;
+        return;
+    case SDLK_LCTRL:
+    case SDLK_RCTRL:
+        currentDirection.y -= 0.1f;
+        return;
     }
 }
 
@@ -59,6 +66,13 @@ void FPSControls::handleKeyup(const SDL_Event& event)
         return;
     case SDLK_a:
         currentDirection.x += 1.0f;
+        return;
+    case SDLK_SPACE:
+        currentDirection.y -= 0.1f;
+        return;
+    case SDLK_LCTRL:
+    case SDLK_RCTRL:
+        currentDirection.y += 0.1f;
         return;
     }
 }
@@ -86,7 +100,7 @@ void FPSControls::update(const float dt)
 
     if (glm::length(currentDirection) != 0) {
         glm::vec3 movementVector = glm::normalize(
-            currentDirection.z * pCamera->direction + currentDirection.x * pCamera->right);
+            currentDirection.z * pCamera->direction + currentDirection.x * pCamera->right + currentDirection.y * pCamera->WorldUp);
         pCamera->moveAlongDirection(movementVector, dt * movementSpeed);
     }
 }
