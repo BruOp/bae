@@ -47,7 +47,7 @@ vec3 specular(vec3 lightDir, vec3 viewDir, vec3 normal) {
     float LoH = clampDot(lightDir, h);
 
     // Needs to be a uniform
-    float linearRoughness = 0.5;
+    float linearRoughness = 0.01;
     vec3 f0 = vec3(0.97, 0.96, 0.91);
     float D = D_GGX(NoH, linearRoughness);
     vec3  F = F_Schlick(LoH, f0);
@@ -56,7 +56,7 @@ vec3 specular(vec3 lightDir, vec3 viewDir, vec3 normal) {
 }
 
 vec3 diffuseBRDF() {
-    return matColor.xyz * INV_PI;
+    return matColor.xyz;
 }
 
 vec3 toGamma(vec3 _rgb)
@@ -83,7 +83,7 @@ void main()
         float attenuation = pointLight_colorIntensity[i].w / (_distance * _distance);
         vec3 light = attenuation * pointLight_colorIntensity[i].xyz * clamp(dot(normal, lightDir), 0.0, 1.0);
 
-        color += diffuseBRDF() * specular(lightDir, viewDir, normal) * light;
+        color += (diffuseBRDF() + PI * specular(lightDir, viewDir, normal)) * light;
     }
 
     gl_FragColor = vec4(toGamma(color), 1.0);

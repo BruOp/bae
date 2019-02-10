@@ -29,13 +29,20 @@ BasicGame::BasicGame() noexcept
     auto entity = registry.create();
 
     // Create our mesh
-    registry.assign<Position>(entity, 0.0f, 0.0f, 0.0f);
+    registry.assign<Position>(entity, 2.0f, 0.0f, 0.0f);
     registry.assign<Geometry>(entity, renderer.geoRegistry.get("materialSphere"));
+    registry.assign<Materials::Basic>(entity, glm::vec4(0.9f, 0.1f, 0.1f, 1.0f));
+
+    entity = registry.create();
+
+    // Create our mesh
+    registry.assign<Position>(entity, -4.0f, -1.0f, 0.0f);
+    registry.assign<Geometry>(entity, renderer.geoRegistry.get("bunny"));
     registry.assign<Materials::Basic>(entity, glm::vec4(0.97f, 0.96f, 0.91f, 1.0f));
 
     auto light = registry.create();
     registry.assign<Position>(light, 15.0f, 0.0f, 0.0f);
-    registry.assign<PointLightEmitter>(light, glm::vec3{ 1.0f, 0.0f, 0.0f }, 100.0f);
+    registry.assign<PointLightEmitter>(light, glm::vec3{ 1.0f, 1.0f, 0.2f }, 100.0f);
 
     auto light2 = registry.create();
     registry.assign<Position>(light2, -10.0f, 10.0f, 0.0f);
