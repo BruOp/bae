@@ -5,9 +5,9 @@ FPSControls::FPSControls(
     Camera& camera,
     const float sensitivity,
     const float movementSpeed)
-    : m_pCamera{ &camera }
-    , m_sensitivity{ sensitivity }
-    , m_movementSpeed{ movementSpeed } {};
+    : pCamera{ &camera }
+    , sensitivity{ sensitivity }
+    , movementSpeed{ movementSpeed } {};
 
 EventHandleResult FPSControls::handleEvents(
     const EventQueue& eventQueue)
@@ -65,10 +65,10 @@ void FPSControls::handleKeyup(const SDL_Event& event)
 
 void FPSControls::handleMouseMovement(const SDL_Event& event)
 {
-    m_yaw = glm::wrapAngle(m_yaw + event.motion.xrel * m_sensitivity);
+    yaw = glm::wrapAngle(yaw + event.motion.xrel * sensitivity);
 
-    m_pitch = glm::clamp<float>(
-        m_pitch - event.motion.yrel * m_sensitivity,
+    pitch = glm::clamp<float>(
+        pitch - event.motion.yrel * sensitivity,
         s_lowerPitchLimit,
         s_upperPitchLimit);
 }
@@ -76,18 +76,18 @@ void FPSControls::handleMouseMovement(const SDL_Event& event)
 void FPSControls::update(const float dt)
 {
     glm::vec3 front{
-        glm::cos(m_yaw) * glm::cos(m_pitch),
-        glm::sin(m_pitch),
-        glm::cos(m_pitch) * glm::sin(m_yaw)
+        glm::cos(yaw) * glm::cos(pitch),
+        glm::sin(pitch),
+        glm::cos(pitch) * glm::sin(yaw)
     };
-    m_pCamera->m_direction = glm::normalize(front);
-    m_pCamera->m_right = crossAndNormalize(m_pCamera->m_direction, Camera::WorldUp);
-    m_pCamera->updateViewMatrix();
+    pCamera->direction = glm::normalize(front);
+    pCamera->right = crossAndNormalize(pCamera->direction, Camera::WorldUp);
+    pCamera->updateViewMatrix();
 
     if (glm::length(currentDirection) != 0) {
         glm::vec3 movementVector = glm::normalize(
-            currentDirection.z * m_pCamera->m_direction + currentDirection.x * m_pCamera->m_right);
-        m_pCamera->moveAlongDirection(movementVector, dt * m_movementSpeed);
+            currentDirection.z * pCamera->direction + currentDirection.x * pCamera->right);
+        pCamera->moveAlongDirection(movementVector, dt * movementSpeed);
     }
 }
 } // namespace bae

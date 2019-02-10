@@ -29,13 +29,13 @@ public:
 
     friend class FPSControls;
 
-    bae::Position m_position = Position(0.0f, 0.0f, 10.0f);
-    bae::Direction m_direction = Direction(0.0f, 0.0f, -1.0f);
-    bae::Direction m_right = Direction(1.0f, 0.0f, 0.0f);
-    float m_fov;
-    float m_aspectRatio;
-    glm::mat4 m_projection;
-    glm::mat4 m_view;
+    bae::Position position = Position(0.0f, 0.0f, 10.0f);
+    bae::Direction direction = Direction(0.0f, 0.0f, -1.0f);
+    bae::Direction right = Direction(1.0f, 0.0f, 0.0f);
+    float fov;
+    float aspectRatio;
+    glm::mat4 projection;
+    glm::mat4 view;
 
     // Projection
 

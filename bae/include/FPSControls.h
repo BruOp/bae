@@ -25,12 +25,12 @@ public:
     void update(const float dt);
 
 private:
-    Camera* m_pCamera = nullptr;
+    Camera* pCamera = nullptr;
     bae::Direction currentDirection = { 0.0f, 0.0f, 0.0f };
-    float m_sensitivity;
-    float m_movementSpeed;
-    float m_yaw = -HALF_PI;
-    float m_pitch = 0.0f;
+    float sensitivity;
+    float movementSpeed;
+    float yaw = -HALF_PI;
+    float pitch = 0.0f;
 
     void handleKeydown(const SDL_Event& event);
     void handleKeyup(const SDL_Event& event);

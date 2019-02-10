@@ -10,7 +10,7 @@ Renderer::~Renderer() noexcept
     pointLightUniforms.destroy();
 }
 
-void Renderer::init(Window* pWindow)
+void Renderer::init(Window* pWindow) noexcept
 {
     this->pWindow = pWindow;
     width = pWindow->getWidth();
@@ -34,11 +34,12 @@ void Renderer::init(Window* pWindow)
     geoRegistry.create("cube", cubeVertices, cubeIndices);
     ModelLoader loader{ &geoRegistry };
 
-	std::string bunny_path = ASSETS_DIR;
-	bunny_path += "/bunny.obj";
+    std::string bunny_path = ASSETS_DIR;
+    bunny_path += "/bunny.obj";
     loader.loadModel("bunny", bunny_path);
 
     pointLightUniforms.init();
+    sceneUniforms.init();
 
     state = 0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CW;
 }
@@ -55,6 +56,8 @@ void Renderer::renderFrame(const float dt, Camera& camera, entt::DefaultRegistry
     bgfx::touch(viewId);
     setupLighting<PointLightEmitter>(registry, pointLightUniforms);
     pointLightUniforms.set();
+
+    sceneUniforms.setCamera(camera);
 
     auto stateCopy = state;
     camera.setViewTransform(viewId);

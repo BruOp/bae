@@ -8,29 +8,29 @@ Camera::Camera(
     const uint32_t width,
     const uint32_t height,
     const float fovInDegrees)
-    : m_position{ position }
-    , m_direction{ glm::normalize(direction) }
-    , m_right{ -glm::cross(Camera::WorldUp, direction) }
-    , m_fov{ glm::radians(fovInDegrees) }
-    , m_aspectRatio{ (float)width / height }
-    , m_projection{ calcProjection(m_fov, m_aspectRatio) }
+    : position{ position }
+    , direction{ glm::normalize(direction) }
+    , right{ -glm::cross(Camera::WorldUp, direction) }
+    , fov{ glm::radians(fovInDegrees) }
+    , aspectRatio{ (float)width / height }
+    , projection{ calcProjection(fov, aspectRatio) }
 {
 }
 
 void Camera::updateViewMatrix()
 {
-    glm::vec3 up = glm::normalize(glm::cross(m_right, m_direction));
-    m_view = glm::lookAt(m_position, m_position + m_direction, up);
+    glm::vec3 up = glm::normalize(glm::cross(right, direction));
+    view = glm::lookAt(position, position + direction, up);
 }
 
 void Camera::setViewTransform(const bgfx::ViewId viewId) const
 {
-    bgfx::setViewTransform(viewId, glm::value_ptr(m_view), glm::value_ptr(m_projection), BGFX_VIEW_NONE);
+    bgfx::setViewTransform(viewId, glm::value_ptr(view), glm::value_ptr(projection), BGFX_VIEW_NONE);
 }
 
 void Camera::moveAlongDirection(const bae::Direction& direction, const float movementSpeed)
 {
-    m_position += (movementSpeed * direction);
+    position += (movementSpeed * direction);
 }
 
 glm::mat4 Camera::calcProjection(

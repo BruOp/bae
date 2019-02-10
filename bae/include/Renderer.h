@@ -19,6 +19,7 @@
 #include "Light.h"
 #include "MaterialType.h"
 #include "ModelLoader.h"
+#include "SceneUniforms.h"
 #include "Window.h"
 #include "materials/Basic.h"
 #include "utils/Vertex.h"
@@ -33,7 +34,7 @@ public:
     Renderer() = default;
     ~Renderer() noexcept;
 
-    void init(Window* pWindow);
+    void init(Window* pWindow) noexcept;
     void renderFrame(const float dt, Camera& camera, entt::DefaultRegistry& registry);
 
     template <typename Light>
@@ -67,6 +68,7 @@ public:
 
     GeometryRegistry geoRegistry;
     LightUniformSet pointLightUniforms = { "pointLight" };
+    SceneUniforms sceneUniforms;
     MaterialTypeManager matTypeManager;
 };
 } // namespace bae

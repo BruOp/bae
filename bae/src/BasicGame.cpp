@@ -11,7 +11,7 @@ BasicGame::BasicGame()
     uint32_t width = 1280;
     uint32_t height = 720;
 
-    initSDL();
+    windowContext.initSDL();
 
     pWindow = std::make_unique<bae::Window>(width, height);
 
@@ -40,11 +40,6 @@ BasicGame::BasicGame()
     auto light2 = registry.create();
     registry.assign<Position>(light2, -10.0f, 10.0f, 0.0f);
     registry.assign<PointLightEmitter>(light2, glm::vec3{ 1.0f, 0.0f, 0.0f }, 100.0f);
-}
-
-BasicGame::~BasicGame()
-{
-    SDL_Quit();
 }
 
 void BasicGame::start()
