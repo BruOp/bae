@@ -18,7 +18,7 @@ BasicGame::BasicGame() noexcept
     renderer.init(pWindow.get());
 
     camera = Camera{
-        Position{ 5.0f, 2.0f, 10.0f },
+        Position{ 0.0f, 1.0f, 5.0f },
         Direction{ 0.0f, 0.0f, -1.0f },
         width,
         height,
@@ -31,7 +31,7 @@ BasicGame::BasicGame() noexcept
     // Create our mesh
     registry.assign<Position>(entity, 0.0f, 0.0f, 0.0f);
     registry.assign<Geometry>(entity, renderer.geoRegistry.get("materialSphere"));
-    registry.assign<Materials::Basic>(entity, glm::vec4(0.5f, 0.5f, 1.0f, 1.0f));
+    registry.assign<Materials::Basic>(entity, glm::vec4(0.97f, 0.96f, 0.91f, 1.0f));
 
     auto light = registry.create();
     registry.assign<Position>(light, 15.0f, 0.0f, 0.0f);
