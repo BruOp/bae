@@ -23,6 +23,7 @@ void Renderer::init(Window* pWindow) noexcept
     PosColorVertex::init();
     PosTexNormalVertex::init();
     Materials::basic = matTypeManager.createMaterialType("basic", Materials::Basic::uniformInfoMap);
+	
 
     bgfx::setViewClear(
         0,
@@ -31,15 +32,19 @@ void Renderer::init(Window* pWindow) noexcept
         1.0f,
         0);
 
+    pointLightUniforms.init();
+    sceneUniforms.init();
+
     geoRegistry.create("cube", cubeVertices, cubeIndices);
     ModelLoader loader{ &geoRegistry };
 
-    std::string bunny_path = ASSETS_DIR;
-    bunny_path += "/bunny.obj";
+	std::string asset_dir = ASSETS_DIR;
+
+    std::string bunny_path = asset_dir + "/bunny.obj";
     loader.loadModel("bunny", bunny_path);
 
-    pointLightUniforms.init();
-    sceneUniforms.init();
+	std::string material_sphere_path = asset_dir + "/material_sphere.obj";
+	loader.loadModel("materialSphere", material_sphere_path);
 
     state = 0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CW;
 }

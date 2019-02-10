@@ -5,9 +5,9 @@ void LightUniformSet::init()
 {
     auto uniformName = lightName + "_params";
     params = bgfx::createUniform(uniformName.c_str(), bgfx::UniformType::Vec4);
-    uniformName = lightName + "_lightPos";
+    uniformName = lightName + "_pos";
     lightPos = bgfx::createUniform(uniformName.c_str(), bgfx::UniformType::Vec4, maxLightCount);
-    uniformName = lightName + "_lightColorIntensity";
+    uniformName = lightName + "_colorIntensity";
     lightColorIntensity = bgfx::createUniform(uniformName.c_str(), bgfx::UniformType::Vec4, maxLightCount);
 
     lightPosData.resize(maxLightCount);

@@ -2,7 +2,7 @@
 
 namespace bae {
 
-BasicGame::BasicGame()
+BasicGame::BasicGame() noexcept
     : renderer{}
     , registry{}
     , startOffset{ static_cast<uint64_t>(bx::getHPCounter()) }
@@ -30,16 +30,16 @@ BasicGame::BasicGame()
 
     // Create our mesh
     registry.assign<Position>(entity, 0.0f, 0.0f, 0.0f);
-    registry.assign<Geometry>(entity, renderer.geoRegistry.get("bunny"));
-    registry.assign<Materials::Basic>(entity, glm::vec4(1.0f, 0.0f, 1.0f, 1.0f));
+    registry.assign<Geometry>(entity, renderer.geoRegistry.get("materialSphere"));
+    registry.assign<Materials::Basic>(entity, glm::vec4(0.5f, 0.5f, 1.0f, 1.0f));
 
     auto light = registry.create();
-    registry.assign<Position>(light, 0.0f, 5.0f, 0.0f);
-    registry.assign<PointLightEmitter>(light, glm::vec3{ 1.0f, 0.0f, 1.0f }, 100.0f);
+    registry.assign<Position>(light, 15.0f, 0.0f, 0.0f);
+    registry.assign<PointLightEmitter>(light, glm::vec3{ 1.0f, 0.0f, 0.0f }, 100.0f);
 
     auto light2 = registry.create();
     registry.assign<Position>(light2, -10.0f, 10.0f, 0.0f);
-    registry.assign<PointLightEmitter>(light2, glm::vec3{ 1.0f, 0.0f, 0.0f }, 100.0f);
+    registry.assign<PointLightEmitter>(light2, glm::vec3{ 1.0f, 1.0f, 1.0f }, 100.0f);
 }
 
 void BasicGame::start()

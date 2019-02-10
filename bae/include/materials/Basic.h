@@ -17,7 +17,7 @@ namespace Materials {
         Basic()
             : Basic{ glm::vec4{ 0.0f, 0.0f, 0.0f, 1.0f } } {};
         Basic(const glm::vec4& color)
-            : color{ color, materialType->getHandle("color") }
+            : color{ color, materialType->getHandle("matColor") }
         {
         }
 

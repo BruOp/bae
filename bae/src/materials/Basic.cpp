@@ -6,7 +6,7 @@ namespace Materials {
 
     const MaterialType* Basic::materialType = &basic;
     const UniformInfoMap Basic::uniformInfoMap = {
-        { "color", { bgfx::UniformType::Vec4 } },
+        { "matColor", { bgfx::UniformType::Vec4 } },
     };
 }
 }

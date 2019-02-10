@@ -43,8 +43,8 @@ public:
                     attrib.normals[3 * index.normal_index + 2] },
             };
             if (index.texcoord_index >= 0) {
-                vertex.u = attrib.normals[3 * index.texcoord_index];
-                vertex.v = attrib.normals[3 * index.texcoord_index + 1];
+                vertex.u = attrib.texcoords[2 * index.texcoord_index];
+                vertex.v = attrib.texcoords[2 * index.texcoord_index + 1];
             }
 
             if (uniqueVertices.count(vertex) == 0) {

@@ -27,8 +27,7 @@ struct WindowContext {
 
 class BasicGame : IGame {
 public:
-    BasicGame();
-    ~BasicGame() noexcept;
+    BasicGame() noexcept;
 
     void start() override;
     bool update() override;
