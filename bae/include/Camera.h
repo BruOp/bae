@@ -22,7 +22,6 @@ public:
 
     void updateViewMatrix();
 
-    void setViewTransform(const bgfx::ViewId viewId) const;
     // void updateProjection(const float &fov, const float aspectRatio);
 
     void moveAlongDirection(const Direction& direction, const float movementSpeed);

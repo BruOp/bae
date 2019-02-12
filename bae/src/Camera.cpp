@@ -23,11 +23,6 @@ void Camera::updateViewMatrix()
     view = glm::lookAt(position, position + direction, up);
 }
 
-void Camera::setViewTransform(const bgfx::ViewId viewId) const
-{
-    bgfx::setViewTransform(viewId, glm::value_ptr(view), glm::value_ptr(projection), BGFX_VIEW_NONE);
-}
-
 void Camera::moveAlongDirection(const bae::Direction& direction, const float movementSpeed)
 {
     position += (movementSpeed * direction);

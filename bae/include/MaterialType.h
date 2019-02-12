@@ -14,12 +14,13 @@ struct UniformHandleInfo {
 typedef std::unordered_map<std::string, UniformHandleInfo> UniformInfoMap;
 
 struct MaterialType {
+    std::string name;
     bgfx::ProgramHandle program = BGFX_INVALID_HANDLE;
     UniformInfoMap uniformHandleMap;
 
-    inline bgfx::UniformHandle getHandle(const std::string& name) const
+    inline bgfx::UniformHandle getHandle(const std::string& uniformName) const
     {
-        return uniformHandleMap.at(name).handle;
+        return uniformHandleMap.at(uniformName).handle;
     }
 
     void destroy() noexcept;

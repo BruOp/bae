@@ -7,6 +7,7 @@ MaterialType MaterialTypeManager::createMaterialType(
     const UniformInfoMap& uniformHandleMap) noexcept
 {
     materialTypes[name] = MaterialType{
+        name,
         ShaderUtils::loadProgram(name),
         uniformHandleMap
     };

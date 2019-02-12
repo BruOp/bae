@@ -22,6 +22,8 @@
 #include "SceneUniforms.h"
 #include "Window.h"
 #include "materials/Basic.h"
+#include "materials/Lambertian.h"
+#include "materials/Physical.h"
 #include "utils/Vertex.h"
 
 #if BX_PLATFORM_WINDOWS
@@ -35,7 +37,7 @@ public:
     ~Renderer() noexcept;
 
     void init(Window* pWindow) noexcept;
-    void renderFrame(const float dt, Camera& camera, entt::DefaultRegistry& registry);
+    void renderFrame(const float dt, const float _time, Camera& camera, entt::DefaultRegistry& registry);
 
     template <typename Light>
     void setupLighting(entt::DefaultRegistry& registry, LightUniformSet& uniformSet)
@@ -70,5 +72,22 @@ public:
     LightUniformSet pointLightUniforms = { "pointLight" };
     SceneUniforms sceneUniforms;
     MaterialTypeManager matTypeManager;
+
+private:
+    template <typename Material>
+    void renderMaterialCollection(entt::DefaultRegistry& registry, const bgfx::ViewId viewId, const uint64_t state)
+    {
+        const bgfx::ProgramHandle program = Material::materialType->program;
+        registry.view<Position, Geometry, Material>().each(
+            [program, viewId, state](const auto&, const Position& pos, const auto& geo, const auto& mat) {
+                glm::mat4 mtx = glm::translate(glm::identity<glm::mat4>(), pos);
+                bgfx::setTransform(glm::value_ptr(mtx));
+
+                geo.set(viewId);
+                mat.setUniforms();
+                bgfx::setState(state);
+                bgfx::submit(viewId, program);
+            });
+    }
 };
 } // namespace bae

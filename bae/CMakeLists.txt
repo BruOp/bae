@@ -6,7 +6,8 @@ file(GLOB_RECURSE BAE_INCLUDE CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/incl
 file(GLOB BAE_VERT_SHADERS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*_vs.sc)
 file(GLOB BAE_FRAG_SHADERS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*_fs.sc)
 
-add_executable( bae ${BAE_SOURCE} ${BAE_INCLUDE} shaders/basic_vs.sc shaders/basic_fs.sc )
+add_executable( bae ${BAE_SOURCE} ${BAE_INCLUDE} ${BAE_VERT_SHADERS} ${BAE_FRAG_SHADERS} )
+
 target_link_libraries( bae PUBLIC bgfx imgui glm entt ${SDL2_LIBRARY} tiny_obj_loader)
 target_include_directories( bae PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${SDL2_INCLUDE_DIR})
 set_target_properties( bae PROPERTIES FOLDER "bae" )
@@ -14,8 +15,14 @@ set_target_properties( bae PROPERTIES FOLDER "bae" )
 set(SHADER_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 set(ASSETS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../assets)
 
-add_shader( shaders/basic_vs.sc VERTEX OUTPUT ${SHADER_OUTPUT_DIR} DX11_MODEL 5_0 GLSL 140 )
-add_shader( shaders/basic_fs.sc FRAGMENT OUTPUT ${SHADER_OUTPUT_DIR} DX11_MODEL 5_0 GLSL 140 )
+foreach(SHADER IN LISTS BAE_VERT_SHADERS)
+    add_shader( ${SHADER} VERTEX OUTPUT ${SHADER_OUTPUT_DIR} DX11_MODEL 5_0 GLSL 140 )
+endforeach(SHADER)
+
+
+foreach(SHADER IN LISTS BAE_FRAG_SHADERS)
+    add_shader( ${SHADER} FRAGMENT OUTPUT ${SHADER_OUTPUT_DIR} DX11_MODEL 5_0 GLSL 140 )
+endforeach(SHADER)
 
 target_compile_definitions(bae PUBLIC SHADER_OUTPUT_DIR=\"${SHADER_OUTPUT_DIR}\")
 target_compile_definitions(bae PUBLIC ASSETS_DIR=\"${ASSETS_DIR}\")

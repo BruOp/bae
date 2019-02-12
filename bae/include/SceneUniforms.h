@@ -18,8 +18,9 @@ struct SceneUniforms {
         bgfx::destroy(cameraPos);
     }
 
-    inline void setCamera(const Camera& camera) const
+    inline void setCamera(const Camera& camera, const bgfx::ViewId viewId) const
     {
+        bgfx::setViewTransform(viewId, glm::value_ptr(camera.view), glm::value_ptr(camera.projection), BGFX_VIEW_NONE);
         bgfx::setUniform(cameraPos, &(camera.position[0]));
     }
 };

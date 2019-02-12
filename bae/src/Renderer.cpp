@@ -7,6 +7,7 @@ namespace MatTypes {
 
 Renderer::~Renderer() noexcept
 {
+    sceneUniforms.destroy();
     pointLightUniforms.destroy();
 }
 
@@ -23,7 +24,8 @@ void Renderer::init(Window* pWindow) noexcept
     PosColorVertex::init();
     PosTexNormalVertex::init();
     Materials::basic = matTypeManager.createMaterialType("basic", Materials::Basic::uniformInfoMap);
-	
+    Materials::lambertian = matTypeManager.createMaterialType("lambertian", Materials::Lambertian::uniformInfoMap);
+    Materials::physical = matTypeManager.createMaterialType("physical", Materials::Physical::uniformInfoMap);
 
     bgfx::setViewClear(
         0,
@@ -38,18 +40,17 @@ void Renderer::init(Window* pWindow) noexcept
     geoRegistry.create("cube", cubeVertices, cubeIndices);
     ModelLoader loader{ &geoRegistry };
 
-	std::string asset_dir = ASSETS_DIR;
-
+    std::string asset_dir = ASSETS_DIR;
     std::string bunny_path = asset_dir + "/bunny.obj";
     loader.loadModel("bunny", bunny_path);
 
-	std::string material_sphere_path = asset_dir + "/material_sphere.obj";
-	loader.loadModel("materialSphere", material_sphere_path);
+    std::string material_sphere_path = asset_dir + "/material_sphere.obj";
+    loader.loadModel("materialSphere", material_sphere_path);
 
     state = 0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CW;
 }
 
-void Renderer::renderFrame(const float dt, Camera& camera, entt::DefaultRegistry& registry)
+void Renderer::renderFrame(const float dt, const float _time, Camera& camera, entt::DefaultRegistry& registry)
 {
     bgfx::ViewId viewId{ 0 };
 
@@ -62,22 +63,11 @@ void Renderer::renderFrame(const float dt, Camera& camera, entt::DefaultRegistry
     setupLighting<PointLightEmitter>(registry, pointLightUniforms);
     pointLightUniforms.set();
 
-    sceneUniforms.setCamera(camera);
+    sceneUniforms.setCamera(camera, viewId);
 
-    auto stateCopy = state;
-    camera.setViewTransform(viewId);
-    bgfx::ProgramHandle program = Materials::basic.program;
-    registry.view<Position, Geometry, Materials::Basic>().each(
-        [dt, program, viewId, stateCopy](const auto&, const Position& pos, const auto& geo, const auto& mat) {
-            glm::mat4 mtx = glm::translate(glm::identity<glm::mat4>(), pos);
-            bgfx::setTransform(glm::value_ptr(mtx));
-
-            geo.set(viewId);
-            mat.setUniforms();
-            bgfx::setState(stateCopy);
-            bgfx::submit(viewId, program);
-        });
-
+    renderMaterialCollection<Materials::Basic>(registry, viewId, state);
+    renderMaterialCollection<Materials::Lambertian>(registry, viewId, state);
+    renderMaterialCollection<Materials::Physical>(registry, viewId, state);
     // Advance to next frame. Rendering thread will be kicked to
     // process submitted rendering primitives.
     bgfx::frame();
