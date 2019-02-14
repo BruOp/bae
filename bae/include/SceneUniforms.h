@@ -2,7 +2,7 @@
 #include <bgfx/bgfx.h>
 
 #include "Camera.h"
-#include "materials/Uniforms.h"
+#include "Uniforms.h"
 
 namespace bae {
 struct SceneUniforms {

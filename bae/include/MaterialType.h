@@ -4,6 +4,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace bae {
 struct UniformHandleInfo {
@@ -16,11 +17,11 @@ typedef std::unordered_map<std::string, UniformHandleInfo> UniformInfoMap;
 struct MaterialType {
     std::string name;
     bgfx::ProgramHandle program = BGFX_INVALID_HANDLE;
-    UniformInfoMap uniformHandleMap;
+    UniformInfoMap uniformInfoMap;
 
     inline bgfx::UniformHandle getHandle(const std::string& uniformName) const
     {
-        return uniformHandleMap.at(uniformName).handle;
+        return uniformInfoMap.at(uniformName).handle;
     }
 
     void destroy() noexcept;
@@ -36,11 +37,22 @@ public:
     MaterialTypeManager(MaterialTypeManager&&) = default;
     MaterialTypeManager& operator=(MaterialTypeManager&&) = default;
 
-    MaterialType createMaterialType(
-        const std::string& name,
-        const UniformInfoMap& uniformHandleMap) noexcept;
+    template <typename Material>
+    void registerMaterialType() noexcept
+    {
+        MaterialType& matType = Material::materialType;
+        matType.program = ShaderUtils::loadProgram(matType.name);
+
+        for (auto& entry : matType.uniformInfoMap) {
+            const std::string& name = entry.first;
+            UniformHandleInfo& info = entry.second;
+            info.handle = bgfx::createUniform(name.c_str(), info.type);
+        }
+
+        materialTypes.push_back(matType);
+    };
 
 private:
-    std::unordered_map<std::string, MaterialType> materialTypes;
+    std::vector<MaterialType> materialTypes;
 };
 } // namespace bae

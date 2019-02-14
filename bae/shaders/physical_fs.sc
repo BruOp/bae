@@ -29,7 +29,7 @@ float V_SmithGGXCorrelatedFast(float NoV, float NoL, float linearRoughness) {
 }
 
 vec3 F_Schlick(float VoH, float reflectance, float metallic) {
-    vec3 f0 = vec3(0.16 * reflectance * reflectance * (1.0 - metallic)) + matColor.xyz * metallic;
+    vec3 f0 = vec3_splat(0.16 * reflectance * reflectance * (1.0 - metallic)) + matColor.xyz * metallic;
     float f = pow(1.0 - VoH, 5.0);
     return f + f0 * (1.0 - f);
 }

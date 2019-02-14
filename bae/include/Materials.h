@@ -4,17 +4,56 @@
 #include <glm/glm.hpp>
 
 #include "MaterialType.h"
+#include "Uniforms.h"
 #include "utils/Common.h"
 
 namespace bae {
 namespace Materials {
-    extern MaterialType physical;
+    class BaseMaterial {
+        inline virtual void setUniforms() const = 0;
+    };
 
-    struct Physical {
+    struct Basic : public BaseMaterial {
+        Vec4Uniform color;
 
-        const static MaterialType* materialType;
-        const static UniformInfoMap uniformInfoMap;
+        static MaterialType materialType;
 
+        Basic(const glm::vec4& color = glm::vec4{ 0.0f, 0.0f, 0.0f, 1.0f })
+            : color{ color, materialType.getHandle("matColor") }
+        {
+        }
+
+        inline void setUniforms() const override
+        {
+            color.setUniform();
+        };
+    };
+
+    struct Lambertian : public BaseMaterial {
+        friend class MaterialTypeManager;
+
+        Vec4Uniform color;
+
+        static MaterialType materialType;
+
+        Lambertian(const glm::vec4& color = glm::vec4{ 0.0f, 0.0f, 0.0f, 1.0f })
+            : color{ color, materialType.getHandle("matColor") }
+        {
+        }
+
+        inline void setUniforms() const override
+        {
+            color.setUniform();
+        };
+
+        inline static bgfx::ProgramHandle getProgram()
+        {
+            return materialType.program;
+        }
+    };
+
+    class Physical : public BaseMaterial {
+    public:
         Physical(
             const glm::vec4& color = glm::vec4{ 0.0f, 0.0f, 0.0f, 1.0f },
             const float metallic = 0.0,
@@ -24,12 +63,12 @@ namespace Materials {
             , metallic{ metallic }
             , roughness{ std::clamp(roughness, minRoughness, maxRoughness) }
             , reflectance{ reflectance }
-            , u_matColor{ materialType->getHandle("matColor") }
-            , u_metallicRoughnessReflectance{ materialType->getHandle("metallicRoughnessReflectance") }
+            , u_matColor{ materialType.getHandle("matColor") }
+            , u_metallicRoughnessReflectance{ materialType.getHandle("metallicRoughnessReflectance") }
         {
         }
 
-        inline void setUniforms() const
+        inline void setUniforms() const override
         {
             float metallicRoughnessReflectance[] = { metallic, roughness, reflectance, 0.0 };
             bgfx::setUniform(u_matColor, &(matColor[0]));
@@ -50,6 +89,8 @@ namespace Materials {
         }
         inline void setMetallic(const float newMetallic) { metallic = newMetallic; }
         inline void setReflectance(const float newReflectance) { reflectance = reflectance; }
+
+        static MaterialType materialType;
 
     private:
         glm::vec4 matColor;

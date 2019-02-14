@@ -18,12 +18,10 @@
 #include "Instance.h"
 #include "Light.h"
 #include "MaterialType.h"
+#include "Materials.h"
 #include "ModelLoader.h"
 #include "SceneUniforms.h"
 #include "Window.h"
-#include "materials/Basic.h"
-#include "materials/Lambertian.h"
-#include "materials/Physical.h"
 #include "utils/Vertex.h"
 
 #if BX_PLATFORM_WINDOWS
@@ -77,7 +75,7 @@ private:
     template <typename Material>
     void renderMaterialCollection(entt::DefaultRegistry& registry, const bgfx::ViewId viewId, const uint64_t state)
     {
-        const bgfx::ProgramHandle program = Material::materialType->program;
+        const bgfx::ProgramHandle program = Material::materialType.program;
         registry.view<Position, Geometry, Material>().each(
             [program, viewId, state](const auto&, const Position& pos, const auto& geo, const auto& mat) {
                 glm::mat4 mtx = glm::translate(glm::identity<glm::mat4>(), pos);

@@ -23,9 +23,10 @@ void Renderer::init(Window* pWindow) noexcept
     instance.initBgfx(platformData, width, height);
     PosColorVertex::init();
     PosTexNormalVertex::init();
-    Materials::basic = matTypeManager.createMaterialType("basic", Materials::Basic::uniformInfoMap);
-    Materials::lambertian = matTypeManager.createMaterialType("lambertian", Materials::Lambertian::uniformInfoMap);
-    Materials::physical = matTypeManager.createMaterialType("physical", Materials::Physical::uniformInfoMap);
+
+    matTypeManager.registerMaterialType<Materials::Basic>();
+    matTypeManager.registerMaterialType<Materials::Lambertian>();
+    matTypeManager.registerMaterialType<Materials::Physical>();
 
     bgfx::setViewClear(
         0,
