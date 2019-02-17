@@ -78,17 +78,17 @@ SET(SDL2_SEARCH_PATHS
 )
 
 FIND_PATH(SDL2_INCLUDE_DIR SDL.h
-	HINTS
-	$ENV{SDL2DIR}
-	PATH_SUFFIXES include/SDL2 include
-	PATHS ${SDL2_SEARCH_PATHS}
+HINTS
+$ENV{SDL2DIR}
+PATH_SUFFIXES include/SDL2 include
+PATHS ${SDL2_SEARCH_PATHS}
 )
 
 FIND_LIBRARY(SDL2_LIBRARY_TEMP
 	NAMES SDL2
 	HINTS
 	$ENV{SDL2DIR}
-	PATH_SUFFIXES lib64 lib lib/x64
+	PATH_SUFFIXES lib64 libs libs/x64
 	PATHS ${SDL2_SEARCH_PATHS}
 )
 
@@ -102,11 +102,13 @@ IF(NOT SDL2_BUILDING_LIBRARY)
 			NAMES SDL2main
 			HINTS
 			$ENV{SDL2DIR}
-			PATH_SUFFIXES lib64 lib lib/x64
+			PATH_SUFFIXES lib64 libs lib/x64
 			PATHS ${SDL2_SEARCH_PATHS}
 		)
 	ENDIF(NOT ${SDL2_INCLUDE_DIR} MATCHES ".framework")
 ENDIF(NOT SDL2_BUILDING_LIBRARY)
+
+
 
 # SDL2 may require threads on your system.
 # The Apple build may not need an explicit flag because one of the
@@ -152,6 +154,8 @@ IF(SDL2_LIBRARY_TEMP)
 	IF(MINGW)
 		SET(SDL2_LIBRARY_TEMP ${MINGW32_LIBRARY} ${SDL2_LIBRARY_TEMP})
 	ENDIF(MINGW)
+
+
 
 	# Set the final string here so the GUI reflects the final state.
 	SET(SDL2_LIBRARY ${SDL2_LIBRARY_TEMP} CACHE STRING "Where the SDL2 Library can be found")
