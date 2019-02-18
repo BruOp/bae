@@ -21,6 +21,9 @@ void Renderer::init(Window* pWindow) noexcept
     bgfx::PlatformData platformData = pWindow->getPlatformData();
 
     instance.initBgfx(platformData, width, height);
+	PosVertex::init();
+	NormalVertex::init();
+	TexCoordVertex::init();
     PosColorVertex::init();
     PosTexNormalVertex::init();
 
@@ -39,14 +42,25 @@ void Renderer::init(Window* pWindow) noexcept
     sceneUniforms.init();
 
     geoRegistry.create("cube", cubeVertices, cubeIndices);
+
     ModelLoader loader{ &geoRegistry };
+	//std::string gltf_dir = GLTF_DIR;
+	//std::string cube_path = gltf_dir + "Cube/glTF/Cube.gltf";
+	//std::vector<Geometry> cubeGeometries = loader.loadGltfModel(cube_path);
+
+	//for (auto& geo : cubeGeometries) {
+	//	bgfx::destroy(geo.indexBuffer);
+	//	for (uint16_t i = 0; i < geo.numVertBufferStreams; ++i) {
+	//		bgfx::destroy(geo.vertexBuffers[i]);
+	//	}
+	//}
 
     std::string asset_dir = ASSETS_DIR;
     std::string bunny_path = asset_dir + "/bunny.obj";
-    loader.loadModel("bunny", bunny_path);
+    loader.loadObjModel("bunny", bunny_path);
 
     std::string material_sphere_path = asset_dir + "/material_sphere.obj";
-    loader.loadModel("materialSphere", material_sphere_path);
+    loader.loadObjModel("materialSphere", material_sphere_path);
 
     state = 0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CW;
 }

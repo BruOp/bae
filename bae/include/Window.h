@@ -1,8 +1,8 @@
 #pragma once
 #include <stdexcept>
 
-#include "SDL.h"
-#include "SDL_syswm.h"
+#include <SDL.h>
+#include <SDL_syswm.h>
 #include <bgfx/platform.h>
 
 namespace bae

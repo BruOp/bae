@@ -27,6 +27,7 @@ endforeach(SHADER)
 
 target_compile_definitions(bae PUBLIC SHADER_OUTPUT_DIR=\"${SHADER_OUTPUT_DIR}\")
 target_compile_definitions(bae PUBLIC ASSETS_DIR=\"${ASSETS_DIR}\")
+target_compile_definitions(bae PUBLIC GLTF_DIR=\"${GLTF_DIR}\")
 
 configure_debugging( bae WORKING_DIR ${CMAKE_CURRENT_BINARY_DIR} )
 

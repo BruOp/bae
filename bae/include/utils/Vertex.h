@@ -6,6 +6,49 @@
 #include <glm/gtx/hash.hpp>
 
 namespace bae {
+struct PosVertex {
+	glm::vec3 pos;
+
+	static bgfx::VertexDecl ms_declaration;
+	
+	static void init()
+	{
+		ms_declaration
+			.begin()
+			.add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
+			.end();
+	}
+};
+
+struct NormalVertex {
+	glm::vec3 normal;
+
+	static bgfx::VertexDecl ms_declaration;
+
+	static void init()
+	{
+		ms_declaration
+			.begin()
+			.add(bgfx::Attrib::Normal, 3, bgfx::AttribType::Float, true)
+			.end();
+	}
+};
+
+struct TexCoordVertex {
+	int16_t u;
+	int16_t v;
+
+	static bgfx::VertexDecl ms_declaration;
+	
+	static void init()
+	{
+		ms_declaration
+			.begin()
+			.add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Int16, true)
+			.end();
+	}
+};
+
 struct PosColorVertex {
     glm::vec3 pos;
     uint32_t color;

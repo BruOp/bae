@@ -3,11 +3,16 @@
 #include <bgfx/bgfx.h>
 #include <unordered_map>
 #include <vector>
+#include <array>
+
 
 namespace bae {
+	constexpr size_t MAX_VERT_BUFFERS_PER_GEOMETRY = 4;
+
 struct Geometry {
-    bgfx::VertexBufferHandle vertexBuffer = { bgfx::kInvalidHandle };
-    bgfx::IndexBufferHandle indexBuffer = { bgfx::kInvalidHandle };
+	bgfx::VertexBufferHandle vertexBuffers[MAX_VERT_BUFFERS_PER_GEOMETRY] = { BGFX_INVALID_HANDLE, BGFX_INVALID_HANDLE, BGFX_INVALID_HANDLE, BGFX_INVALID_HANDLE };
+    bgfx::IndexBufferHandle indexBuffer = BGFX_INVALID_HANDLE;
+	uint16_t numVertBufferStreams = 0;
 
     void set(const bgfx::ViewId viewId) const;
 };
@@ -29,7 +34,8 @@ public:
     {
         Geometry geometry{};
         const bgfx::Memory* vertMemory = bgfx::copy(vertices.data(), sizeof(vertices[0]) * vertices.size());
-        geometry.vertexBuffer = bgfx::createVertexBuffer(
+		geometry.numVertBufferStreams = 1;
+        geometry.vertexBuffers[0] = bgfx::createVertexBuffer(
             vertMemory,
             Vertex::ms_declaration);
 
@@ -45,7 +51,9 @@ private:
     inline static void destroyGeometry(Geometry& geometry) noexcept
     {
         bgfx::destroy(geometry.indexBuffer);
-        bgfx::destroy(geometry.vertexBuffer);
+		for (uint16_t i = 0; i < geometry.numVertBufferStreams; ++i) {
+			bgfx::destroy(geometry.vertexBuffers[i]);
+		}
     };
 };
 } // namespace bae

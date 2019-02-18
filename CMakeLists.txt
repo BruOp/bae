@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
-
+set(GLTF_DIR "${CMAKE_CURRENT_LIST_DIR}/../glTF-Sample-Models/2.0/")
 add_subdirectory( deps )
 include( deps/bgfx.cmake/cmake/util/ConfigureDebugging.cmake )
 add_subdirectory( external )

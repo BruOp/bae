@@ -3,7 +3,9 @@
 namespace bae {
 void Geometry::set(const bgfx::ViewId viewId) const
 {
-    bgfx::setVertexBuffer(viewId, vertexBuffer);
+	for (uint16_t i = 0; i < numVertBufferStreams; ++i) {
+		bgfx::setVertexBuffer(i, vertexBuffers[i]);
+	}
     bgfx::setIndexBuffer(indexBuffer);
 }
 
