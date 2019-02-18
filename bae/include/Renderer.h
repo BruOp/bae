@@ -2,7 +2,7 @@
 #include <memory>
 #include <stdexcept>
 
-#include "SDL.h"
+#include <SDL.h>
 #include <bgfx/bgfx.h>
 #include <bgfx/platform.h>
 #include <bx/timer.h>
@@ -23,10 +23,6 @@
 #include "SceneUniforms.h"
 #include "Window.h"
 #include "utils/Vertex.h"
-
-#if BX_PLATFORM_WINDOWS
-#define SDL_MAIN_HANDLED
-#endif // BX_PLATFORM_WINDOWS
 
 namespace bae {
 class Renderer {

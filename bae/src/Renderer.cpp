@@ -1,6 +1,10 @@
 #include "Renderer.h"
 #include "Cube.cpp"
 
+#if BX_PLATFORM_WINDOWS
+#define SDL_MAIN_HANDLED
+#endif // BX_PLATFORM_WINDOWS
+
 namespace bae {
 namespace MatTypes {
 }; // namespace MatTypes
