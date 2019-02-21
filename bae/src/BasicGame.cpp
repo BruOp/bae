@@ -30,7 +30,7 @@ BasicGame::BasicGame() noexcept
 
     // Create our mesh
     registry.assign<Position>(entity, 2.0f, 0.0f, 0.0f);
-    registry.assign<Geometry>(entity, renderer.geoRegistry.get("materialSphere"));
+    registry.assign<Geometry>(entity, renderer.geoRegistry.get("Cube"));
     registry.assign<Materials::Lambertian>(entity, glm::vec4(1.0f, 0.1f, 0.1f, 1.0f));
 
     entity = registry.create();

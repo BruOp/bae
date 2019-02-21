@@ -1,5 +1,4 @@
 #include "Renderer.h"
-#include "Cube.cpp"
 
 #if BX_PLATFORM_WINDOWS
 #define SDL_MAIN_HANDLED
@@ -45,20 +44,11 @@ void Renderer::init(Window* pWindow) noexcept
     pointLightUniforms.init();
     sceneUniforms.init();
 
-    geoRegistry.create("cube", cubeVertices, cubeIndices);
-
     ModelLoader loader{ &geoRegistry };
-	//std::string gltf_dir = GLTF_DIR;
-	//std::string cube_path = gltf_dir + "Cube/glTF/Cube.gltf";
-	//std::vector<Geometry> cubeGeometries = loader.loadGltfModel(cube_path);
-
-	//for (auto& geo : cubeGeometries) {
-	//	bgfx::destroy(geo.indexBuffer);
-	//	for (uint16_t i = 0; i < geo.numVertBufferStreams; ++i) {
-	//		bgfx::destroy(geo.vertexBuffers[i]);
-	//	}
-	//}
-
+	std::string gltf_dir = GLTF_DIR;
+	std::string cube_path = gltf_dir + "Cube/glTF/Cube.gltf";
+	std::vector<Geometry> cubeGeometries = loader.loadGltfModel(cube_path);
+    
     std::string asset_dir = ASSETS_DIR;
     std::string bunny_path = asset_dir + "/bunny.obj";
     loader.loadObjModel("bunny", bunny_path);

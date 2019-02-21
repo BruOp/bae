@@ -26,6 +26,11 @@ public:
         return geometry_map.at(name);
     }
 
+    inline void set(const std::string& name, const Geometry& geometry)
+    {
+        geometry_map[name] = geometry;
+    }
+
     template <typename Vertex>
     void create(
         const std::string& name,

@@ -9,7 +9,7 @@
 #include <tinygltf/tiny_gltf.h>
 
 namespace bae {
-	Geometry bae::ModelLoader::loadObjModel(const std::string& name, const std::string& file)
+	Geometry bae::ModelLoader::loadObjModel(const std::string& name, const std::string& file) noexcept
 	{
 		tinyobj::attrib_t attrib;
 		std::vector<tinyobj::shape_t> shapes;
@@ -55,7 +55,7 @@ namespace bae {
 		return pGeometryRegistry->get(name);
 	}
 
-	std::vector<Geometry> ModelLoader::loadGltfModel(const std::string& file)
+	std::vector<Geometry> ModelLoader::loadGltfModel(const std::string& file) noexcept
 	{
 		std::vector<Geometry> geometries{};
 		tinygltf::TinyGLTF loader{};
@@ -76,12 +76,12 @@ namespace bae {
 
 		const tinygltf::Scene& scene = model.scenes[model.defaultScene];
 		for (size_t i = 0; i < scene.nodes.size(); ++i) {
-			//processModelNodes(geometries, model, model.nodes[scene.nodes[i]]);
+			processModelNodes(geometries, model, model.nodes[scene.nodes[i]]);
 		}
 		return geometries;
 	}
 
-	void ModelLoader::processModelNodes(std::vector<Geometry>& geometries, const tinygltf::Model& model, const tinygltf::Node& node)
+	void ModelLoader::processModelNodes(std::vector<Geometry>& geometries, const tinygltf::Model& model, const tinygltf::Node& node) noexcept
 	{
 		if (node.mesh >= 0) {
 			processMesh(geometries, model, model.meshes[node.mesh]);
@@ -92,7 +92,7 @@ namespace bae {
 	}
 
 
-	void ModelLoader::processMesh(std::vector<Geometry>& geometries, const tinygltf::Model& model, const tinygltf::Mesh& mesh)
+	void ModelLoader::processMesh(std::vector<Geometry>& geometries, const tinygltf::Model& model, const tinygltf::Mesh& mesh) noexcept
 	{
 		Geometry geometry{};
 		// Get indices
@@ -117,14 +117,27 @@ namespace bae {
 		tinygltf::Accessor accessor = model.accessors[accessorIndex];
 		bufferView = model.bufferViews[accessor.bufferView];
 
-		int byteStride = accessor.ByteStride(bufferView);
-		if (byteStride > 0) {
-			throw std::runtime_error("Don't know how to handle strided buffers with BGFX!");
-		}
-
-		const bgfx::Memory* vertMemory = bgfx::copy(&buffer.data.at(0) + bufferView.byteOffset, bufferView.byteLength);
+		const bgfx::Memory* vertMemory = bgfx::copy(&(buffer.data.at(bufferView.byteOffset)), bufferView.byteLength);
 		geometry.vertexBuffers[geometry.numVertBufferStreams++] = bgfx::createVertexBuffer(vertMemory, PosVertex::ms_declaration);
+
+        // Normal
+        accessorIndex = primitive.attributes.at("NORMAL");
+        accessor = model.accessors[accessorIndex];
+        bufferView = model.bufferViews[accessor.bufferView];
+
+        const bgfx::Memory* normalMemory = bgfx::copy(&(buffer.data.at(bufferView.byteOffset)), bufferView.byteLength);
+        geometry.vertexBuffers[geometry.numVertBufferStreams++] = bgfx::createVertexBuffer(normalMemory, NormalVertex::ms_declaration);
+
+        
+        // Tex Coords
+        accessorIndex = primitive.attributes.at("TEXCOORD_0");
+        accessor = model.accessors[accessorIndex];
+        bufferView = model.bufferViews[accessor.bufferView];
+
+        const bgfx::Memory* texCoordMemory = bgfx::copy(&(buffer.data.at(bufferView.byteOffset)), bufferView.byteLength);
+        geometry.vertexBuffers[geometry.numVertBufferStreams++] = bgfx::createVertexBuffer(texCoordMemory, TexCoordVertex::ms_declaration);
 		
+        pGeometryRegistry->set(mesh.name, geometry);
 		geometries.push_back(geometry);
 	}
 }
