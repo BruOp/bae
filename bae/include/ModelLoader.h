@@ -28,6 +28,8 @@ private:
 
 	void processModelNodes(std::vector<Geometry>& geometries, const tinygltf::Model& model, const tinygltf::Node& node) noexcept;
 	
-    void processMesh(std::vector<Geometry>& geometries, const tinygltf::Model& model, const tinygltf::Mesh& mesh) noexcept;
+    void processMeshGeometry(std::vector<Geometry>& geometries, const tinygltf::Model& model, const tinygltf::Mesh& mesh) noexcept;
+
+    void processMeshMaterial(const tinygltf::Model& model, const tinygltf::Mesh& mesh) noexcept;
 };
 }

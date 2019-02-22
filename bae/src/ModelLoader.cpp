@@ -84,7 +84,7 @@ namespace bae {
 	void ModelLoader::processModelNodes(std::vector<Geometry>& geometries, const tinygltf::Model& model, const tinygltf::Node& node) noexcept
 	{
 		if (node.mesh >= 0) {
-			processMesh(geometries, model, model.meshes[node.mesh]);
+			processMeshGeometry(geometries, model, model.meshes[node.mesh]);
 	    }
 		if (node.children.size() > 0) {
 			// Can process children nodes recursively
@@ -92,7 +92,7 @@ namespace bae {
 	}
 
 
-	void ModelLoader::processMesh(std::vector<Geometry>& geometries, const tinygltf::Model& model, const tinygltf::Mesh& mesh) noexcept
+	void ModelLoader::processMeshGeometry(std::vector<Geometry>& geometries, const tinygltf::Model& model, const tinygltf::Mesh& mesh) noexcept
 	{
 		Geometry geometry{};
 		// Get indices
@@ -136,8 +136,19 @@ namespace bae {
 
         const bgfx::Memory* texCoordMemory = bgfx::copy(&(buffer.data.at(bufferView.byteOffset)), bufferView.byteLength);
         geometry.vertexBuffers[geometry.numVertBufferStreams++] = bgfx::createVertexBuffer(texCoordMemory, TexCoordVertex::ms_declaration);
-		
+		   
+        processMeshMaterial(model, mesh);
+
         pGeometryRegistry->set(mesh.name, geometry);
 		geometries.push_back(geometry);
 	}
+
+    void ModelLoader::processMeshMaterial(const tinygltf::Model& model, const tinygltf::Mesh& mesh) noexcept {
+        tinygltf::Material material = model.materials[mesh.primitives[0].material];
+        for (const auto& mats : material.values) {
+            if (mats.first.compare("baseColorTexture")) {
+                //tinygltf::Texture texture = model.textures[mats.second.json_double_value];
+            }
+        }        
+    }
 }
