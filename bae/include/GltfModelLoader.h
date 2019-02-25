@@ -4,6 +4,7 @@
 
 #include "Utils/Common.h"
 #include "Geometry.h"
+#include "Texture.h"
 
 namespace bgfx {
     class VertexDecl;
@@ -16,7 +17,6 @@ namespace tinygltf {
 }
 
 namespace bae {
-    
     class GltfModelLoader {
     public:
         GltfModelLoader(entt::DefaultRegistry& registry, GeometryRegistry& geoRegistry);

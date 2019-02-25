@@ -44,8 +44,6 @@ void Renderer::init(Window* pWindow) noexcept
     pointLightUniforms.init();
     sceneUniforms.init();
 
-    modelLoader = ModelLoader{ &geoRegistry };
-
     state = 0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CW;
 }
 

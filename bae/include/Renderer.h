@@ -19,8 +19,8 @@
 #include "Light.h"
 #include "MaterialType.h"
 #include "Materials.h"
-#include "ModelLoader.h"
 #include "SceneUniforms.h"
+#include "Texture.h"
 #include "Window.h"
 #include "utils/Vertex.h"
 
@@ -63,7 +63,7 @@ public:
     Instance instance = Instance{};
 
     GeometryRegistry geoRegistry;
-    ModelLoader modelLoader;
+    TextureManager textureManager;
     LightUniformSet pointLightUniforms = { "pointLight" };
     SceneUniforms sceneUniforms;
     MaterialTypeManager matTypeManager;
