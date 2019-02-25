@@ -44,17 +44,7 @@ void Renderer::init(Window* pWindow) noexcept
     pointLightUniforms.init();
     sceneUniforms.init();
 
-    ModelLoader loader{ &geoRegistry };
-	std::string gltf_dir = GLTF_DIR;
-	std::string cube_path = gltf_dir + "Cube/glTF/Cube.gltf";
-	std::vector<Geometry> cubeGeometries = loader.loadGltfModel(cube_path);
-    
-    std::string asset_dir = ASSETS_DIR;
-    std::string bunny_path = asset_dir + "/bunny.obj";
-    loader.loadObjModel("bunny", bunny_path);
-
-    std::string material_sphere_path = asset_dir + "/material_sphere.obj";
-    loader.loadObjModel("materialSphere", material_sphere_path);
+    modelLoader = ModelLoader{ &geoRegistry };
 
     state = 0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CW;
 }

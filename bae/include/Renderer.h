@@ -63,6 +63,7 @@ public:
     Instance instance = Instance{};
 
     GeometryRegistry geoRegistry;
+    ModelLoader modelLoader;
     LightUniformSet pointLightUniforms = { "pointLight" };
     SceneUniforms sceneUniforms;
     MaterialTypeManager matTypeManager;
@@ -72,10 +73,9 @@ private:
     void renderMaterialCollection(entt::DefaultRegistry& registry, const bgfx::ViewId viewId, const uint64_t state)
     {
         const bgfx::ProgramHandle program = Material::materialType.program;
-        registry.view<Position, Geometry, Material>().each(
-            [program, viewId, state](const auto&, const Position& pos, const auto& geo, const auto& mat) {
-                glm::mat4 mtx = glm::translate(glm::identity<glm::mat4>(), pos);
-                bgfx::setTransform(glm::value_ptr(mtx));
+        registry.view<Transform, Geometry, Material>().each(
+            [program, viewId, state](const auto&, const Transform& transform, const auto& geo, const auto& mat) {
+                bgfx::setTransform(glm::value_ptr(transform));
 
                 geo.set(viewId);
                 mat.setUniforms();

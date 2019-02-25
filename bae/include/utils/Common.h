@@ -5,6 +5,10 @@
 #include "Geometric.h"
 
 namespace bae {
+
+    typedef uint32_t Entity;
+    typedef uint32_t Parent;
+
 inline float getTime(const uint64_t startOffset)
 {
     return static_cast<float>((bx::getHPCounter() - startOffset) / static_cast<double>(bx::getHPFrequency()));

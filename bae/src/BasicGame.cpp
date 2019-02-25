@@ -1,4 +1,5 @@
 #include "BasicGame.h"
+#include "GltfModelLoader.h"
 
 namespace bae {
 
@@ -25,26 +26,12 @@ BasicGame::BasicGame() noexcept
         60.0f
     };
     cameraControls = FPSControls{ camera };
-
-    auto entity = registry.create();
-
-    // Create our mesh
-    registry.assign<Position>(entity, 2.0f, 0.0f, 0.0f);
-    registry.assign<Geometry>(entity, renderer.geoRegistry.get("Cube"));
-    registry.assign<Materials::Lambertian>(entity, glm::vec4(1.0f, 0.1f, 0.1f, 1.0f));
-
-    entity = registry.create();
-
-    // Create our mesh
-    registry.assign<Position>(entity, -4.0f, -1.0f, 0.0f);
-    registry.assign<Geometry>(entity, renderer.geoRegistry.get("materialSphere"));
-    registry.assign<Materials::Physical>(
-        entity,
-        glm::vec4(1.00, 0.85, 0.57, 1.0),
-        1.0,
-        0.4,
-        0.1);
-
+    
+    std::string gltfDir = GLTF_DIR;
+    std::string cubePath = gltfDir + "Cube/glTF/Cube.gltf";
+    GltfModelLoader modelLoader{ registry, renderer.geoRegistry };
+    std::vector<uint32_t> entities = modelLoader.loadModel(cubePath);
+    
     auto light = registry.create();
     registry.assign<Position>(light, 15.0f, 0.0f, 0.0f);
     registry.assign<PointLightEmitter>(light, glm::vec3{ 1.0f, 1.0f, 0.2f }, 50.0f);

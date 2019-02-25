@@ -1,14 +1,11 @@
 #pragma once
 #include <exception>
+#include <entt/entt.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 #include "Geometry.h"
+#include "utils/Common.h"
 #include "utils/Vertex.h"
-
-namespace tinygltf {
-	class Node;
-	class Model;
-	class Mesh;
-}
 
 namespace bae {
 
@@ -18,18 +15,9 @@ public:
     ModelLoader(GeometryRegistry* geoRegistry)
         : pGeometryRegistry{ geoRegistry } {};
 
-	Geometry loadObjModel(const std::string& name, const std::string& file) noexcept;
-
-	std::vector<Geometry> loadGltfModel(const std::string& file) noexcept;
-
-
+	Geometry loadObjModel(const std::string& name, const std::string& file);
+  
 private:
     GeometryRegistry* pGeometryRegistry = nullptr;
-
-	void processModelNodes(std::vector<Geometry>& geometries, const tinygltf::Model& model, const tinygltf::Node& node) noexcept;
-	
-    void processMeshGeometry(std::vector<Geometry>& geometries, const tinygltf::Model& model, const tinygltf::Mesh& mesh) noexcept;
-
-    void processMeshMaterial(const tinygltf::Model& model, const tinygltf::Mesh& mesh) noexcept;
 };
 }

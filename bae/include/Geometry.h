@@ -26,9 +26,9 @@ public:
         return geometry_map.at(name);
     }
 
-    inline void set(const std::string& name, const Geometry& geometry)
+    inline Geometry& set(const std::string& name, const Geometry& geometry)
     {
-        geometry_map[name] = geometry;
+        return geometry_map[name] = geometry;
     }
 
     template <typename Vertex>
