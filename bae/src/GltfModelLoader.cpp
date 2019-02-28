@@ -8,13 +8,12 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/quaternion.hpp>
 
-#include "Materials.h"
-
-
 namespace bae {
-GltfModelLoader::GltfModelLoader(entt::DefaultRegistry& registry, GeometryRegistry& geoRegistry)
-    : pRegistry(&registry),
-    pGeoRegistry(&geoRegistry)
+GltfModelLoader::GltfModelLoader(entt::DefaultRegistry& registry, GeometryRegistry& geoRegistry, TextureManager& textureManager)
+    : pRegistry{ &registry }
+    , pGeoRegistry{ &geoRegistry }
+    , pTextureManager{ &textureManager }
+
 {
 }
 
@@ -70,7 +69,7 @@ void GltfModelLoader::processModelNodes(std::vector<Entity>& entities, const tin
     
     if (node.mesh >= 0) {
         pRegistry->assign<Geometry>(entity, processMeshGeometry(model, model.meshes[node.mesh]));
-        pRegistry->assign<Materials::Lambertian>(entity, glm::vec4{ 0.2, 0.9, 0.2, 1.0 });
+        pRegistry->assign<Materials::TexturedBasic>(entity, processMeshMaterial(model, model.meshes[node.mesh]));
     }
 
     for (size_t i = 0; i < node.children.size(); ++i) {
@@ -123,17 +122,17 @@ Geometry GltfModelLoader::processMeshGeometry(const tinygltf::Model& model, cons
     if (mesh.primitives.size() > 1) {
         throw std::runtime_error("Don't know how to handle meshes with more than one primitive set");
     }
-    tinygltf::Primitive primitive = mesh.primitives[0];
+    const tinygltf::Primitive& primitive = mesh.primitives[0];
 
     // Get indices
     {
-        tinygltf::Accessor indexAccessor = model.accessors[primitive.indices];
+        const tinygltf::Accessor& indexAccessor = model.accessors[primitive.indices];
         if (indexAccessor.type != TINYGLTF_TYPE_SCALAR || indexAccessor.byteOffset != 0) {
             throw std::runtime_error("Don't know how to handle non uint16_t indices");
         }
 
-        tinygltf::BufferView bufferView = model.bufferViews[indexAccessor.bufferView];
-        tinygltf::Buffer buffer = model.buffers[bufferView.buffer];
+        const tinygltf::BufferView& bufferView = model.bufferViews[indexAccessor.bufferView];
+        const tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
         const bgfx::Memory* indexMemory = bgfx::copy(&buffer.data.at(0) + bufferView.byteOffset, bufferView.byteLength);
         geometry.indexBuffer = bgfx::createIndexBuffer(indexMemory);
 
@@ -157,20 +156,53 @@ Geometry GltfModelLoader::processMeshGeometry(const tinygltf::Model& model, cons
 
 void GltfModelLoader::copyBuffer(const tinygltf::Model& model, const int accessorIndex, Geometry& geometry, const bgfx::VertexDecl& decl)
 {
-    tinygltf::Accessor accessor{ model.accessors[accessorIndex] };
-    tinygltf::BufferView bufferView{ model.bufferViews[accessor.bufferView] };
-    tinygltf::Buffer buffer{ model.buffers[bufferView.buffer] };
+    const tinygltf::Accessor& accessor{ model.accessors[accessorIndex] };
+    const tinygltf::BufferView& bufferView{ model.bufferViews[accessor.bufferView] };
+    const tinygltf::Buffer& buffer{ model.buffers[bufferView.buffer] };
 
     const bgfx::Memory* vertMemory = bgfx::copy(&(buffer.data.at(bufferView.byteOffset)), bufferView.byteLength);
     geometry.vertexBuffers[geometry.numVertBufferStreams++] = bgfx::createVertexBuffer(vertMemory, decl);
 }
 
-//void GltfModelLoader::processMeshMaterial(const tinygltf::Model& model, const tinygltf::Mesh& mesh) {
-//    tinygltf::Material material = model.materials[mesh.primitives[0].material];
-//    for (const auto& mats : material.values) {
-//        if (mats.first.compare("baseColorTexture")) {
-//            //tinygltf::Texture texture = model.textures[mats.second.json_double_value];
-//        }
-//    }        
-//}
+Materials::TexturedBasic GltfModelLoader::processMeshMaterial(const tinygltf::Model& model, const tinygltf::Mesh& mesh) {
+    Materials::TexturedBasic meshMaterial{};
+    tinygltf::Material material = model.materials[mesh.primitives[0].material];
+    for (const auto& matValue : material.values) {
+        if (matValue.first.compare("baseColorTexture") == 0) {
+            size_t index = static_cast<size_t>(matValue.second.json_double_value.at("index"));
+            const tinygltf::Texture& texture = model.textures[index];
+            // TODO: Handle sampler options
+            //if (model.samplers.size > 0) {
+            //    const tinygltf::Sampler& sampler = model.samplers[texture.sampler];
+            //}
+            const tinygltf::Image& image = model.images[texture.source];
+
+            const bgfx::Memory* mem = bgfx::copy(
+                image.image.data(),
+                image.image.size()
+            );
+
+            bgfx::TextureFormat::Enum format;
+            if (image.component == 4) {
+                format = bgfx::TextureFormat::RGBA8;
+            }
+            else if (image.component == 3){
+                format = bgfx::TextureFormat::RGB8;
+            }
+            else {
+                throw std::runtime_error("Unable to load texture with " + std::to_string(image.component) + " components.");
+            }
+            
+            bgfx::TextureHandle handle = pTextureManager->create2DTexture(
+                uint16_t(image.width),
+                uint16_t(image.height),
+                format,
+                mem
+            );
+
+            meshMaterial.setBaseColor(handle);
+        }
+    }
+    return meshMaterial;
+}
 }

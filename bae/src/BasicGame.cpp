@@ -28,9 +28,10 @@ BasicGame::BasicGame() noexcept
     cameraControls = FPSControls{ camera };
     
     std::string gltfDir = GLTF_DIR;
-    std::string cubePath = gltfDir + "Cube/glTF/Cube.gltf";
-    GltfModelLoader modelLoader{ registry, renderer.geoRegistry };
-    std::vector<uint32_t> entities = modelLoader.loadModel(cubePath);
+    //std::string modelPath = gltfDir + "Cube/glTF/Cube.gltf";
+    std::string modelPath = gltfDir + "FlightHelmet/glTF/FlightHelmet.gltf";
+    GltfModelLoader modelLoader{ registry, renderer.geoRegistry, renderer.textureManager };
+    std::vector<uint32_t> entities = modelLoader.loadModel(modelPath);
     
     auto light = registry.create();
     registry.assign<Position>(light, 15.0f, 0.0f, 0.0f);

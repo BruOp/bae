@@ -12,9 +12,8 @@ namespace bae {
     public:
         TextureManager() = default;
         ~TextureManager() {
-            for (auto& texture : textures) {
-                bgfx::destroy(texture.sampler);
-                bgfx::destroy(texture.handle);
+            for (auto& textureHandle : textureHandles) {
+                bgfx::destroy(textureHandle);
             }
         };
 
@@ -24,11 +23,25 @@ namespace bae {
         TextureManager(TextureManager&& other) = default;
         TextureManager& operator=(TextureManager&& other) = default;
 
-        void addTexture(const Texture& texture) {
-            textures.push_back(texture);
+        void addTexture(bgfx::TextureHandle texture) {
+            textureHandles.push_back(texture);
         };
 
+        bgfx::TextureHandle create2DTexture(const uint16_t width, const uint16_t height, const bgfx::TextureFormat::Enum format, const bgfx::Memory* mem) {
+            bgfx::TextureHandle textureHandle = bgfx::createTexture2D(
+                width,
+                height,
+                false,
+                1,
+                format,
+                0,
+                mem
+            );
+            textureHandles.push_back(textureHandle);
+            return textureHandle;
+        }
+
     private:
-        std::vector<Texture> textures;
+        std::vector<bgfx::TextureHandle> textureHandles;
     };
 }

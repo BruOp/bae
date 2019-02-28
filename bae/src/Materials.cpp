@@ -11,6 +11,14 @@ namespace Materials {
         }
     };
 
+    MaterialType TexturedBasic::materialType = {
+        "textured_basic",
+        BGFX_INVALID_HANDLE,
+        {
+            { "baseColor", { bgfx::UniformType::Int1 } },
+        }
+    };
+
     MaterialType Lambertian::materialType = {
         "lambertian",
         BGFX_INVALID_HANDLE,

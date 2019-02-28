@@ -44,7 +44,7 @@ struct TexCoordVertex {
 	{
 		ms_declaration
 			.begin()
-			.add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Int16, true)
+			.add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float, true)
 			.end();
 	}
 };

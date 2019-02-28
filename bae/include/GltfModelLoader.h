@@ -5,6 +5,7 @@
 #include "Utils/Common.h"
 #include "Geometry.h"
 #include "Texture.h"
+#include "Materials.h"
 
 namespace bgfx {
     class VertexDecl;
@@ -19,13 +20,14 @@ namespace tinygltf {
 namespace bae {
     class GltfModelLoader {
     public:
-        GltfModelLoader(entt::DefaultRegistry& registry, GeometryRegistry& geoRegistry);
+        GltfModelLoader(entt::DefaultRegistry& registry, GeometryRegistry& geoRegistry, TextureManager& textureManager);
 
         std::vector<Entity> loadModel(const std::string& filePath);
 
     private:
         entt::DefaultRegistry* pRegistry = nullptr;
         GeometryRegistry* pGeoRegistry = nullptr;
+        TextureManager* pTextureManager = nullptr;
         
         tinygltf::Model loadFile(const std::string& filePath);
 
@@ -46,6 +48,6 @@ namespace bae {
         Geometry processMeshGeometry(const tinygltf::Model& model, const tinygltf::Mesh& mesh);
 
         void copyBuffer(const tinygltf::Model& model, const int accessorIndex, Geometry& geometry, const bgfx::VertexDecl& decl);
-        //void processMeshMaterial(const tinygltf::Model& model, const tinygltf::Mesh& mesh);
+        Materials::TexturedBasic processMeshMaterial(const tinygltf::Model& model, const tinygltf::Mesh& mesh);
     };
 }

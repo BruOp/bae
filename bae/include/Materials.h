@@ -4,6 +4,7 @@
 #include <glm/glm.hpp>
 
 #include "MaterialType.h"
+#include "Texture.h"
 #include "Uniforms.h"
 #include "utils/Common.h"
 
@@ -29,8 +30,30 @@ namespace Materials {
         };
     };
 
+    struct TexturedBasic : public BaseMaterial {
+        TexturedBasic() = default;
+        TexturedBasic(bgfx::TextureHandle textureHandle)
+            : baseColor{ materialType.getHandle("baseColor"), textureHandle }
+        {};
+
+        void setBaseColor(bgfx::TextureHandle textureHandle)
+        {
+            if (!bgfx::isValid(baseColor.sampler)) {
+                baseColor.sampler = materialType.getHandle("baseColor");
+            }
+            baseColor.handle = textureHandle;
+        };
+
+        inline void setUniforms() const override
+        {
+            bgfx::setTexture(0, baseColor.sampler, baseColor.handle);
+        };
+
+        Texture baseColor;
+        static MaterialType materialType;
+    };
+
     struct Lambertian : public BaseMaterial {
-        friend class MaterialTypeManager;
 
         Vec4Uniform color;
 
