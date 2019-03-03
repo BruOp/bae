@@ -1,4 +1,5 @@
 #pragma once
+#include <math.h>
 #include <vector>
 #include <bgfx/bgfx.h>
 
@@ -28,13 +29,14 @@ namespace bae {
         };
 
         bgfx::TextureHandle create2DTexture(const uint16_t width, const uint16_t height, const bgfx::TextureFormat::Enum format, const bgfx::Memory* mem) {
+            auto mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
             bgfx::TextureHandle textureHandle = bgfx::createTexture2D(
                 width,
                 height,
                 false,
-                1,
+                mipLevels,
                 format,
-                0,
+                BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP | BGFX_SAMPLER_MIP_POINT | BGFX_SAMPLER_MIN_POINT,
                 mem
             );
             textureHandles.push_back(textureHandle);
