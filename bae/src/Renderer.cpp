@@ -34,6 +34,8 @@ void Renderer::init(Window* pWindow) noexcept
     matTypeManager.registerMaterialType<Materials::Lambertian>();
     matTypeManager.registerMaterialType<Materials::Physical>();
     matTypeManager.registerMaterialType<Materials::TexturedBasic>();
+    matTypeManager.registerMaterialType<Materials::TexturedPhysical>();
+
 
     bgfx::setViewClear(
         0,
@@ -67,6 +69,8 @@ void Renderer::renderFrame(const float dt, const float _time, Camera& camera, en
     renderMaterialCollection<Materials::Lambertian>(registry, viewId, state);
     renderMaterialCollection<Materials::Physical>(registry, viewId, state);
     renderMaterialCollection<Materials::TexturedBasic>(registry, viewId, state);
+    renderMaterialCollection<Materials::TexturedPhysical>(registry, viewId, state);
+
     // Advance to next frame. Rendering thread will be kicked to
     // process submitted rendering primitives.
     bgfx::frame();

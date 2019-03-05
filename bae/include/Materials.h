@@ -1,3 +1,4 @@
+
 #pragma once
 #include <algorithm>
 #include <bgfx/bgfx.h>
@@ -127,5 +128,55 @@ namespace Materials {
         static constexpr float minRoughness = 0.045; // To prevent divide by zero errors
         static constexpr float maxRoughness = 1.0;
     };
+
+
+    class TexturedPhysical : public BaseMaterial {
+    public:
+        TexturedPhysical() = default;
+        TexturedPhysical(bgfx::TextureHandle baseColor, bgfx::TextureHandle normalMap, bgfx::TextureHandle occlusionRoughnessMetalness)
+            : baseColor{ materialType.getHandle("baseColor"), baseColor }
+            , normalMap{ materialType.getHandle("normalMap"), normalMap }
+            , occlusionRoughnessMetalness{ materialType.getHandle("occlusionRoughnessMetalness"), occlusionRoughnessMetalness }
+        {};
+
+        void setBaseColor(bgfx::TextureHandle textureHandle)
+        {
+            if (!bgfx::isValid(baseColor.sampler)) {
+                baseColor.sampler = materialType.getHandle("baseColor");
+            }
+            baseColor.handle = textureHandle;
+        };
+
+        void setNormalMap(bgfx::TextureHandle textureHandle)
+        {
+            if (!bgfx::isValid(normalMap.sampler)) {
+                normalMap.sampler = materialType.getHandle("normalMap");
+            }
+            normalMap.handle = textureHandle;
+        };
+
+        void setOccRoughMetal(bgfx::TextureHandle textureHandle)
+        {
+            if (!bgfx::isValid(occlusionRoughnessMetalness.sampler)) {
+                occlusionRoughnessMetalness.sampler = materialType.getHandle("occlusionRoughnessMetalness");
+            }
+            occlusionRoughnessMetalness.handle = textureHandle;
+        };
+
+        inline void setUniforms() const override
+        {
+            bgfx::setTexture(0, baseColor.sampler, baseColor.handle);
+            bgfx::setTexture(1, normalMap.sampler, normalMap.handle);
+            bgfx::setTexture(2, occlusionRoughnessMetalness.sampler, occlusionRoughnessMetalness.handle);
+        };
+
+        static MaterialType materialType;
+
+    private:
+        Texture baseColor;
+        Texture normalMap;
+        Texture occlusionRoughnessMetalness;
+    };
+
 }
 }

@@ -1,8 +1,6 @@
 #pragma once
 #include <memory>
 #include <entt/entt.hpp>
-#include <bx/file.h>
-#include <bx/filepath.h>
 
 #include "Utils/Common.h"
 #include "Geometry.h"
@@ -53,19 +51,6 @@ namespace bae {
         Geometry processMeshGeometry(const tinygltf::Model& model, const tinygltf::Mesh& mesh);
 
         void copyBuffer(const tinygltf::Model& model, const int accessorIndex, Geometry& geometry, const bgfx::VertexDecl& decl);
-        Materials::TexturedBasic processMeshMaterial(const std::string& folderPath, const tinygltf::Model& model, const tinygltf::Mesh& mesh);
+        Materials::TexturedPhysical processMeshMaterial(const std::string& folderPath, const tinygltf::Model& model, const tinygltf::Mesh& mesh);
     };
-
-
-    class FileReader : public bx::FileReader
-    {
-        typedef bx::FileReader super;
-
-    public:
-        virtual bool open(const bx::FilePath& _filePath, bx::Error* _err) override
-        {
-            return super::open(_filePath.get(), _err);
-        }
-    };
-
 }

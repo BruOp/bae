@@ -9,7 +9,7 @@ file(GLOB BAE_FRAG_SHADERS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders
 
 add_executable( bae ${BAE_SOURCE} ${BAE_INCLUDE} ${BAE_VERT_SHADERS} ${BAE_FRAG_SHADERS} )
 
-target_link_libraries( bae PUBLIC bgfx imgui glm entt ${SDL2_LIBRARY} ${SDL2MAIN_LIBRARY} tiny_obj_loader tinygltf)
+target_link_libraries( bae PUBLIC bgfx imgui glm entt ${SDL2_LIBRARY} ${SDL2MAIN_LIBRARY} tiny_obj_loader tinygltf )
 target_include_directories( bae PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${SDL2_INCLUDE_DIR})
 set_target_properties( bae PROPERTIES FOLDER "bae" )
 

@@ -35,5 +35,15 @@ namespace Materials {
             { "metallicRoughnessReflectance", { bgfx::UniformType::Vec4 } },
         }
     };
+
+    MaterialType TexturedPhysical::materialType = {
+    "textured_physical",
+    BGFX_INVALID_HANDLE,
+    {
+        { "baseColor", { bgfx::UniformType::Int1 } },
+        { "normalMap", { bgfx::UniformType::Int1 } },
+        { "occlusionRoughnessMetalness", { bgfx::UniformType::Int1 } },
+    }
+    };
 }
 }
