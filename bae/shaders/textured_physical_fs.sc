@@ -1,4 +1,4 @@
-$input v_position, v_normal, v_texcoord
+$input v_position, v_normal, v_tangent, v_bitangent, v_texcoord
 
 #define MAX_LIGHT_COUNT 10
 
@@ -59,11 +59,13 @@ vec3 diffuseBRDF(vec3 color, float metallic) {
 
 void main()
 {
-    vec3 normal = normalize(v_normal);
+    mat3 tbn = mat3(v_bitangent, v_tangent, v_normal);
+    vec3 normal = normalize(texture2D(normalMap, v_texcoord).xyz * 2.0 - 1.0);
+    normal = mul(tbn, normal);
     vec3 viewDir = normalize(cameraPos.xyz - v_position);
 
     vec3 color = vec3(0.0, 0.0, 0.0);
-    vec4 matColor = texture2D(baseColor, v_texcoord);
+    vec4 matColor = toLinear(texture2D(baseColor, v_texcoord));
     vec4 OccRoughMetal = texture2D(occlusionRoughnessMetalness, v_texcoord);
     for (int i = 0; i < MAX_LIGHT_COUNT; i++) {
         vec3 lightDir = pointLight_pos[i].xyz - v_position;

@@ -26,6 +26,7 @@ void Renderer::init(Window* pWindow) noexcept
     instance.initBgfx(platformData, width, height);
 	PosVertex::init();
 	NormalVertex::init();
+    TangentVertex::init();
 	TexCoordVertex::init();
     PosColorVertex::init();
     PosTexNormalVertex::init();

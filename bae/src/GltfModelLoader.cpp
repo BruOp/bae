@@ -161,6 +161,10 @@ Geometry GltfModelLoader::processMeshGeometry(const tinygltf::Model& model, cons
     accessorIndex = primitive.attributes.at("NORMAL");
     copyBuffer(model, accessorIndex, geometry, NormalVertex::ms_declaration);
 
+    // Tangent
+    accessorIndex = primitive.attributes.at("TANGENT");
+    copyBuffer(model, accessorIndex, geometry, TangentVertex::ms_declaration);
+
     // Tex Coords
     accessorIndex = primitive.attributes.at("TEXCOORD_0");
     copyBuffer(model, accessorIndex, geometry, TexCoordVertex::ms_declaration);
@@ -177,7 +181,9 @@ void GltfModelLoader::copyBuffer(
     const tinygltf::Accessor& accessor{ model.accessors[accessorIndex] };
     const tinygltf::BufferView& bufferView{ model.bufferViews[accessor.bufferView] };
     const tinygltf::Buffer& buffer{ model.buffers[bufferView.buffer] };
-
+    if (geometry.numVertBufferStreams >= bae::MAX_VERT_BUFFERS_PER_GEOMETRY) {
+        throw std::runtime_error("Don't have any more vertex buffers available!");
+    }
     const bgfx::Memory* vertMemory = bgfx::copy(&(buffer.data.at(bufferView.byteOffset)), bufferView.byteLength);
     geometry.vertexBuffers[geometry.numVertBufferStreams++] = bgfx::createVertexBuffer(vertMemory, decl);
 }

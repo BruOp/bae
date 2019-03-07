@@ -34,6 +34,20 @@ struct NormalVertex {
 	}
 };
 
+struct TangentVertex {
+    glm::vec4 tangent;
+
+    static bgfx::VertexDecl ms_declaration;
+
+    static void init()
+    {
+        ms_declaration
+            .begin()
+            .add(bgfx::Attrib::Tangent, 4, bgfx::AttribType::Float, true)
+            .end();
+    }
+};
+
 struct TexCoordVertex {
 	int16_t u;
 	int16_t v;

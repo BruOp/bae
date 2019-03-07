@@ -14,6 +14,16 @@ vec3 toGamma(vec3 _rgb)
 	return pow(abs(_rgb), vec3_splat(1.0/2.2) );
 }
 
+vec3 toLinear(vec3 _rgb)
+{
+	return pow(abs(_rgb), vec3_splat(2.2) );
+}
+
+vec4 toLinear(vec4 _rgba)
+{
+	return vec4(toLinear(_rgba.xyz), _rgba.w);
+}
+
 
 // ---------------LIGHTING---------------
 
