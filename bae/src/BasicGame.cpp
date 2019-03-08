@@ -1,45 +1,59 @@
 #include "BasicGame.h"
 #include "GltfModelLoader.h"
+#include "Cube.cpp"
 
 namespace bae {
 
-BasicGame::BasicGame() noexcept
-    : renderer{}
-    , registry{}
-    , startOffset{ static_cast<uint64_t>(bx::getHPCounter()) }
-    , lastTime{ getTime(startOffset) }
-{
-    uint32_t width = 1280;
-    uint32_t height = 720;
+    BasicGame::BasicGame() noexcept
+        : renderer{}
+        , registry{}
+        , startOffset{ static_cast<uint64_t>(bx::getHPCounter()) }
+        , lastTime{ getTime(startOffset) }
+    {
+        uint32_t width = 1280;
+        uint32_t height = 720;
 
-    windowContext.initSDL();
+        windowContext.initSDL();
 
-    pWindow = std::make_unique<bae::Window>(width, height);
+        pWindow = std::make_unique<bae::Window>(width, height);
 
-    renderer.init(pWindow.get());
+        renderer.init(pWindow.get());
 
-    camera = Camera{
-        Position{ 0.0f, 1.0f, 5.0f },
-        Direction{ 0.0f, 0.0f, -1.0f },
-        width,
-        height,
-        60.0f
-    };
-    cameraControls = FPSControls{ camera };
-    
-    std::string gltfDir = GLTF_DIR;
-    //std::string modelPath = gltfDir + "Cube/glTF/Cube.gltf";
-    std::string modelPath = gltfDir + "FlightHelmet/glTF/";
-    GltfModelLoader modelLoader{ registry, renderer.geoRegistry, renderer.textureManager };
-    std::vector<uint32_t> entities = modelLoader.loadModel(modelPath, "FlightHelmet");
-    
-    auto light = registry.create();
-    registry.assign<Position>(light, 15.0f, 0.0f, 0.0f);
-    registry.assign<PointLightEmitter>(light, glm::vec3{ 1.0f, 1.0f, 0.2f }, 50.0f);
+        camera = Camera{
+            Position{ 0.0f, 1.0f, 2.0f },
+            Direction{ 0.0f, 0.0f, -1.0f },
+            width,
+            height,
+            60.0f
+        };
+        cameraControls = FPSControls{ camera };
 
-    auto light2 = registry.create();
-    registry.assign<Position>(light2, -10.0f, 10.0f, 0.0f);
-    registry.assign<PointLightEmitter>(light2, glm::vec3{ 1.0f, 1.0f, 1.0f }, 100.0f);
+        std::string gltfDir = GLTF_DIR;
+        //std::string modelPath = gltfDir + "Cube/glTF/Cube.gltf";
+        std::string modelPath = gltfDir + "FlightHelmet/glTF/";
+        GltfModelLoader modelLoader{ registry, renderer.geoRegistry, renderer.textureManager };
+        std::vector<uint32_t> entities = modelLoader.loadModel(modelPath, "FlightHelmet");
+
+        auto cubeGeometry = renderer.geoRegistry.create<PosColorVertex>("cube", cubeVertices, cubeIndices);
+        glm::vec3 lightMeshScalingFactor{ 0.05f };
+
+        auto light = registry.create();
+        Position pos{ 5.0f, 2.0f, 0.0f };
+        glm::vec3 color{ 1.0f, 0.5f, 0.2f };
+        registry.assign<Position>(light, pos);
+        registry.assign<PointLightEmitter>(light, color, 10.0f);
+        registry.assign<Geometry>(light, cubeGeometry);
+        registry.assign<Materials::Basic>(light, glm::vec4{ color.x, color.y, color.z, 1.0f });
+        registry.assign<Transform>(light, glm::scale(glm::translate(pos), lightMeshScalingFactor));
+
+        auto light2 = registry.create();
+        pos = Position{ -2.0f, 2.0f, 0.0f };
+        color = glm::vec3{ 1.0f, 1.0f, 1.0f };
+        registry.assign<Position>(light2, pos);
+        registry.assign<PointLightEmitter>(light2, color, 8.0f);
+        registry.assign<Geometry>(light2, cubeGeometry);
+        registry.assign<Materials::Basic>(light2, glm::vec4{ color.x, color.y, color.z, 1.0f });
+        registry.assign<Transform>(light2, glm::scale(glm::translate(pos), lightMeshScalingFactor));
 }
 
 void BasicGame::start()

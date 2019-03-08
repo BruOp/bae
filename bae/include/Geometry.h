@@ -32,7 +32,7 @@ public:
     }
 
     template <typename Vertex>
-    void create(
+    Geometry create(
         const std::string& name,
         const std::vector<Vertex>& vertices,
         const std::vector<uint16_t>& indices) noexcept
@@ -48,6 +48,7 @@ public:
         geometry.indexBuffer = bgfx::createIndexBuffer(indexMemory);
         // Push it into our map
         geometry_map[name] = geometry;
+        return geometry;
     };
 
 private:
