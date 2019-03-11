@@ -13,7 +13,7 @@ void main()
 
     // glTF uses a_tangent.w to define handedness
     vec3 bitangent = cross(a_normal, a_tangent.xyz) * a_tangent.w;
-    v_bitangent = mul(u_model[0], vec4(bitangent, 0.0)).xyz;
+    v_bitangent = normalize(mul(u_model[0], vec4(bitangent, 0.0)).xyz);
 
     v_texcoord = a_texcoord0;
 

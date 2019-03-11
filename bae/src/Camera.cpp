@@ -14,6 +14,7 @@ Camera::Camera(
     , fov{ glm::radians(fovInDegrees) }
     , aspectRatio{ (float)width / height }
     , projection{ calcProjection(fov, aspectRatio) }
+    , view{}
 {
 }
 

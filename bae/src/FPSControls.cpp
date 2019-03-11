@@ -7,7 +7,8 @@ FPSControls::FPSControls(
     const float movementSpeed)
     : pCamera{ &camera }
     , sensitivity{ sensitivity }
-    , movementSpeed{ movementSpeed } {};
+    , movementSpeed{ movementSpeed }
+{};
 
 EventHandleResult FPSControls::handleEvents(
     const EventQueue& eventQueue)

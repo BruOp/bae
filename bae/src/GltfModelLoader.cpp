@@ -12,6 +12,33 @@
 #include "utils/FileUtils.h"
 
 namespace bae {
+
+struct GltfToBgfxAttributeMaps {    
+    std::unordered_map<std::string, bgfx::Attrib::Enum> attributes;
+    std::unordered_map<int, uint8_t> sizes;
+    std::unordered_map<int, bgfx::AttribType::Enum> componentType;
+};
+
+const GltfToBgfxAttributeMaps GLTF_TO_BGFX_ATTRIBUTE_MAPS{
+    {
+        {"POSITION", bgfx::Attrib::Position},
+        {"NORMAL", bgfx::Attrib::Normal},
+        {"TANGENT", bgfx::Attrib::Tangent},
+        {"TEXCOORD_0", bgfx::Attrib::TexCoord0},
+    },
+    {
+        { TINYGLTF_TYPE_SCALAR, 1 },
+        { TINYGLTF_TYPE_VEC2, 2 },
+        { TINYGLTF_TYPE_VEC3, 3 },
+        { TINYGLTF_TYPE_VEC4, 4 },
+    },
+    {
+        {TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE, bgfx::AttribType::Uint8},
+        {TINYGLTF_PARAMETER_TYPE_FLOAT, bgfx::AttribType::Float},
+        // Cannot handle TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT or any of the others
+    },
+};
+
 GltfModelLoader::GltfModelLoader(entt::DefaultRegistry& registry, GeometryRegistry& geoRegistry, TextureManager& textureManager)
     : pRegistry{ &registry }
     , pGeoRegistry{ &geoRegistry }
@@ -96,14 +123,24 @@ Transform GltfModelLoader::processTransform(
 {
     Transform localTransform = glm::identity<glm::mat4>();
     // Order of operations (right to left) in glTF: T * R * S
-    // Scaling is not currently supported because **shrug**
+    if (node.scale.size() == 3) {
+        localTransform = glm::scale(
+            localTransform,
+            glm::vec3{
+                node.scale[0],
+                node.scale[1],
+                node.scale[2],
+            }
+        );
+    }
+
     if (node.rotation.size() == 4) {
         // Quaternion
-        Rotation rotation = glm::vec4{
-                node.rotation[0],
-                node.rotation[1],
-                node.rotation[2],
-                node.rotation[3]
+        Rotation rotation{
+                static_cast<float>(node.rotation[3]),
+                static_cast<float>(node.rotation[0]),
+                static_cast<float>(node.rotation[1]),
+                static_cast<float>(node.rotation[2]),
         };
         localTransform = glm::toMat4(rotation) * localTransform;
     }
@@ -141,7 +178,7 @@ Geometry GltfModelLoader::processMeshGeometry(const tinygltf::Model& model, cons
     // Get indices
     {
         const tinygltf::Accessor& indexAccessor = model.accessors[primitive.indices];
-        if (indexAccessor.type != TINYGLTF_TYPE_SCALAR || indexAccessor.byteOffset != 0) {
+        if (indexAccessor.type != TINYGLTF_TYPE_SCALAR || indexAccessor.componentType != TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT) {
             throw std::runtime_error("Don't know how to handle non uint16_t indices");
         }
 
@@ -151,41 +188,42 @@ Geometry GltfModelLoader::processMeshGeometry(const tinygltf::Model& model, cons
         geometry.indexBuffer = bgfx::createIndexBuffer(indexMemory);
 
     }
-    int accessorIndex;    
-    
-    // Position
-    accessorIndex = primitive.attributes.at("POSITION");
-    copyBuffer(model ,accessorIndex, geometry, PosVertex::ms_declaration);
 
-    // Normal
-    accessorIndex = primitive.attributes.at("NORMAL");
-    copyBuffer(model, accessorIndex, geometry, NormalVertex::ms_declaration);
+    const std::string ATTRIBUTE_NAMES[] = {
+        "POSITION",
+        "NORMAL",
+        "TANGENT",
+        "TEXCOORD_0"
+    };
 
-    // Tangent
-    accessorIndex = primitive.attributes.at("TANGENT");
-    copyBuffer(model, accessorIndex, geometry, TangentVertex::ms_declaration);
+    for (auto& attrName : ATTRIBUTE_NAMES) {
+        int accessorIndex = primitive.attributes.at(attrName);
+        const tinygltf::Accessor& accessor{ model.accessors[accessorIndex] };
+        
+        // Copy Associated Memory
+        const tinygltf::BufferView& bufferView{ model.bufferViews[accessor.bufferView] };
+        const tinygltf::Buffer& buffer{ model.buffers[bufferView.buffer] };
+        if (geometry.numVertBufferStreams >= bae::MAX_VERT_BUFFERS_PER_GEOMETRY) {
+            throw std::runtime_error("Don't have any more vertex buffers available for this Geometry!");
+        }
+        const bgfx::Memory* vertMemory = bgfx::copy(&(buffer.data.at(bufferView.byteOffset)), bufferView.byteLength);
 
-    // Tex Coords
-    accessorIndex = primitive.attributes.at("TEXCOORD_0");
-    copyBuffer(model, accessorIndex, geometry, TexCoordVertex::ms_declaration);
+        // Define vertex specification/declaration for bgfx
+        bgfx::VertexDecl decl;
+        decl.begin()
+            .add(
+                GLTF_TO_BGFX_ATTRIBUTE_MAPS.attributes.at(attrName),
+                GLTF_TO_BGFX_ATTRIBUTE_MAPS.sizes.at(accessor.type),
+                GLTF_TO_BGFX_ATTRIBUTE_MAPS.componentType.at(accessor.componentType),
+                accessor.normalized
+            )
+            .end();
 
-    return pGeoRegistry->set(mesh.name, geometry);
-}
-
-void GltfModelLoader::copyBuffer(
-    const tinygltf::Model& model,
-    const int accessorIndex,
-    Geometry& geometry,
-    const bgfx::VertexDecl& decl)
-{
-    const tinygltf::Accessor& accessor{ model.accessors[accessorIndex] };
-    const tinygltf::BufferView& bufferView{ model.bufferViews[accessor.bufferView] };
-    const tinygltf::Buffer& buffer{ model.buffers[bufferView.buffer] };
-    if (geometry.numVertBufferStreams >= bae::MAX_VERT_BUFFERS_PER_GEOMETRY) {
-        throw std::runtime_error("Don't have any more vertex buffers available!");
+        // Create the buffer and store the handles in our geometry object
+        geometry.vertexBuffers[geometry.numVertBufferStreams++] = bgfx::createVertexBuffer(vertMemory, decl);
     }
-    const bgfx::Memory* vertMemory = bgfx::copy(&(buffer.data.at(bufferView.byteOffset)), bufferView.byteLength);
-    geometry.vertexBuffers[geometry.numVertBufferStreams++] = bgfx::createVertexBuffer(vertMemory, decl);
+    // Store a copy in our geometry registry to ensure cleanup.
+    return pGeoRegistry->set(mesh.name, geometry);
 }
 
 Materials::TexturedPhysical GltfModelLoader::processMeshMaterial(
@@ -193,40 +231,41 @@ Materials::TexturedPhysical GltfModelLoader::processMeshMaterial(
     const tinygltf::Model& model,
     const tinygltf::Mesh& mesh)
 {
+    GltfTextureLoader textureLoader{ &model, folderPath };
     Materials::TexturedPhysical meshMaterial{};
     tinygltf::Material material = model.materials[mesh.primitives[0].material];
-    for (const auto& matValue : material.values) {
-        size_t index = static_cast<size_t>(matValue.second.json_double_value.at("index"));
-        const tinygltf::Texture& texture = model.textures[index];
-
-        const tinygltf::Image& image = model.images[texture.source];
-        const std::string fileName = folderPath + (image.uri.substr(0, image.uri.size() - 4).append(".dds"));
-
-        bgfx::TextureHandle handle = loadTexture(fileName.c_str(), BGFX_TEXTURE_NONE | BGFX_SAMPLER_NONE);
+    for (const auto& [name, values] : material.values) {
+        size_t index = static_cast<size_t>(values.json_double_value.at("index"));
+        bgfx::TextureHandle handle = textureLoader.loadTextureByIndex(index);
         pTextureManager->addTexture(handle);
         
-        if (matValue.first.compare("baseColorTexture") == 0) {
+        if (name.compare("baseColorTexture") == 0) {
             meshMaterial.setBaseColor(handle);
         }
-        else if (matValue.first.compare("metallicRoughnessTexture") == 0) {
+        else if (name.compare("metallicRoughnessTexture") == 0) {
             meshMaterial.setOccRoughMetal(handle);
         }
     }
 
-    for (const auto& matValue : material.additionalValues) {
-        if (matValue.first.compare("normalTexture") == 0) {
-            size_t index = static_cast<size_t>(matValue.second.json_double_value.at("index"));
-            const tinygltf::Texture& texture = model.textures[index];
-
-            const tinygltf::Image& image = model.images[texture.source];
-            const std::string fileName = folderPath + (image.uri.substr(0, image.uri.size() - 4).append(".dds"));
-
-            bgfx::TextureHandle handle = loadTexture(fileName.c_str(), BGFX_TEXTURE_NONE | BGFX_SAMPLER_NONE);
+    for (const auto& [name, values] : material.additionalValues) {
+        if (name.compare("normalTexture") == 0) {
+            size_t index = static_cast<size_t>(values.json_double_value.at("index"));
+            bgfx::TextureHandle handle = textureLoader.loadTextureByIndex(index);
             pTextureManager->addTexture(handle);
 
             meshMaterial.setNormalMap(handle);
         }
     }
     return meshMaterial;
+}
+
+bgfx::TextureHandle GltfTextureLoader::loadTextureByIndex(const size_t index) const{
+    const tinygltf::Texture& texture = pModel->textures[index];
+
+    const tinygltf::Image& image = pModel->images[texture.source];
+    const std::string fileName = folderPath + (image.uri.substr(0, image.uri.size() - 4).append(".dds"));
+
+    bgfx::TextureHandle handle = loadTexture(fileName.c_str(), BGFX_TEXTURE_NONE | BGFX_SAMPLER_NONE);
+    return handle;
 }
 }

@@ -24,12 +24,7 @@ void Renderer::init(Window* pWindow) noexcept
     bgfx::PlatformData platformData = pWindow->getPlatformData();
 
     instance.initBgfx(platformData, width, height);
-	PosVertex::init();
-	NormalVertex::init();
-    TangentVertex::init();
-	TexCoordVertex::init();
-    PosColorVertex::init();
-    PosTexNormalVertex::init();
+    initializeVertexDecls();
 
     matTypeManager.registerMaterialType<Materials::Basic>();
     matTypeManager.registerMaterialType<Materials::Lambertian>();

@@ -48,7 +48,7 @@ namespace bae {
     }
 
     // Ripped out of bgfx_utils.cpp
-    bgfx::TextureHandle loadTexture(const char* _filePath, uint32_t _flags)
+    bgfx::TextureHandle loadTexture(const char* _filePath, uint32_t _flags = UINT32_MAX)
     {
         bgfx::TextureHandle handle = BGFX_INVALID_HANDLE;
         auto _reader = bae::FileReader{};

@@ -20,8 +20,8 @@ namespace bae {
         renderer.init(pWindow.get());
 
         camera = Camera{
-            Position{ 0.0f, 1.0f, 2.0f },
-            Direction{ 0.0f, 0.0f, -1.0f },
+            Position{ -0.0f, 0.0f, 1.0f },
+            Direction{ 0.0f, -2.f, -1.f },
             width,
             height,
             60.0f
@@ -29,7 +29,6 @@ namespace bae {
         cameraControls = FPSControls{ camera };
 
         std::string gltfDir = GLTF_DIR;
-        //std::string modelPath = gltfDir + "Cube/glTF/Cube.gltf";
         std::string modelPath = gltfDir + "FlightHelmet/glTF/";
         GltfModelLoader modelLoader{ registry, renderer.geoRegistry, renderer.textureManager };
         std::vector<uint32_t> entities = modelLoader.loadModel(modelPath, "FlightHelmet");
@@ -42,6 +41,7 @@ namespace bae {
         glm::vec3 color{ 1.0f, 0.5f, 0.2f };
         registry.assign<Position>(light, pos);
         registry.assign<PointLightEmitter>(light, color, 10.0f);
+        // This allows us to "see" the light as a cube in the scene.
         registry.assign<Geometry>(light, cubeGeometry);
         registry.assign<Materials::Basic>(light, glm::vec4{ color.x, color.y, color.z, 1.0f });
         registry.assign<Transform>(light, glm::scale(glm::translate(pos), lightMeshScalingFactor));

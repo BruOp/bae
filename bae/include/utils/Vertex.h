@@ -6,63 +6,6 @@
 #include <glm/gtx/hash.hpp>
 
 namespace bae {
-struct PosVertex {
-	glm::vec3 pos;
-
-	static bgfx::VertexDecl ms_declaration;
-	
-	static void init()
-	{
-		ms_declaration
-			.begin()
-			.add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
-			.end();
-	}
-};
-
-struct NormalVertex {
-	glm::vec3 normal;
-
-	static bgfx::VertexDecl ms_declaration;
-
-	static void init()
-	{
-		ms_declaration
-			.begin()
-			.add(bgfx::Attrib::Normal, 3, bgfx::AttribType::Float, true)
-			.end();
-	}
-};
-
-struct TangentVertex {
-    glm::vec4 tangent;
-
-    static bgfx::VertexDecl ms_declaration;
-
-    static void init()
-    {
-        ms_declaration
-            .begin()
-            .add(bgfx::Attrib::Tangent, 4, bgfx::AttribType::Float, true)
-            .end();
-    }
-};
-
-struct TexCoordVertex {
-	int16_t u;
-	int16_t v;
-
-	static bgfx::VertexDecl ms_declaration;
-	
-	static void init()
-	{
-		ms_declaration
-			.begin()
-			.add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float, true)
-			.end();
-	}
-};
-
 struct PosColorVertex {
     glm::vec3 pos;
     uint32_t color;
@@ -101,6 +44,11 @@ struct PosTexNormalVertex {
         return pos == other.pos && u == other.u && v == other.v && normal == other.normal;
     }
 };
+
+inline void initializeVertexDecls() {
+    PosColorVertex::init();
+    PosTexNormalVertex::init();
+}
 } // namespace bae
 
 namespace std {

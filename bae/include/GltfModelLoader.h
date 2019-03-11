@@ -53,4 +53,12 @@ namespace bae {
         void copyBuffer(const tinygltf::Model& model, const int accessorIndex, Geometry& geometry, const bgfx::VertexDecl& decl);
         Materials::TexturedPhysical processMeshMaterial(const std::string& folderPath, const tinygltf::Model& model, const tinygltf::Mesh& mesh);
     };
+
+    class GltfTextureLoader {
+    public:
+        bgfx::TextureHandle loadTextureByIndex(const size_t index) const;
+        
+        const tinygltf::Model* pModel;
+        const std::string folderPath;
+    };
 }

@@ -60,14 +60,18 @@ vec3 diffuseBRDF(vec3 color, float metallic) {
 
 void main()
 {
-    mat3 tbn = mat3(v_bitangent, v_tangent, v_normal);
-    vec3 normal = normalize(texture2D(normalMap, v_texcoord).xyz * 2.0 - 1.0);
-    normal = mul(tbn, normal);
+    mat3 tbn = mat3(
+        normalize(v_bitangent),
+        normalize(v_tangent),
+        normalize(v_normal)
+    );
+    vec3 normal = texture2D(normalMap, v_texcoord).xyz * 2.0 - 1.0;
+    normal = normalize(mul(tbn, normal));
     vec3 viewDir = normalize(cameraPos.xyz - v_position);
 
     vec3 color = vec3(0.0, 0.0, 0.0);
     vec4 matColor = toLinear(texture2D(baseColor, v_texcoord));
-    vec4 OccRoughMetal = toLinearAccurate(texture2D(occlusionRoughnessMetalness, v_texcoord));
+    vec4 OccRoughMetal = toLinear(texture2D(occlusionRoughnessMetalness, v_texcoord));
     for (int i = 0; i < MAX_LIGHT_COUNT; i++) {
         vec3 lightDir = pointLight_pos[i].xyz - v_position;
         float _distance = length(lightDir);
