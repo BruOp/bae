@@ -9,7 +9,7 @@ namespace bae
 {
 class Window
 {
-  public:
+   public:
     Window();
     Window(const uint32_t width, const uint32_t height);
 
@@ -31,9 +31,9 @@ class Window
     inline SDL_Window *getWindowPtr() const { return m_pWindow; }
     bgfx::PlatformData getPlatformData();
 
-  private:
+   private:
     SDL_Window *m_pWindow = nullptr;
     uint32_t m_width;
     uint32_t m_height;
 };
-} // namespace bae
+}  // namespace bae

@@ -10,23 +10,21 @@
 #include "utils/Constants.h"
 #include "utils/Geometric.h"
 
-namespace bae {
-class FPSControls : public EventSubscriber {
-
-public:
+namespace bae
+{
+class FPSControls : public EventSubscriber
+{
+   public:
     FPSControls() = default;
-    FPSControls(
-        Camera& camera,
-        const float sensitivity = 0.002,
-        const float movementSpeed = 1.0);
+    FPSControls(Camera& camera, const float sensitivity = 0.002, const float movementSpeed = 1.0);
 
     EventHandleResult handleEvents(const EventQueue& eventQueue) override final;
 
     void update(const float dt);
 
-private:
+   private:
     Camera* pCamera = nullptr;
-    bae::Direction currentDirection = { 0.0f, 0.0f, 0.0f };
+    bae::Direction currentDirection = {0.0f, 0.0f, 0.0f};
     float sensitivity;
     float movementSpeed;
     float yaw = -HALF_PI;
@@ -39,4 +37,4 @@ private:
     constexpr static float s_upperPitchLimit = HALF_PI - 0.1;
     constexpr static float s_lowerPitchLimit = -HALF_PI + 0.1;
 };
-} // namespace bae
+}  // namespace bae

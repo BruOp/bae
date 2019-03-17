@@ -9,9 +9,11 @@
 
 #include "utils/Geometric.h"
 
-namespace bae {
-class Camera {
-public:
+namespace bae
+{
+class Camera
+{
+   public:
     Camera() = default;
     Camera(
         const Position position,
@@ -38,11 +40,9 @@ public:
 
     // Projection
 
-private:
-    static glm::mat4 calcProjection(
-        const float& fov,
-        const float aspectRatio);
+   private:
+    static glm::mat4 calcProjection(const float& fov, const float aspectRatio);
 
     static const bae::Direction WorldUp;
 };
-} // namespace bae
+}  // namespace bae

@@ -5,7 +5,8 @@
 #include "Renderer.h"
 #include "utils/Common.h"
 
-namespace bae {
+namespace bae
+{
 struct WindowContext {
     ~WindowContext() noexcept
     {
@@ -25,14 +26,15 @@ struct WindowContext {
     bool initialized = false;
 };
 
-class BasicGame : IGame {
-public:
+class BasicGame : IGame
+{
+   public:
     BasicGame() noexcept;
 
     void start() override;
     bool update() override;
 
-private:
+   private:
     WindowContext windowContext;
     std::unique_ptr<bae::Window> pWindow = nullptr;
 
@@ -48,4 +50,4 @@ private:
     uint64_t startOffset = 0;
     float lastTime = 0;
 };
-}
+}  // namespace bae

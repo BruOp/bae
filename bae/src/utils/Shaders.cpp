@@ -8,20 +8,18 @@ const bgfx::Memory *loadMemory(const std::string &filepath)
 {
     std::ifstream file(filepath, std::ios::binary | std::ios::ate);
     std::streamsize size = file.tellg();
-    if (size == -1)
-    {
+    if (size == -1) {
         throw std::runtime_error("Could not open file at " + filepath + " for reading.");
     }
     file.seekg(0, std::ios::beg);
     const bgfx::Memory *mem = bgfx::alloc(uint32_t(size + 1));
-    if (file.read((char *)mem->data, size))
-    {
+    if (file.read((char *)mem->data, size)) {
         mem->data[mem->size - 1] = '\0';
         return mem;
     }
     return nullptr;
 }
-} // namespace Utils
+}  // namespace Utils
 
 namespace ShaderUtils
 {
@@ -35,9 +33,7 @@ bgfx::ShaderHandle loadShader(const std::string &shaderName)
     return shaderHandle;
 }
 
-bgfx::ProgramHandle loadProgram(
-    const std::string &vertShaderName,
-    const std::string &fragShaderName)
+bgfx::ProgramHandle loadProgram(const std::string &vertShaderName, const std::string &fragShaderName)
 {
     auto vertShaderHandle = loadShader(vertShaderName);
     auto fragShaderHandle = loadShader(fragShaderName);
@@ -45,8 +41,7 @@ bgfx::ProgramHandle loadProgram(
     return program;
 }
 
-bgfx::ProgramHandle loadProgram(
-    const std::string &shaderName)
+bgfx::ProgramHandle loadProgram(const std::string &shaderName)
 {
     std::string vertShaderName = shaderName + "_vs.bin";
     std::string fragShaderName = shaderName + "_fs.bin";
@@ -54,6 +49,6 @@ bgfx::ProgramHandle loadProgram(
     return program;
 }
 
-} // namespace ShaderUtils
+}  // namespace ShaderUtils
 
-} // namespace bae
+}  // namespace bae

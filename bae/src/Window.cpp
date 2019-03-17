@@ -2,14 +2,9 @@
 
 namespace bae
 {
-Window::Window() : m_pWindow(nullptr), m_width(0), m_height(0)
-{
-}
+Window::Window() : m_pWindow(nullptr), m_width(0), m_height(0) {}
 
-Window::Window(const uint32_t width, const uint32_t height)
-    : m_width(width),
-      m_height(height),
-      m_pWindow(nullptr)
+Window::Window(const uint32_t width, const uint32_t height) : m_width(width), m_height(height), m_pWindow(nullptr)
 {
     m_pWindow = SDL_CreateWindow(
         "Bruno's Awful Engine",
@@ -30,8 +25,7 @@ Window::Window(Window &&otherWindow)
 
 Window &Window::operator=(Window &&otherWindow)
 {
-    if (this != &otherWindow)
-    {
+    if (this != &otherWindow) {
         m_width = otherWindow.m_width;
         m_height = otherWindow.m_height;
         m_pWindow = otherWindow.m_pWindow;
@@ -40,30 +34,22 @@ Window &Window::operator=(Window &&otherWindow)
     return *this;
 }
 
-Window::~Window()
-{
-    destroy();
-}
+Window::~Window() { destroy(); }
 
 void Window::destroy()
 {
-    if (m_pWindow != nullptr)
-    {
+    if (m_pWindow != nullptr) {
         SDL_DestroyWindow(m_pWindow);
     }
 }
 
-bool Window::shouldClose(const SDL_Event &event) const
-{
-    return event.type == SDL_QUIT;
-}
+bool Window::shouldClose(const SDL_Event &event) const { return event.type == SDL_QUIT; }
 
 bgfx::PlatformData Window::getPlatformData()
 {
     SDL_SysWMinfo wmi;
     SDL_VERSION(&wmi.version);
-    if (SDL_GetWindowWMInfo(m_pWindow, &wmi) != SDL_TRUE)
-    {
+    if (SDL_GetWindowWMInfo(m_pWindow, &wmi) != SDL_TRUE) {
         const std::string error = SDL_GetError();
         throw std::runtime_error(error);
     }
@@ -78,10 +64,10 @@ bgfx::PlatformData Window::getPlatformData()
 #elif BX_PLATFORM_WINDOWS
     pd.ndt = NULL;
     pd.nwh = info.win.window;
-#endif // BX_PLATFORM_WINDOWS
+#endif  // BX_PLATFORM_WINDOWS
     pd.context = NULL;
     pd.backBuffer = NULL;
     pd.backBufferDS = NULL;
     return pd;
 }
-} // namespace bae
+}  // namespace bae

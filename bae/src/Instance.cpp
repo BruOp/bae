@@ -1,6 +1,7 @@
 #include "Instance.h"
 
-namespace bae {
+namespace bae
+{
 Instance::~Instance() noexcept
 {
     if (bfgx_initialized) {
@@ -9,10 +10,7 @@ Instance::~Instance() noexcept
     }
 }
 
-void Instance::initBgfx(
-    const bgfx::PlatformData platformData,
-    const uint32_t width,
-    const uint32_t height)
+void Instance::initBgfx(const bgfx::PlatformData platformData, const uint32_t width, const uint32_t height)
 {
     bgfx::setPlatformData(platformData);
     bgfx::Init init{};
@@ -28,4 +26,4 @@ void Instance::initBgfx(
     bfgx_initialized = true;
     bgfx::setDebug(BGFX_DEBUG_TEXT);
 }
-} // namespace bae
+}  // namespace bae

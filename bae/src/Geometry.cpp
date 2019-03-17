@@ -1,11 +1,12 @@
 #include "Geometry.h"
 
-namespace bae {
+namespace bae
+{
 void Geometry::set(const bgfx::ViewId viewId) const
 {
-	for (uint16_t i = 0; i < numVertBufferStreams; ++i) {
-		bgfx::setVertexBuffer(i, vertexBuffers[i]);
-	}
+    for (uint16_t i = 0; i < numVertBufferStreams; ++i) {
+        bgfx::setVertexBuffer(i, vertexBuffers[i]);
+    }
     bgfx::setIndexBuffer(indexBuffer);
 }
 
@@ -15,4 +16,4 @@ GeometryRegistry::~GeometryRegistry()
         destroyGeometry(pair.second);
     }
 }
-} // namespace bae
+}  // namespace bae

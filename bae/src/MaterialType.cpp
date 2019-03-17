@@ -1,7 +1,8 @@
 #include "MaterialType.h"
 #include <iostream>
 
-namespace bae {
+namespace bae
+{
 MaterialTypeManager::~MaterialTypeManager() noexcept
 {
     for (auto& materialType : materialTypes) {
@@ -22,4 +23,4 @@ void MaterialType::destroy() noexcept
         bgfx::destroy(program);
     }
 }
-} // namespace bae
+}  // namespace bae

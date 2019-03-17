@@ -4,10 +4,10 @@
 
 #include "Geometric.h"
 
-namespace bae {
-
-    typedef uint32_t Entity;
-    typedef uint32_t Parent;
+namespace bae
+{
+typedef uint32_t Entity;
+typedef uint32_t Parent;
 
 inline float getTime(const uint64_t startOffset)
 {
@@ -22,8 +22,8 @@ inline T toGamma(const T value)
 
 inline glm::vec4 colorToGamma(const glm::vec4& color)
 {
-    auto rgb = toGamma(glm::vec3{ color.x, color.y, color.z });
-    return glm::vec4{ rgb.x, rgb.y, rgb.z, color.w };
+    auto rgb = toGamma(glm::vec3{color.x, color.y, color.z});
+    return glm::vec4{rgb.x, rgb.y, rgb.z, color.w};
 }
 
 template <typename T>
@@ -34,7 +34,7 @@ inline T toLinear(const T value)
 
 inline glm::vec4 colorToLinear(const glm::vec4& color)
 {
-    auto rgb = toLinear(glm::vec3{ color.x, color.y, color.z });
-    return glm::vec4{ rgb.x, rgb.y, rgb.z, color.w };
+    auto rgb = toLinear(glm::vec3{color.x, color.y, color.z});
+    return glm::vec4{rgb.x, rgb.y, rgb.z, color.w};
 }
-} // namespace bae
+}  // namespace bae

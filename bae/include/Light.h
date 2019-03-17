@@ -4,16 +4,17 @@
 #include <string>
 #include <vector>
 
-namespace bae {
+namespace bae
+{
 struct PointLightEmitter {
-    glm::vec3 color = { 1.0f, 1.0f, 1.0f };
+    glm::vec3 color = {1.0f, 1.0f, 1.0f};
     float intensity = 10.0f;
 };
 
 struct LightUniformSet {
     std::string lightName;
     uint8_t lightCount = 0;
-    uint16_t maxLightCount = 10; // Has to match whatever we have set in the shader...
+    uint16_t maxLightCount = 10;  // Has to match whatever we have set in the shader...
 
     // params.x = lightCount
     bgfx::UniformHandle params = BGFX_INVALID_HANDLE;
@@ -33,4 +34,4 @@ struct LightUniformSet {
 
     void set();
 };
-} // namespace bae
+}  // namespace bae

@@ -5,7 +5,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/hash.hpp>
 
-namespace bae {
+namespace bae
+{
 struct PosColorVertex {
     glm::vec3 pos;
     uint32_t color;
@@ -14,8 +15,7 @@ struct PosColorVertex {
 
     static void init()
     {
-        ms_declaration
-            .begin()
+        ms_declaration.begin()
             .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
             .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
             .end();
@@ -32,8 +32,7 @@ struct PosTexNormalVertex {
 
     static void init()
     {
-        ms_declaration
-            .begin()
+        ms_declaration.begin()
             .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
             .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Int16, true)
             .add(bgfx::Attrib::Normal, 3, bgfx::AttribType::Float, true)
@@ -45,22 +44,22 @@ struct PosTexNormalVertex {
     }
 };
 
-inline void initializeVertexDecls() {
+inline void initializeVertexDecls()
+{
     PosColorVertex::init();
     PosTexNormalVertex::init();
 }
-} // namespace bae
+}  // namespace bae
 
-namespace std {
+namespace std
+{
 template <>
 struct hash<bae::PosTexNormalVertex> {
     size_t operator()(const bae::PosTexNormalVertex& vertex) const
     {
-        return ((hash<glm::vec3>()(vertex.pos)
-                    ^ (hash<int16_t>()(vertex.u) << 1))
-                   ^ (hash<int16_t>()(vertex.v) << 1)
-                       >> 1)
-            ^ (hash<glm::vec3>()(vertex.normal) << 1);
+        return ((hash<glm::vec3>()(vertex.pos) ^ (hash<int16_t>()(vertex.u) << 1)) ^
+                (hash<int16_t>()(vertex.v) << 1) >> 1) ^
+               (hash<glm::vec3>()(vertex.normal) << 1);
     }
 };
-}
+}  // namespace std

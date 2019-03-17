@@ -2,11 +2,13 @@
 
 #if BX_PLATFORM_WINDOWS
 #define SDL_MAIN_HANDLED
-#endif // BX_PLATFORM_WINDOWS
+#endif  // BX_PLATFORM_WINDOWS
 
-namespace bae {
-namespace MatTypes {
-}; // namespace MatTypes
+namespace bae
+{
+namespace MatTypes
+{
+};  // namespace MatTypes
 
 Renderer::~Renderer() noexcept
 {
@@ -32,23 +34,18 @@ void Renderer::init(Window* pWindow) noexcept
     matTypeManager.registerMaterialType<Materials::TexturedBasic>();
     matTypeManager.registerMaterialType<Materials::TexturedPhysical>();
 
-
-    bgfx::setViewClear(
-        0,
-        BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH,
-        0x303030ff,
-        1.0f,
-        0);
+    bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030ff, 1.0f, 0);
 
     pointLightUniforms.init();
     sceneUniforms.init();
 
-    state = 0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CW;
+    state = 0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS |
+            BGFX_STATE_CULL_CW;
 }
 
 void Renderer::renderFrame(const float dt, const float _time, Camera& camera, entt::DefaultRegistry& registry)
 {
-    bgfx::ViewId viewId{ 0 };
+    bgfx::ViewId viewId{0};
 
     // Set view 0 default viewport.
     bgfx::setViewRect(viewId, 0, 0, uint16_t(width), uint16_t(height));
@@ -71,4 +68,4 @@ void Renderer::renderFrame(const float dt, const float _time, Camera& camera, en
     // process submitted rendering primitives.
     bgfx::frame();
 }
-} // namespace bae
+}  // namespace bae

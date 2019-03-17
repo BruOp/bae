@@ -4,22 +4,17 @@
 
 namespace bae
 {
-
-enum EventHandleResult
-{
-    EVENT_RESULT_SHUTDOWN,
-    EVENT_RESULT_CONTINUE
-};
+enum EventHandleResult { EVENT_RESULT_SHUTDOWN, EVENT_RESULT_CONTINUE };
 
 class EventSubscriber
 {
-  public:
+   public:
     virtual EventHandleResult handleEvents(const EventQueue &eventQueue) = 0;
 };
 
 class WindowInputHandler : public EventSubscriber
 {
-  public:
+   public:
     EventHandleResult handleEvents(const EventQueue &eventQueue) override final;
 };
-} // namespace bae
+}  // namespace bae

@@ -1,6 +1,7 @@
 #include "Light.h"
 
-namespace bae {
+namespace bae
+{
 void LightUniformSet::init()
 {
     auto uniformName = lightName + "_params";
@@ -16,14 +17,9 @@ void LightUniformSet::init()
 
 void LightUniformSet::set()
 {
-    float paramsArr[4]{
-        float(lightCount),
-        0.0f,
-        0.0f,
-        0.0f
-    };
+    float paramsArr[4]{float(lightCount), 0.0f, 0.0f, 0.0f};
     bgfx::setUniform(params, paramsArr);
     bgfx::setUniform(lightPos, lightPosData.data(), maxLightCount);
     bgfx::setUniform(lightColorIntensity, lightColorIntensityData.data(), maxLightCount);
 }
-}
+}  // namespace bae

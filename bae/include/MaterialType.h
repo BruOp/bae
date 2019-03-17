@@ -1,12 +1,13 @@
 #pragma once
-#include "utils/Shaders.h"
 #include <bgfx/bgfx.h>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include "utils/Shaders.h"
 
-namespace bae {
+namespace bae
+{
 struct UniformHandleInfo {
     bgfx::UniformType::Enum type;
     bgfx::UniformHandle handle = BGFX_INVALID_HANDLE;
@@ -27,9 +28,9 @@ struct MaterialType {
     void destroy() noexcept;
 };
 
-class MaterialTypeManager {
-
-public:
+class MaterialTypeManager
+{
+   public:
     MaterialTypeManager() = default;
     ~MaterialTypeManager();
     MaterialTypeManager(const MaterialTypeManager&) = delete;
@@ -52,7 +53,7 @@ public:
         materialTypes.push_back(matType);
     };
 
-private:
+   private:
     std::vector<MaterialType> materialTypes;
 };
-} // namespace bae
+}  // namespace bae

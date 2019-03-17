@@ -24,9 +24,11 @@
 #include "Window.h"
 #include "utils/Vertex.h"
 
-namespace bae {
-class Renderer {
-public:
+namespace bae
+{
+class Renderer
+{
+   public:
     Renderer() = default;
     ~Renderer() noexcept;
 
@@ -40,19 +42,12 @@ public:
         uniformSet.lightCount = view.size();
 
         size_t counter = 0;
-        view.each(
-            [&uniformSet, &counter](const auto&, const Position& pos, const Light& light) {
-                uniformSet.lightPosData[counter] = {
-                    pos.x, pos.y, pos.z, 0.0f
-                };
-                uniformSet.lightColorIntensityData[counter] = {
-                    light.color.x,
-                    light.color.y,
-                    light.color.z,
-                    light.intensity
-                };
-                ++counter;
-            });
+        view.each([&uniformSet, &counter](const auto&, const Position& pos, const Light& light) {
+            uniformSet.lightPosData[counter] = {pos.x, pos.y, pos.z, 0.0f};
+            uniformSet.lightColorIntensityData[counter] = {
+                light.color.x, light.color.y, light.color.z, light.intensity};
+            ++counter;
+        });
     };
 
     uint32_t width = 0;
@@ -64,11 +59,11 @@ public:
 
     GeometryRegistry geoRegistry;
     TextureManager textureManager;
-    LightUniformSet pointLightUniforms = { "pointLight" };
+    LightUniformSet pointLightUniforms = {"pointLight"};
     SceneUniforms sceneUniforms;
     MaterialTypeManager matTypeManager;
 
-private:
+   private:
     template <typename Material>
     void renderMaterialCollection(entt::DefaultRegistry& registry, const bgfx::ViewId viewId, const uint64_t state)
     {
@@ -84,4 +79,4 @@ private:
             });
     }
 };
-} // namespace bae
+}  // namespace bae

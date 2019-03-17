@@ -3,10 +3,12 @@
 
 #include "Window.h"
 
-namespace bae {
+namespace bae
+{
 // Usually the first to be created, last to be destroyed
-class Instance {
-public:
+class Instance
+{
+   public:
     Instance() = default;
     ~Instance() noexcept;
     Instance(const Instance&) = delete;
@@ -14,12 +16,9 @@ public:
     Instance& operator=(const Instance&) = delete;
     Instance& operator=(Instance&&) = delete;
 
-    void initBgfx(
-        const bgfx::PlatformData platformData,
-        const uint32_t width,
-        const uint32_t height);
+    void initBgfx(const bgfx::PlatformData platformData, const uint32_t width, const uint32_t height);
 
-private:
+   private:
     bool bfgx_initialized = false;
 };
-} // namespace bae
+}  // namespace bae

@@ -4,19 +4,14 @@
 #include "Camera.h"
 #include "Uniforms.h"
 
-namespace bae {
+namespace bae
+{
 struct SceneUniforms {
     bgfx::UniformHandle cameraPos = BGFX_INVALID_HANDLE;
 
-    void init()
-    {
-        cameraPos = bgfx::createUniform("cameraPos", bgfx::UniformType::Vec4);
-    };
+    void init() { cameraPos = bgfx::createUniform("cameraPos", bgfx::UniformType::Vec4); };
 
-    void destroy()
-    {
-        bgfx::destroy(cameraPos);
-    }
+    void destroy() { bgfx::destroy(cameraPos); }
 
     inline void setCamera(const Camera& camera, const bgfx::ViewId viewId) const
     {
@@ -24,4 +19,4 @@ struct SceneUniforms {
         bgfx::setUniform(cameraPos, &(camera.position[0]));
     }
 };
-}
+}  // namespace bae
