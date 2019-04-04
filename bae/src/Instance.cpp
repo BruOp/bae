@@ -20,7 +20,7 @@ void Instance::initBgfx(const bgfx::PlatformData platformData, const uint32_t wi
     init.deviceId = 0;
     init.resolution.width = width;
     init.resolution.height = height;
-    init.resolution.reset = BGFX_RESET_VSYNC | BGFX_RESET_MSAA_X16;
+    init.resolution.reset = BGFX_RESET_VSYNC | BGFX_RESET_MAXANISOTROPY;
 
     bgfx::init(init);
     bfgx_initialized = true;

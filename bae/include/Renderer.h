@@ -63,7 +63,12 @@ class Renderer
     SceneUniforms sceneUniforms;
     MaterialTypeManager matTypeManager;
 
-   private:
+    bgfx::ViewId meshPass = 0;
+
+    std::array<bgfx::TextureHandle, 2> pbrFbTextures;
+    bgfx::FrameBufferHandle pbrFramebuffer;
+
+private:
     template <typename Material>
     void renderMaterialCollection(entt::DefaultRegistry& registry, const bgfx::ViewId viewId, const uint64_t state)
     {

@@ -12,6 +12,8 @@ namespace MatTypes
 
 Renderer::~Renderer() noexcept
 {
+    bgfx::destroy(pbrFramebuffer);
+    
     sceneUniforms.destroy();
     pointLightUniforms.destroy();
 }
@@ -39,8 +41,40 @@ void Renderer::init(Window* pWindow) noexcept
     pointLightUniforms.init();
     sceneUniforms.init();
 
-    state = 0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS |
-            BGFX_STATE_CULL_CW;
+    pbrFbTextures[0] = bgfx::createTexture2D(
+        uint16_t(width),
+        uint16_t(height),
+        false,
+        1,
+        bgfx::TextureFormat::RGBA16F,
+        BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP
+    );
+    
+    const uint64_t textureFlags = BGFX_TEXTURE_RT_WRITE_ONLY;
+
+    bgfx::TextureFormat::Enum depthFormat;
+    if (bgfx::isTextureValid(0, false, 1, bgfx::TextureFormat::D16, textureFlags)) {
+        depthFormat = bgfx::TextureFormat::D16;
+    }
+    else if (bgfx::isTextureValid(0, false, 1, bgfx::TextureFormat::D24S8, textureFlags)) {
+        depthFormat = bgfx::TextureFormat::D24S8;
+    }
+    else {
+        depthFormat = bgfx::TextureFormat::D32;
+    }
+    
+    pbrFbTextures[1] = bgfx::createTexture2D(
+        uint16_t(width),
+        uint16_t(height),
+        false,
+        1,
+        depthFormat,
+        textureFlags
+    );
+
+    pbrFramebuffer = bgfx::createFrameBuffer(pbrFbTextures.size(), pbrFbTextures.data(), true);
+
+    state = 0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CW;
 }
 
 void Renderer::renderFrame(const float dt, const float _time, Camera& camera, entt::DefaultRegistry& registry)
