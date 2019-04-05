@@ -21,6 +21,7 @@
 #include "Materials.h"
 #include "SceneUniforms.h"
 #include "Texture.h"
+#include "Tonemapping.h"
 #include "Window.h"
 #include "utils/Vertex.h"
 
@@ -67,6 +68,9 @@ class Renderer
 
     std::array<bgfx::TextureHandle, 2> pbrFbTextures;
     bgfx::FrameBufferHandle pbrFramebuffer;
+
+    ToneMapParams toneMappingParams;
+    ToneMapping toneMappingPass;
 
 private:
     template <typename Material>

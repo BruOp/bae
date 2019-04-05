@@ -1,10 +1,6 @@
-help: ## Print each command with its help string
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort |\
-	 awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+BGFX_DIR=./deps/bgfx.cmake/bgfx
+RUNTIME_DIR=./.build/build/x64-Debug/bae
+BUILD_DIR=./.build/build/x64-Debug/bae/intermediate_shaders
+SHADERS_DIR=./bae/shaders/
 
-
-build: ## Build stuff
-	cmake --build build --config Debug --target bae -- -j 10
-
-run: ## Run the build
-	build/bae/bae
+include $(BGFX_DIR)/scripts/shader.mk

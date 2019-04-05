@@ -12,6 +12,7 @@ namespace MatTypes
 
 Renderer::~Renderer() noexcept
 {
+    toneMappingPass.destroy();
     bgfx::destroy(pbrFramebuffer);
     
     sceneUniforms.destroy();
@@ -35,8 +36,6 @@ void Renderer::init(Window* pWindow) noexcept
     matTypeManager.registerMaterialType<Materials::Physical>();
     matTypeManager.registerMaterialType<Materials::TexturedBasic>();
     matTypeManager.registerMaterialType<Materials::TexturedPhysical>();
-
-    bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030ff, 1.0f, 0);
 
     pointLightUniforms.init();
     sceneUniforms.init();
@@ -74,29 +73,39 @@ void Renderer::init(Window* pWindow) noexcept
 
     pbrFramebuffer = bgfx::createFrameBuffer(pbrFbTextures.size(), pbrFbTextures.data(), true);
 
-    state = 0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CW;
+    toneMappingParams.width = width;
+    toneMappingParams.width = height;
+    toneMappingParams.originBottomLeft = bgfx::getCaps()->originBottomLeft;
+    
+    toneMappingPass.init();
+    
+    state = BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CW; //| BGFX_STATE_WRITE_Z | ;
 }
 
 void Renderer::renderFrame(const float dt, const float _time, Camera& camera, entt::DefaultRegistry& registry)
 {
-    bgfx::ViewId viewId{0};
+    bgfx::setViewName(meshPass, "Meshes");
+    bgfx::setViewClear(meshPass, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030ff, 1.0f, 0);
+    bgfx::setViewFrameBuffer(meshPass, pbrFramebuffer);
 
     // Set view 0 default viewport.
-    bgfx::setViewRect(viewId, 0, 0, uint16_t(width), uint16_t(height));
+    bgfx::setViewRect(meshPass, 0, 0, uint16_t(width), uint16_t(height));
 
     // This dummy draw call is here to make sure that view 0 is cleared
     // if no other draw calls are submitted to view 0.
-    bgfx::touch(viewId);
+    bgfx::touch(meshPass);
     setupLighting<PointLightEmitter>(registry, pointLightUniforms);
     pointLightUniforms.set();
 
-    sceneUniforms.setCamera(camera, viewId);
+    sceneUniforms.setCamera(camera, meshPass);
 
-    renderMaterialCollection<Materials::Basic>(registry, viewId, state);
-    renderMaterialCollection<Materials::Lambertian>(registry, viewId, state);
-    renderMaterialCollection<Materials::Physical>(registry, viewId, state);
-    renderMaterialCollection<Materials::TexturedBasic>(registry, viewId, state);
-    renderMaterialCollection<Materials::TexturedPhysical>(registry, viewId, state);
+    renderMaterialCollection<Materials::Basic>(registry, meshPass, state);
+    renderMaterialCollection<Materials::Lambertian>(registry, meshPass, state);
+    renderMaterialCollection<Materials::Physical>(registry, meshPass, state);
+    renderMaterialCollection<Materials::TexturedBasic>(registry, meshPass, state);
+    renderMaterialCollection<Materials::TexturedPhysical>(registry, meshPass, state);
+
+    toneMappingPass.render(pbrFbTextures[0], toneMappingParams, dt);
 
     // Advance to next frame. Rendering thread will be kicked to
     // process submitted rendering primitives.
