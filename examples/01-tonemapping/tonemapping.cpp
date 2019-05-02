@@ -136,7 +136,7 @@ public:
 		// Create vertex stream declaration.
 		PosColorTexCoord0Vertex::init();
 
-		m_envTexture = loadTexture("textures/papermill.ktx"
+		m_envTexture = loadTexture("textures/pisa.ktx"
 				, 0
 				| BGFX_SAMPLER_U_CLAMP
 				| BGFX_SAMPLER_V_CLAMP

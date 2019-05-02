@@ -1,8 +1,6 @@
-# bae
+# Bruno's Awful Examples (bae)
 
-Meant to eventually be a little demo engine/renderer using bgfx, imgui, glfw and glm.
-
-Inspired by [bigg](https://github.com/JoshuaBrookover/bigg)'s handling of all the dependencies.
+Used to be Bruno's Awful Engine, but decided it was better to focus on small little examples, like what is found in the bgfx repo
 
 ## Getting started
 
@@ -10,14 +8,16 @@ Inspired by [bigg](https://github.com/JoshuaBrookover/bigg)'s handling of all th
 git clone git@github.com:BruOp/bae.git
 cd bae
 git submodule update --init --recursive
-mkdir build
-cd build
-cmake ..
 ```
 
-This will generate the project file/make files that you need for `bae` + all the dependencies.
+Windows
+```
+ ./deps/bx/tools/bin/windows/genie.exe --file=scripts/genie.lua vs2017
+```
 
-You may need to install all the system-level dependencies for `bgfx` on your own though :(
+You'll also need to build `shaderc` (it should be part of the generated solution) and then copy it to `deps/bgfx/tools/bin/windows/shaderc` (or whatever platform you're using). This will elt you build the shaders inside each example using the makefile.
+
+You may need to install all the system-level dependencies for `bgfx` on your own though :( Follow the bgfx build instructions for this part. This repo doesn't introduce any new system level deps.
 
 ## Linux
 
@@ -26,11 +26,3 @@ On linux, you'll probably have to download a whole bunch of `devel` packages. In
 ```zsh
 sudo eopkg install libglu libglu-devel libx11 libx11-devel xorg-server xorg-server-devel
 ```
-
-I had some difficulty the headers required for GLFW, but that was solved by simply running
-
-```zsh
-sudo eopkg install glfw-devel libxi libxi-devel
-```
-
-Unfortunately, you'll have to play a bit of whack-a-mole to resolve all these problems.
