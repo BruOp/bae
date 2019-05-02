@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="deps">
+      <UniqueIdentifier>{F1A1957C-DDD8-960D-86C5-7C1072DB120F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bgfx">
+      <UniqueIdentifier>{D4CF2569-403A-DADF-8978-8B85F521B834}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bgfx\3rdparty">
+      <UniqueIdentifier>{E9AD898D-D591-4AE3-3EF2-44362AF53465}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bgfx\3rdparty\meshoptimizer">
+      <UniqueIdentifier>{D5B6FA9A-C107-E6DC-EA6B-D49ED61B7946}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bgfx\3rdparty\meshoptimizer\src">
+      <UniqueIdentifier>{7984A874-656B-6A6C-0EBC-D089FA81E3D2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bgfx\src">
+      <UniqueIdentifier>{F804A624-64C5-215B-2D00-6BD8997F6637}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bgfx\tools">
+      <UniqueIdentifier>{C1D74BE6-2D63-B9AA-3674-3C9FA27E15AB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bgfx\tools\geometryc">
+      <UniqueIdentifier>{0CB927D5-787B-5B5F-C12B-EAEB2D2D343D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bgfx\examples">
+      <UniqueIdentifier>{2F091579-1BED-D5CE-844D-D0217050C050}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bgfx\examples\common">
+      <UniqueIdentifier>{94CDF918-0090-2DA3-4940-BC2FB5410681}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\deps\bgfx\3rdparty\meshoptimizer\src\meshoptimizer.h">
+      <Filter>deps\bgfx\3rdparty\meshoptimizer\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\deps\bgfx\src\vertexdecl.h">
+      <Filter>deps\bgfx\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\deps\bgfx\examples\common\bounds.h">
+      <Filter>deps\bgfx\examples\common</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\deps\bgfx\3rdparty\meshoptimizer\src\allocator.cpp">
+      <Filter>deps\bgfx\3rdparty\meshoptimizer\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bgfx\3rdparty\meshoptimizer\src\clusterizer.cpp">
+      <Filter>deps\bgfx\3rdparty\meshoptimizer\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bgfx\3rdparty\meshoptimizer\src\indexcodec.cpp">
+      <Filter>deps\bgfx\3rdparty\meshoptimizer\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bgfx\3rdparty\meshoptimizer\src\indexgenerator.cpp">
+      <Filter>deps\bgfx\3rdparty\meshoptimizer\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bgfx\3rdparty\meshoptimizer\src\overdrawanalyzer.cpp">
+      <Filter>deps\bgfx\3rdparty\meshoptimizer\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bgfx\3rdparty\meshoptimizer\src\overdrawoptimizer.cpp">
+      <Filter>deps\bgfx\3rdparty\meshoptimizer\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bgfx\3rdparty\meshoptimizer\src\simplifier.cpp">
+      <Filter>deps\bgfx\3rdparty\meshoptimizer\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bgfx\3rdparty\meshoptimizer\src\stripifier.cpp">
+      <Filter>deps\bgfx\3rdparty\meshoptimizer\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bgfx\3rdparty\meshoptimizer\src\vcacheanalyzer.cpp">
+      <Filter>deps\bgfx\3rdparty\meshoptimizer\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bgfx\3rdparty\meshoptimizer\src\vcacheoptimizer.cpp">
+      <Filter>deps\bgfx\3rdparty\meshoptimizer\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bgfx\3rdparty\meshoptimizer\src\vertexcodec.cpp">
+      <Filter>deps\bgfx\3rdparty\meshoptimizer\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bgfx\3rdparty\meshoptimizer\src\vfetchanalyzer.cpp">
+      <Filter>deps\bgfx\3rdparty\meshoptimizer\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bgfx\3rdparty\meshoptimizer\src\vfetchoptimizer.cpp">
+      <Filter>deps\bgfx\3rdparty\meshoptimizer\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bgfx\src\vertexdecl.cpp">
+      <Filter>deps\bgfx\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bgfx\tools\geometryc\geometryc.cpp">
+      <Filter>deps\bgfx\tools\geometryc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bgfx\examples\common\bounds.cpp">
+      <Filter>deps\bgfx\examples\common</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

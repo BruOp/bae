@@ -1,5 +1,0 @@
-add_subdirectory( entt )
-add_subdirectory( glm )
-add_subdirectory( tiny_obj_loader )
-add_subdirectory( tinygltf )
-add_subdirectory( imgui )

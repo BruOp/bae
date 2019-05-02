@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="deps">
+      <UniqueIdentifier>{F1A1957C-DDD8-960D-86C5-7C1072DB120F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bimg">
+      <UniqueIdentifier>{2CD92569-9843-DADF-E181-8B854D2BB834}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bimg\include">
+      <UniqueIdentifier>{2CD871C1-98EE-6F57-E165-FB784DBB40DF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bimg\include\bimg">
+      <UniqueIdentifier>{472CB497-3326-DDE9-1C93-73FA082C4356}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bimg\src">
+      <UniqueIdentifier>{50FABACD-BCBA-3604-85F5-7F81F1747BE0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bimg\3rdparty">
+      <UniqueIdentifier>{41BA4550-2D9E-06A6-96FE-00F98201F127}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bimg\3rdparty\astc-codec">
+      <UniqueIdentifier>{933BD1C6-FF53-B8F0-C800-488A34D84C8A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bimg\3rdparty\astc-codec\src">
+      <UniqueIdentifier>{37388FFD-A3A6-E47C-EC8F-9F7C583DDA18}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bimg\3rdparty\astc-codec\src\decoder">
+      <UniqueIdentifier>{C9D14248-35EC-A5E9-7E0E-B67DEA67CDF0}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\deps\bimg\include\bimg\bimg.h">
+      <Filter>deps\bimg\include\bimg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\deps\bimg\include\bimg\decode.h">
+      <Filter>deps\bimg\include\bimg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\deps\bimg\include\bimg\encode.h">
+      <Filter>deps\bimg\include\bimg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\deps\bimg\3rdparty\astc-codec\src\decoder\astc_file.h">
+      <Filter>deps\bimg\3rdparty\astc-codec\src\decoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\deps\bimg\3rdparty\astc-codec\src\decoder\codec.h">
+      <Filter>deps\bimg\3rdparty\astc-codec\src\decoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\deps\bimg\3rdparty\astc-codec\src\decoder\endpoint_codec.h">
+      <Filter>deps\bimg\3rdparty\astc-codec\src\decoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\deps\bimg\3rdparty\astc-codec\src\decoder\footprint.h">
+      <Filter>deps\bimg\3rdparty\astc-codec\src\decoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\deps\bimg\3rdparty\astc-codec\src\decoder\integer_sequence_codec.h">
+      <Filter>deps\bimg\3rdparty\astc-codec\src\decoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\deps\bimg\3rdparty\astc-codec\src\decoder\intermediate_astc_block.h">
+      <Filter>deps\bimg\3rdparty\astc-codec\src\decoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\deps\bimg\3rdparty\astc-codec\src\decoder\logical_astc_block.h">
+      <Filter>deps\bimg\3rdparty\astc-codec\src\decoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\deps\bimg\3rdparty\astc-codec\src\decoder\partition.h">
+      <Filter>deps\bimg\3rdparty\astc-codec\src\decoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\deps\bimg\3rdparty\astc-codec\src\decoder\physical_astc_block.h">
+      <Filter>deps\bimg\3rdparty\astc-codec\src\decoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\deps\bimg\3rdparty\astc-codec\src\decoder\quantization.h">
+      <Filter>deps\bimg\3rdparty\astc-codec\src\decoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\deps\bimg\3rdparty\astc-codec\src\decoder\weight_infill.h">
+      <Filter>deps\bimg\3rdparty\astc-codec\src\decoder</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\deps\bimg\src\image.cpp">
+      <Filter>deps\bimg\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bimg\src\image_gnf.cpp">
+      <Filter>deps\bimg\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bimg\3rdparty\astc-codec\src\decoder\astc_file.cc">
+      <Filter>deps\bimg\3rdparty\astc-codec\src\decoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bimg\3rdparty\astc-codec\src\decoder\codec.cc">
+      <Filter>deps\bimg\3rdparty\astc-codec\src\decoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bimg\3rdparty\astc-codec\src\decoder\endpoint_codec.cc">
+      <Filter>deps\bimg\3rdparty\astc-codec\src\decoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bimg\3rdparty\astc-codec\src\decoder\footprint.cc">
+      <Filter>deps\bimg\3rdparty\astc-codec\src\decoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bimg\3rdparty\astc-codec\src\decoder\integer_sequence_codec.cc">
+      <Filter>deps\bimg\3rdparty\astc-codec\src\decoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bimg\3rdparty\astc-codec\src\decoder\intermediate_astc_block.cc">
+      <Filter>deps\bimg\3rdparty\astc-codec\src\decoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bimg\3rdparty\astc-codec\src\decoder\logical_astc_block.cc">
+      <Filter>deps\bimg\3rdparty\astc-codec\src\decoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bimg\3rdparty\astc-codec\src\decoder\partition.cc">
+      <Filter>deps\bimg\3rdparty\astc-codec\src\decoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bimg\3rdparty\astc-codec\src\decoder\physical_astc_block.cc">
+      <Filter>deps\bimg\3rdparty\astc-codec\src\decoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bimg\3rdparty\astc-codec\src\decoder\quantization.cc">
+      <Filter>deps\bimg\3rdparty\astc-codec\src\decoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bimg\3rdparty\astc-codec\src\decoder\weight_infill.cc">
+      <Filter>deps\bimg\3rdparty\astc-codec\src\decoder</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

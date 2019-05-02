@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="deps">
+      <UniqueIdentifier>{F1A1957C-DDD8-960D-86C5-7C1072DB120F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bgfx">
+      <UniqueIdentifier>{D4CF2569-403A-DADF-8978-8B85F521B834}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bgfx\examples">
+      <UniqueIdentifier>{2F091579-1BED-D5CE-844D-D0217050C050}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bgfx\examples\runtime">
+      <UniqueIdentifier>{0FD9F1C8-FBE8-9D99-64A2-02B850D18C32}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\deps\bgfx\examples\runtime\iOS-Info.plist">
+      <Filter>deps\bgfx\examples\runtime</Filter>
+    </None>
+    <None Include="..\..\..\deps\bgfx\examples\runtime\tvOS-Info.plist">
+      <Filter>deps\bgfx\examples\runtime</Filter>
+    </None>
+  </ItemGroup>
+</Project>

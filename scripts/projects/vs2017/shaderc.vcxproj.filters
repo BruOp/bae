@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="deps">
+      <UniqueIdentifier>{F1A1957C-DDD8-960D-86C5-7C1072DB120F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bgfx">
+      <UniqueIdentifier>{D4CF2569-403A-DADF-8978-8B85F521B834}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bgfx\tools">
+      <UniqueIdentifier>{C1D74BE6-2D63-B9AA-3674-3C9FA27E15AB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bgfx\tools\shaderc">
+      <UniqueIdentifier>{3731C2CB-A368-0A63-AC72-6E861829315C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps\bgfx\src">
+      <UniqueIdentifier>{F804A624-64C5-215B-2D00-6BD8997F6637}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\deps\bgfx\tools\shaderc\shaderc.h">
+      <Filter>deps\bgfx\tools\shaderc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\deps\bgfx\src\vertexdecl.h">
+      <Filter>deps\bgfx\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\deps\bgfx\src\shader_spirv.h">
+      <Filter>deps\bgfx\src</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\deps\bgfx\tools\shaderc\shaderc.cpp">
+      <Filter>deps\bgfx\tools\shaderc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bgfx\tools\shaderc\shaderc_glsl.cpp">
+      <Filter>deps\bgfx\tools\shaderc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bgfx\tools\shaderc\shaderc_hlsl.cpp">
+      <Filter>deps\bgfx\tools\shaderc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bgfx\tools\shaderc\shaderc_pssl.cpp">
+      <Filter>deps\bgfx\tools\shaderc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bgfx\tools\shaderc\shaderc_spirv.cpp">
+      <Filter>deps\bgfx\tools\shaderc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bgfx\src\vertexdecl.cpp">
+      <Filter>deps\bgfx\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\deps\bgfx\src\shader_spirv.cpp">
+      <Filter>deps\bgfx\src</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
