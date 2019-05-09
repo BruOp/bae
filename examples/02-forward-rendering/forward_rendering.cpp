@@ -33,8 +33,8 @@ namespace example
 		glm::vec3 position;
 		glm::vec2 uv;
 		glm::vec3 normal;
-		//glm::vec4 tangent;
-		//glm::vec4 bitangent;
+		glm::vec4 tangent;
+		glm::vec4 bitangent;
 
 		static void init()
 		{
@@ -42,8 +42,8 @@ namespace example
 				.add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
 				.add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
 				.add(bgfx::Attrib::Normal, 3, bgfx::AttribType::Float, true)
-				//.add(bgfx::Attrib::Tangent, 4, bgfx::AttribType::Float, true)
-				//.add(bgfx::Attrib::Bitangent, 4, bgfx::AttribType::Float, true)
+				.add(bgfx::Attrib::Tangent, 4, bgfx::AttribType::Float, true)
+				.add(bgfx::Attrib::Bitangent, 4, bgfx::AttribType::Float, true)
 				.end();
 		}
 
@@ -100,6 +100,11 @@ namespace example
 
 	}
 
+	bgfx::UniformHandle getUniformHandle(const MaterialType& materialType, const std::string& uniformName)
+	{
+		return materialType.uniformInfo.at(uniformName).handle;
+	}
+
 	struct Material
 	{
 		std::string name;
@@ -115,11 +120,17 @@ namespace example
 		"phong",
 		BGFX_INVALID_HANDLE,
 		{
-			{"diffuse", {bgfx::UniformType::Sampler}},
-			{"specular", {bgfx::UniformType::Sampler}},
-			{"normal", {bgfx::UniformType::Sampler}},
+			{"diffuseMap", {bgfx::UniformType::Sampler}},
+			{"specularMap", {bgfx::UniformType::Sampler}},
+			{"normalMap", {bgfx::UniformType::Sampler}},
 		},
 	};
+
+	void setUniforms(const Material& material) {
+		bgfx::setTexture(0, getUniformHandle(material.matType, "diffuseMap"), material.diffuse);
+		bgfx::setTexture(1, getUniformHandle(material.matType, "normalMap"), material.normal);
+		bgfx::setTexture(2, getUniformHandle(material.matType, "specularMap"), material.specular);
+	}
 
 	struct Mesh
 	{
@@ -310,8 +321,8 @@ namespace example
 						glm::vec3{vert.x, vert.y, vert.z},
 						texCoords,
 						glm::make_vec3(&(aMesh->mNormals[j].x)),
-						//tangent,
-						//bitangent,
+						tangent,
+						bitangent,
 					};
 				}
 
@@ -520,6 +531,7 @@ namespace example
 				bgfx::setTransform(glm::value_ptr(mtx));
 				bgfx::setIndexBuffer(mesh.indexHandle);
 				bgfx::setVertexBuffer(0, mesh.vertexHandle);
+				setUniforms(mesh.material);
 				bgfx::setState(state);
 				bgfx::submit(0, program);
 			}
