@@ -32,9 +32,10 @@ BX_DIR = path.join(DEPENDENCY_DIR, "bx/")
 BIMG_DIR = path.join(DEPENDENCY_DIR, "bimg/")
 
 EXTERNAL_DIR = (BAE_DIR .. "external/")
-GLM_DIR = path.join(DEPENDENCY_DIR, "glm/")
-TINYGLTF_DIR = path.join(DEPENDENCY_DIR, "tinygltf/")
-TINYOBJ_DIR = path.join(DEPENDENCY_DIR, "tiny_obj_loader/")
+GLM_DIR = path.join(EXTERNAL_DIR, "glm/")
+-- TINYGLTF_DIR = path.join(EXTERNAL_DIR, "tinygltf/")
+-- TINYOBJ_DIR = path.join(EXTERNAL_DIR, "tiny_obj_loader/")
+ASSIMP_DIR = path.join(EXTERNAL_DIR, "assimp/")
 
 local BGFX_SCRIPTS_DIR = (DEPENDENCY_DIR .. "bgfx/scripts/")
 local BUILD_DIR = path.join(BAE_DIR, ".build")
@@ -80,15 +81,24 @@ function exampleProjectDefaults()
         path.join(BGFX_DIR, "3rdparty"),
         path.join(BGFX_DIR, "examples/common"),
         path.join(GLM_DIR, "include"),
-        path.join(TINYOBJ_DIR, "include"),
-        path.join(TINYGLTF_DIR, "include")
+        -- path.join(TINYOBJ_DIR, "include"),
+        -- path.join(TINYGLTF_DIR, "include"),
+        ASSIMP_DIR
     }
 
     flags {
         "FatalWarnings"
     }
 
+    defines {
+        "_HAS_ITERATOR_DEBUGGING=0",
+        "_SECURE_SCL=0"
+    }
+
+    libdirs {ASSIMP_DIR}
+
     links {
+        "assimp-vc140-mt",
         "example-common",
         "example-glue",
         "bgfx",
@@ -257,7 +267,7 @@ dofile(path.join(BIMG_DIR, "scripts/bimg_decode.lua"))
 
 group "examples"
 dofile(path.join(BGFX_SCRIPTS_DIR, "example-common.lua"))
-exampleProject(_OPTIONS["with-combined-examples"], "01-tonemapping")
+exampleProject(_OPTIONS["with-combined-examples"], "01-tonemapping", "02-forward-rendering")
 
 group "tools"
 dofile(path.join(BGFX_SCRIPTS_DIR, "shaderc.lua"))

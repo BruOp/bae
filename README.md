@@ -11,8 +11,9 @@ git submodule update --init --recursive
 ```
 
 Windows
+
 ```
- ./deps/bx/tools/bin/windows/genie.exe --file=scripts/genie.lua vs2017
+make setup
 ```
 
 You'll also need to build `shaderc` (it should be part of the generated solution) and then copy it to `deps/bgfx/tools/bin/windows/shaderc` (or whatever platform you're using). This will elt you build the shaders inside each example using the makefile.

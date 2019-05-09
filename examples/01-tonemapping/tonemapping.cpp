@@ -98,10 +98,10 @@ void screenSpaceQuad(float _textureWidth, float _textureHeight, bool _originBott
 	}
 }
 
-class ExampleHDR : public entry::AppI
+class ExampleToneMapping : public entry::AppI
 {
 public:
-	ExampleHDR(const char* _name, const char* _description)
+	ExampleToneMapping(const char* _name, const char* _description)
 		: entry::AppI(_name, _description)
 	{
 	}
@@ -160,7 +160,7 @@ public:
 		m_fbh.idx = bgfx::kInvalidHandle;
 
 		m_histogramBuffer = bgfx::createDynamicIndexBuffer(256, BGFX_BUFFER_COMPUTE_READ_WRITE | BGFX_BUFFER_INDEX32);
-		
+
 		// Imgui.
 		imguiCreate();
 
@@ -491,4 +491,4 @@ public:
 
 } // namespace
 
-ENTRY_IMPLEMENT_MAIN(ExampleHDR, "41-tonemapping", "Using multiple views with frame buffers, and view order remapping.");
+ENTRY_IMPLEMENT_MAIN(ExampleToneMapping, "01-tonemapping", "Using multiple views with frame buffers.");
