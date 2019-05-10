@@ -33,8 +33,8 @@ namespace example
 		glm::vec3 position;
 		glm::vec2 uv;
 		glm::vec3 normal;
-		glm::vec4 tangent;
-		glm::vec4 bitangent;
+		glm::vec3 tangent;
+		glm::vec3 bitangent;
 
 		static void init()
 		{
@@ -42,8 +42,8 @@ namespace example
 				.add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
 				.add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
 				.add(bgfx::Attrib::Normal, 3, bgfx::AttribType::Float, true)
-				.add(bgfx::Attrib::Tangent, 4, bgfx::AttribType::Float, true)
-				.add(bgfx::Attrib::Bitangent, 4, bgfx::AttribType::Float, true)
+				.add(bgfx::Attrib::Tangent, 3, bgfx::AttribType::Float, true)
+				.add(bgfx::Attrib::Bitangent, 3, bgfx::AttribType::Float, true)
 				.end();
 		}
 
@@ -175,6 +175,53 @@ namespace example
 		std::unordered_map<std::string, Resource> resources;
 	};
 
+	bgfx::TextureHandle loadAssimpTexture(
+		const aiMaterial* aMaterial,
+		const aiTextureType textureType,
+		const std::string& assetPath,
+		ResourceList<bgfx::TextureHandle>& textures
+	) {
+		aiString textureFile;
+		aiTextureMapMode mapModes[3];
+
+		if (aMaterial->GetTextureCount(textureType) <= 0) {
+			return BGFX_INVALID_HANDLE;
+		}
+
+		aMaterial->GetTexture(textureType, 0, &textureFile, NULL, NULL, NULL, NULL, mapModes);
+
+		std::string fileName = std::string(textureFile.C_Str());
+		std::replace(fileName.begin(), fileName.end(), '\\', '/');
+
+		if (!textures.has(fileName)) {
+			std::string filePath = assetPath + fileName;
+			uint64_t flags = 0;
+			if (textureType == aiTextureType_DIFFUSE) {
+				flags |= BGFX_TEXTURE_SRGB;
+			}
+
+			if (mapModes[0] == aiTextureMapMode_Mirror) {
+				flags |= BGFX_SAMPLER_U_MIRROR;
+			}
+			else if (mapModes[0] == aiTextureMapMode_Clamp) {
+				flags |= BGFX_SAMPLER_U_CLAMP;
+			}
+
+			if (mapModes[1] == aiTextureMapMode_Mirror) {
+				flags |= BGFX_SAMPLER_V_MIRROR;
+			}
+			else if (mapModes[1] == aiTextureMapMode_Clamp) {
+				flags |= BGFX_SAMPLER_V_CLAMP;
+			}
+
+			bgfx::TextureHandle handle = loadTexture(filePath.c_str(), flags);
+			textures.add(fileName, handle);
+			return handle;
+		} else {
+			return textures.get(fileName);
+		}
+	}
+
 	class Scene {
 	public:
 		ResourceList<bgfx::TextureHandle> textures;
@@ -195,7 +242,7 @@ namespace example
 
 			for (size_t i = 0; i < dummyFiles.size(); i++) {
 				const auto& fileName = dummyFiles[i];
-				bgfx::TextureHandle handle = loadTexture((assetPath + fileName).c_str(), BGFX_SAMPLER_UVW_CLAMP);
+				bgfx::TextureHandle handle = loadTexture((assetPath + fileName).c_str());
 				textures.add(fileName, handle);
 				dummyHandles[i] = handle;
 			}
@@ -214,65 +261,26 @@ namespace example
 					name.C_Str()
 				};
 
-				aiString textureFile;
-				aMaterial->GetTexture(aiTextureType_DIFFUSE, 0, &textureFile);
-				if (aScene->mMaterials[i]->GetTextureCount(aiTextureType_DIFFUSE) > 0) {
-					std::string fileName = std::string(textureFile.C_Str());
-					std::replace(fileName.begin(), fileName.end(), '\\', '/');
-
-					if (!textures.has(fileName)) {
-						std::string filePath = assetPath + fileName;
-						bgfx::TextureHandle handle = loadTexture(filePath.c_str(), BGFX_SAMPLER_UVW_CLAMP);
-						textures.add(fileName, handle);
-						material.diffuse = handle;
-					} else {
-						material.diffuse = textures.get(fileName);
-					}
-				}
-				else
-				{
+				bgfx::TextureHandle handle = loadAssimpTexture(aMaterial, aiTextureType_DIFFUSE, assetPath, textures);
+				if ( bgfx::isValid(handle)) {
+					material.diffuse = handle;
+				} else {
 					std::cout << "  Material has no diffuse, using dummy texture!" << std::endl;
 					material.diffuse = dummyDiffuse;
 				}
 
-				aMaterial->GetTexture(aiTextureType_SPECULAR, 0, &textureFile);
-				if (aScene->mMaterials[i]->GetTextureCount(aiTextureType_SPECULAR) > 0) {
-					std::string fileName = std::string(textureFile.C_Str());
-					std::replace(fileName.begin(), fileName.end(), '\\', '/');
-
-					if (!textures.has(fileName)) {
-						std::string filePath = assetPath + fileName;
-						bgfx::TextureHandle handle = loadTexture(filePath.c_str(), BGFX_SAMPLER_UVW_CLAMP);
-						textures.add(fileName, handle);
-						material.specular = handle;
-					}
-					else {
-						material.specular = textures.get(fileName);
-					}
-				}
-				else
-				{
+				handle = loadAssimpTexture(aMaterial, aiTextureType_SPECULAR, assetPath, textures);
+				if (bgfx::isValid(handle)) {
+					material.specular = handle;
+				} else {
 					std::cout << "  Material has no specular, using dummy texture!" << std::endl;
-					material.diffuse = dummySpecular;
+					material.specular = dummySpecular;
 				}
 
-				aMaterial->GetTexture(aiTextureType_NORMALS, 0, &textureFile);
-				if (aScene->mMaterials[i]->GetTextureCount(aiTextureType_NORMALS) > 0) {
-					std::string fileName = std::string(textureFile.C_Str());
-					std::replace(fileName.begin(), fileName.end(), '\\', '/');
-
-					if (!textures.has(fileName)) {
-						std::string filePath = assetPath + fileName;
-						bgfx::TextureHandle handle = loadTexture(filePath.c_str(), BGFX_SAMPLER_UVW_CLAMP);
-						textures.add(fileName, handle);
-						material.normal = handle;
-					}
-					else {
-						material.normal = textures.get(fileName);
-					}
-				}
-				else
-				{
+				handle = loadAssimpTexture(aMaterial, aiTextureType_NORMALS, assetPath, textures);
+				if (bgfx::isValid(handle)) {
+					material.normal = handle;
+				} else {
 					std::cout << "  Material has no normal map, using dummy texture!" << std::endl;
 					material.normal = dummyNormal;
 				}
@@ -316,13 +324,13 @@ namespace example
 							aMesh->mBitangents[j].x, aMesh->mBitangents[j].y, aMesh->mBitangents[j].z, 0.0f
 						};
 					}
-					auto& vert = aMesh->mVertices[j];
+
 					vertices[j] = Vertex{
-						glm::vec3{vert.x, vert.y, vert.z},
+						glm::make_vec3(&aMesh->mVertices[j].x),
 						texCoords,
-						glm::make_vec3(&(aMesh->mNormals[j].x)),
-						tangent,
-						bitangent,
+						glm::make_vec3(&aMesh->mNormals[j].x),
+						glm::make_vec3(&aMesh->mTangents[j].x),
+						glm::make_vec3(&aMesh->mBitangents[j].x)
 					};
 				}
 
@@ -359,7 +367,7 @@ namespace example
 
 	Scene loadScene() {
 		Assimp::Importer importer;
-		int flags = aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_CalcTangentSpace | aiProcess_ConvertToLeftHanded;
+		int flags = aiProcess_ConvertToLeftHanded | aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_PreTransformVertices | aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals;
 		std::string assetPath = "meshes/";
 		const aiScene* aScene = importer.ReadFile(assetPath + "sponza.dae", flags);
 
@@ -370,6 +378,20 @@ namespace example
 		scene.loadMeshes(aScene);
 		return scene;
 	}
+
+
+	struct SceneUniforms {
+		bgfx::UniformHandle cameraPos = BGFX_INVALID_HANDLE;
+	};
+
+	void init(SceneUniforms& sceneUniforms) {
+		sceneUniforms.cameraPos = bgfx::createUniform("cameraPos", bgfx::UniformType::Vec4);
+	};
+
+	void destroy(SceneUniforms& sceneUniforms) {
+		bgfx::destroy(sceneUniforms.cameraPos);
+	}
+
 	class ExampleForward : public entry::AppI
 	{
 	public:
@@ -417,6 +439,7 @@ namespace example
 
 			// Lets load all the meshes
 			m_scene = loadScene();
+			example::init(m_sceneUniforms);
 
 			// Imgui.
 			imguiCreate();
@@ -426,7 +449,7 @@ namespace example
 
 			// Init camera
 			cameraCreate();
-			cameraSetPosition({ 0.0f, 1.5f, -200.0f });
+			cameraSetPosition({ 0.0f, 10.5f, 0.0f });
 
 			m_oldWidth = 0;
 			m_oldHeight = 0;
@@ -437,17 +460,18 @@ namespace example
 
 		virtual int shutdown() override
 		{
+			if (!m_computeSupported) {
+				return 0;
+			}
+
 			// Cleanup.
-			imguiDestroy();
+			destroy(m_sceneUniforms);
 			destroy(m_scene);
 			destroy(Material::matType);
 
 			cameraDestroy();
 
-			if (!m_computeSupported) {
-				return 0;
-			}
-
+			imguiDestroy();
 			// Shutdown bgfx.
 			bgfx::shutdown();
 
@@ -517,13 +541,13 @@ namespace example
 				| BGFX_STATE_WRITE_A
 				| BGFX_STATE_WRITE_Z
 				| BGFX_STATE_DEPTH_TEST_LESS
-				//| BGFX_STATE_PT_POINTS
 				| BGFX_STATE_CULL_CCW;
 				//| BGFX_STATE_MSAA;
 
 			// Set view 0 default viewport.
 			bgfx::setViewRect(0, 0, 0, uint16_t(m_width), uint16_t(m_height));
-
+			bx::Vec3 cameraPos = cameraGetPosition();
+			bgfx::setUniform(m_sceneUniforms.cameraPos, &cameraPos.x);
 			// Only using one material type for now, otherwise we'd have to navigate through the meshes' material
 			bgfx::ProgramHandle program = Material::matType.program;
 
@@ -535,8 +559,6 @@ namespace example
 				bgfx::setState(state);
 				bgfx::submit(0, program);
 			}
-
-			bx::Vec3 cameraPosition = cameraGetPosition();
 
 			bgfx::frame();
 
@@ -557,6 +579,7 @@ namespace example
 		uint32_t m_oldReset;
 
 		Scene m_scene;
+		SceneUniforms m_sceneUniforms;
 
 		bool m_computeSupported = true;
 

@@ -8,9 +8,9 @@ void main()
 {
     v_position = mul(u_model[0], vec4(a_position, 1.0)).xyz;
 
-    v_normal    = mul(u_model[0], vec4(a_normal, 1.0)).xyz;
-    v_tangent   = mul(u_model[0], a_tangent).xyz;
-    v_bitangent = mul(u_model[0], a_bitangent).xyz;
+    v_normal    = normalize(mul(u_model[0], vec4(a_normal, 0.0)).xyz);
+    v_tangent   = normalize(mul(u_model[0], vec4(a_tangent, 0.0)).xyz);
+    v_bitangent = normalize(mul(u_model[0], vec4(a_bitangent, 0.0)).xyz);
 
     v_texcoord = a_texcoord0;
 
