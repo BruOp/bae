@@ -25,7 +25,7 @@ void main()
     const vec3 lightPos = vec3(0.0, 50.0, 0.0);
     const vec4 colorIntensity = vec4(1.0, 1.0, 1.0, 1000.0);
 
-    mat3 tbn = mat3(
+    mat3 tbn = mat3FromCols(
         normalize(v_tangent),
         normalize(v_bitangent),
         normalize(v_normal)
