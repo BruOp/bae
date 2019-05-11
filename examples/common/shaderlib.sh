@@ -394,13 +394,12 @@ vec2 texture2DBc5(sampler2D _sampler, vec2 _uv)
 #endif
 }
 
-
-mat3 mtx3FromCols(vec3 c0, vec3 c1, vec3 c2)
+mat3 mat3FromCols(vec3 c0, vec3 c1, vec3 c2)
 {
-#ifdef BGFX_SHADER_LANGUAGE_GLSL
-	return mat3(c0, c1, c2);
-#else
+#ifdef BGFX_SHADER_LANGUAGE_HLSL
 	return transpose(mat3(c0, c1, c2));
+#else
+	return mat3(c0, c1, c2);
 #endif
 }
 

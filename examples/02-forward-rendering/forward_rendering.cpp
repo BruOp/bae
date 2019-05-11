@@ -392,6 +392,61 @@ namespace example
 		bgfx::destroy(sceneUniforms.cameraPos);
 	}
 
+	//template<class Light>
+	class LightSet {
+	public:
+		uint8_t lightCount = 0;
+		uint16_t maxLightCount = 255;  // Has to match whatever we have set in the shader...
+
+		// params is bacasically just used to store params.x = lightCount
+		bgfx::UniformHandle params = BGFX_INVALID_HANDLE;
+		bgfx::UniformHandle lightPos = BGFX_INVALID_HANDLE;
+		bgfx::UniformHandle lightColorIntensity = BGFX_INVALID_HANDLE;
+
+		void init(const std::string& lightName)
+		{
+			auto uniformName = lightName + "_params";
+			params = bgfx::createUniform(uniformName.c_str(), bgfx::UniformType::Vec4);
+			uniformName = lightName + "_pos";
+			lightPos = bgfx::createUniform(uniformName.c_str(), bgfx::UniformType::Vec4, maxLightCount);
+			uniformName = lightName + "_colorIntensity";
+			lightColorIntensity = bgfx::createUniform(uniformName.c_str(), bgfx::UniformType::Vec4, maxLightCount);
+
+			lightPosData.resize(maxLightCount);
+			lightColorIntensityData.resize(maxLightCount);
+		}
+
+		void setUniforms() const
+		{
+			float paramsArr[4]{ float(lightCount), 0.0f, 0.0f, 0.0f };
+			bgfx::setUniform(params, paramsArr);
+			bgfx::setUniform(lightPos, lightPosData.data(), maxLightCount);
+			bgfx::setUniform(lightColorIntensity, lightColorIntensityData.data(), maxLightCount);
+		};
+
+		void destroy()
+		{
+			bgfx::destroy(params);
+			bgfx::destroy(lightPos);
+			bgfx::destroy(lightColorIntensity);
+		}
+
+		bool addLight(const glm::vec3& color, const float intensity, const glm::vec3& position) {
+			if (lightCount >= maxLightCount) {
+				return false;
+			}
+
+			lightPosData[lightCount] = glm::vec4{ position, 1.0 };
+			lightColorIntensityData[lightCount] = glm::vec4{ color, intensity };
+			++lightCount;
+			return true;
+		}
+
+		std::vector<glm::vec4> lightPosData;
+		std::vector<glm::vec4> lightColorIntensityData;
+	};
+
+
 	class ExampleForward : public entry::AppI
 	{
 	public:
@@ -404,7 +459,7 @@ namespace example
 			m_width = _width;
 			m_height = _height;
 			m_debug = BGFX_DEBUG_TEXT;
-			m_reset = BGFX_RESET_VSYNC;
+			m_reset = BGFX_RESET_NONE;
 
 			bgfx::Init initInfo;
 			initInfo.type = args.m_type;
@@ -441,6 +496,25 @@ namespace example
 			m_scene = loadScene();
 			example::init(m_sceneUniforms);
 
+			std::vector<glm::vec3> colors = {
+				{ 1.0f, 0.1f, 0.1f },
+				{ 0.1f, 1.0f, 0.1f },
+				{ 0.1f, 0.1f, 1.0f },
+				{ 1.0f, 0.1f, 1.0f },
+				{ 1.0f, 1.0f, 0.1f },
+				{ 0.1f, 1.0f, 1.0f },
+				{ 1.0f, 1.0f, 1.0f },
+			};
+
+			m_lightSet.init("pointLight");
+			for (size_t i = 0; i < m_lightSet.maxLightCount; i++) {
+				m_lightSet.addLight(
+					colors[i % colors.size()],
+					5000.0f / m_lightSet.maxLightCount,
+					{ 10.0f * i, 5.0f, 0.0f }
+				);
+			}
+
 			// Imgui.
 			imguiCreate();
 
@@ -465,6 +539,7 @@ namespace example
 			}
 
 			// Cleanup.
+			m_lightSet.destroy();
 			destroy(m_sceneUniforms);
 			destroy(m_scene);
 			destroy(Material::matType);
@@ -536,27 +611,49 @@ namespace example
 			glm::mat4 mtx = glm::identity<glm::mat4>();
 			//bx::mtxRotateXY(glm::value_ptr(mtx), 0.0f, 0.2f * m_time);
 
-			uint64_t state = 0
+			uint64_t stateOpaque = 0
 				| BGFX_STATE_WRITE_RGB
 				| BGFX_STATE_WRITE_A
 				| BGFX_STATE_WRITE_Z
 				| BGFX_STATE_DEPTH_TEST_LESS
-				| BGFX_STATE_CULL_CCW;
-				//| BGFX_STATE_MSAA;
+				| BGFX_STATE_CULL_CCW
+				| BGFX_STATE_MSAA;
+
+			uint64_t stateTransparent = stateOpaque | BGFX_STATE_BLEND_ALPHA;
 
 			// Set view 0 default viewport.
 			bgfx::setViewRect(0, 0, 0, uint16_t(m_width), uint16_t(m_height));
 			bx::Vec3 cameraPos = cameraGetPosition();
 			bgfx::setUniform(m_sceneUniforms.cameraPos, &cameraPos.x);
+
+			// Update our light positions so they fly around the atrium
+			{
+				float a = 120.0f;
+				float b = 45.0f;
+				float N = float(m_lightSet.lightCount);
+				for (size_t i = 0; i < m_lightSet.lightCount; ++i) {
+					float coeff = (float(i % 8) + 1.0f) / 8.0f;
+					m_lightSet.lightPosData[i].x = coeff * a * bx::cos(0.3f * m_time / coeff + bx::kPi2 * i / N);
+					m_lightSet.lightPosData[i].z = coeff * b * bx::sin(0.3f * m_time / coeff + bx::kPi2 * i / N);
+					m_lightSet.lightPosData[i].y = 80.0f * (i + 1) / N;
+				}
+			}
+			m_lightSet.setUniforms();
+
 			// Only using one material type for now, otherwise we'd have to navigate through the meshes' material
 			bgfx::ProgramHandle program = Material::matType.program;
-
+			// Render all our meshes
 			for (auto& mesh : m_scene.meshes) {
 				bgfx::setTransform(glm::value_ptr(mtx));
 				bgfx::setIndexBuffer(mesh.indexHandle);
 				bgfx::setVertexBuffer(0, mesh.vertexHandle);
 				setUniforms(mesh.material);
-				bgfx::setState(state);
+				if (mesh.material.hasAlpha) {
+					bgfx::setState(stateTransparent);
+				}
+				else {
+					bgfx::setState(stateOpaque);
+				}
 				bgfx::submit(0, program);
 			}
 
@@ -580,6 +677,7 @@ namespace example
 
 		Scene m_scene;
 		SceneUniforms m_sceneUniforms;
+		LightSet m_lightSet;
 
 		bool m_computeSupported = true;
 
