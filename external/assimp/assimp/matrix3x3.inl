@@ -3,7 +3,9 @@
 Open Asset Import Library (assimp)
 ---------------------------------------------------------------------------
 
-Copyright (c) 2006-2015, assimp team
+Copyright (c) 2006-2019, assimp team
+
+
 
 All rights reserved.
 
@@ -42,8 +44,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /** @file matrix3x3.inl
  *  @brief Inline implementation of the 3x3 matrix operators
  */
-#ifndef AI_MATRIX3x3_INL_INC
-#define AI_MATRIX3x3_INL_INC
+#pragma once
+#ifndef AI_MATRIX3X3_INL_INC
+#define AI_MATRIX3X3_INL_INC
 
 #ifdef __cplusplus
 #include "matrix3x3.h"
@@ -100,16 +103,34 @@ inline aiMatrix3x3t<TReal> aiMatrix3x3t<TReal>::operator* (const aiMatrix3x3t<TR
 
 // ------------------------------------------------------------------------------------------------
 template <typename TReal>
-inline TReal* aiMatrix3x3t<TReal>::operator[] (unsigned int p_iIndex)
-{
-    return &this->a1 + p_iIndex * 3;
+inline TReal* aiMatrix3x3t<TReal>::operator[] (unsigned int p_iIndex) {
+    switch ( p_iIndex ) {
+        case 0:
+            return &a1;
+        case 1:
+            return &b1;
+        case 2:
+            return &c1;
+        default:
+            break;
+    }
+    return &a1;
 }
 
 // ------------------------------------------------------------------------------------------------
 template <typename TReal>
-inline const TReal* aiMatrix3x3t<TReal>::operator[] (unsigned int p_iIndex) const
-{
-    return &this->a1 + p_iIndex * 3;
+inline const TReal* aiMatrix3x3t<TReal>::operator[] (unsigned int p_iIndex) const {
+    switch ( p_iIndex ) {
+        case 0:
+            return &a1;
+        case 1:
+            return &b1;
+        case 2:
+            return &c1;
+        default:
+            break;
+    }
+    return &a1;
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -241,7 +262,7 @@ inline aiMatrix3x3t<TReal>& aiMatrix3x3t<TReal>::Translation( const aiVector2t<T
  * "from" into another vector called "to".
  * Input : from[3], to[3] which both must be *normalized* non-zero vectors
  * Output: mtx[3][3] -- a 3x3 matrix in colum-major form
- * Authors: Tomas Möller, John Hughes
+ * Authors: Tomas MÃ¶ller, John Hughes
  *          "Efficiently Building a Matrix to Rotate One Vector to Another"
  *          Journal of Graphics Tools, 4(4):1-4, 1999
  */
@@ -266,38 +287,42 @@ inline aiMatrix3x3t<TReal>& aiMatrix3x3t<TReal>::FromToMatrix(const aiVector3t<T
         {
             if (x.x < x.z)
             {
-                x.x = static_cast<TReal>(1.0); x.y = x.z = static_cast<TReal>(0.0);
+                x.x = static_cast<TReal>(1.0);
+                x.y = x.z = static_cast<TReal>(0.0);
             }
             else
             {
-                x.z = static_cast<TReal>(1.0); x.y = x.z = static_cast<TReal>(0.0);
+                x.z = static_cast<TReal>(1.0);
+                x.x = x.y = static_cast<TReal>(0.0);
             }
         }
         else
         {
             if (x.y < x.z)
             {
-                x.y = static_cast<TReal>(1.0); x.x = x.z = static_cast<TReal>(0.0);
+                x.y = static_cast<TReal>(1.0);
+                x.x = x.z = static_cast<TReal>(0.0);
             }
             else
             {
-                x.z = static_cast<TReal>(1.0); x.x = x.y = static_cast<TReal>(0.0);
+                x.z = static_cast<TReal>(1.0);
+                x.x = x.y = static_cast<TReal>(0.0);
             }
         }
 
         u.x = x.x - from.x; u.y = x.y - from.y; u.z = x.z - from.z;
         v.x = x.x - to.x;   v.y = x.y - to.y;   v.z = x.z - to.z;
 
-        const TReal c1 = static_cast<TReal>(2.0) / (u * u);
-        const TReal c2 = static_cast<TReal>(2.0) / (v * v);
-        const TReal c3 = c1 * c2  * (u * v);
+        const TReal c1_ = static_cast<TReal>(2.0) / (u * u);
+        const TReal c2_ = static_cast<TReal>(2.0) / (v * v);
+        const TReal c3_ = c1_ * c2_  * (u * v);
 
         for (unsigned int i = 0; i < 3; i++)
         {
             for (unsigned int j = 0; j < 3; j++)
             {
-                mtx[i][j] =  - c1 * u[i] * u[j] - c2 * v[i] * v[j]
-                    + c3 * v[i] * u[j];
+                mtx[i][j] =  - c1_ * u[i] * u[j] - c2_ * v[i] * v[j]
+                    + c3_ * v[i] * u[j];
             }
             mtx[i][i] += static_cast<TReal>(1.0);
         }
@@ -329,4 +354,4 @@ inline aiMatrix3x3t<TReal>& aiMatrix3x3t<TReal>::FromToMatrix(const aiVector3t<T
 
 
 #endif // __cplusplus
-#endif // AI_MATRIX3x3_INL_INC
+#endif // AI_MATRIX3X3_INL_INC
