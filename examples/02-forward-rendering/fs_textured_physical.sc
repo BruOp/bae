@@ -71,8 +71,8 @@ void main()
     vec3 viewDir = normalize(cameraPos.xyz - v_position);
 
     vec3 color = vec3(0.0, 0.0, 0.0);
-    vec4 matColor = toLinear(texture2D(diffuseMap, v_texcoord));
-    vec3 OccRoughMetal = toLinear(texture2D(metallicRoughnessMap, v_texcoord)).xyz;
+    vec4 matColor = texture2D(diffuseMap, v_texcoord);
+    vec3 OccRoughMetal = texture2D(metallicRoughnessMap, v_texcoord).xyz;
 
     int numLights = min(int(pointLight_params.x), MAX_LIGHT_COUNT);
 

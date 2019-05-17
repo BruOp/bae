@@ -198,6 +198,10 @@ namespace example
 		if (!textures.has(fileName)) {
 			std::string filePath = assetPath + fileName;
 			uint64_t flags = 0;
+			if (textureType != aiTextureType_NORMALS) {
+				flags |= BGFX_TEXTURE_SRGB;
+			}
+
 			if (mapModes[0] == aiTextureMapMode_Mirror) {
 				flags |= BGFX_SAMPLER_U_MIRROR;
 			}
