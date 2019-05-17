@@ -19,6 +19,7 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <assimp/pbrmaterial.h>
 
 #include "camera.h"
 
@@ -109,27 +110,28 @@ namespace example
 	{
 		std::string name;
 		bgfx::TextureHandle diffuse = BGFX_INVALID_HANDLE;
-		bgfx::TextureHandle specular = BGFX_INVALID_HANDLE;
+		bgfx::TextureHandle metallicRoughness = BGFX_INVALID_HANDLE;
 		bgfx::TextureHandle normal = BGFX_INVALID_HANDLE;
-		bool hasAlpha = false;
+		uint64_t blendMode = 0;
 
 		static MaterialType matType;
 	};
 
 	MaterialType Material::matType{
-		"phong",
+		"textured_physical",
 		BGFX_INVALID_HANDLE,
 		{
 			{"diffuseMap", {bgfx::UniformType::Sampler}},
-			{"specularMap", {bgfx::UniformType::Sampler}},
 			{"normalMap", {bgfx::UniformType::Sampler}},
+			{"metallicRoughnessMap", {bgfx::UniformType::Sampler}},
+			{"normalTransform", {bgfx::UniformType::Mat4}},
 		},
 	};
 
 	void setUniforms(const Material& material) {
 		bgfx::setTexture(0, getUniformHandle(material.matType, "diffuseMap"), material.diffuse);
 		bgfx::setTexture(1, getUniformHandle(material.matType, "normalMap"), material.normal);
-		bgfx::setTexture(2, getUniformHandle(material.matType, "specularMap"), material.specular);
+		bgfx::setTexture(2, getUniformHandle(material.matType, "metallicRoughnessMap"), material.metallicRoughness);
 	}
 
 	struct Mesh
@@ -196,10 +198,6 @@ namespace example
 		if (!textures.has(fileName)) {
 			std::string filePath = assetPath + fileName;
 			uint64_t flags = 0;
-			if (textureType == aiTextureType_DIFFUSE) {
-				flags |= BGFX_TEXTURE_SRGB;
-			}
-
 			if (mapModes[0] == aiTextureMapMode_Mirror) {
 				flags |= BGFX_SAMPLER_U_MIRROR;
 			}
@@ -215,6 +213,10 @@ namespace example
 			}
 
 			bgfx::TextureHandle handle = loadTexture(filePath.c_str(), flags);
+			if (!bgfx::isValid(handle)) {
+				throw std::runtime_error("Texture could not be loaded!: " + fileName);
+			}
+
 			textures.add(fileName, handle);
 			return handle;
 		} else {
@@ -234,21 +236,21 @@ namespace example
 			// Load in dummy files to use for materials that do not have texture present
 			// Allows us to treat all our materials the same way
 			std::vector<std::string> dummyFiles{
-				"sponza/dummy.dds",
-				"sponza/dummy_specular.dds",
-				"sponza/dummy_ddn.dds",
+				"textures/dummy.dds",
+				"textures/dummy_metallicRoughness.dds",
+				"textures/dummy_ddn.dds",
 			};
 			std::vector<bgfx::TextureHandle> dummyHandles(3);
 
 			for (size_t i = 0; i < dummyFiles.size(); i++) {
 				const auto& fileName = dummyFiles[i];
-				bgfx::TextureHandle handle = loadTexture((assetPath + fileName).c_str());
+				bgfx::TextureHandle handle = loadTexture(fileName.c_str());
 				textures.add(fileName, handle);
 				dummyHandles[i] = handle;
 			}
 
 			const bgfx::TextureHandle& dummyDiffuse = dummyHandles[0];
-			const bgfx::TextureHandle& dummySpecular = dummyHandles[1];
+			const bgfx::TextureHandle& dummyMetallicRoughness = dummyHandles[1];
 			const bgfx::TextureHandle& dummyNormal = dummyHandles[2];
 
 			materials.reserve(aScene->mNumMaterials);
@@ -261,6 +263,18 @@ namespace example
 					name.C_Str()
 				};
 
+
+				aiString aiAlphaMode;
+				if (aMaterial->Get(AI_MATKEY_GLTF_ALPHAMODE, aiAlphaMode) == AI_SUCCESS) {
+					std::string alphaMode = aiAlphaMode.C_Str();
+					if (alphaMode.compare("MASK") == 0) {
+						material.blendMode = BGFX_STATE_BLEND_ALPHA;
+					} else if (alphaMode.compare("BLEND") == 0) {
+						material.blendMode = BGFX_STATE_BLEND_ALPHA;
+					}
+				}
+
+
 				bgfx::TextureHandle handle = loadAssimpTexture(aMaterial, aiTextureType_DIFFUSE, assetPath, textures);
 				if ( bgfx::isValid(handle)) {
 					material.diffuse = handle;
@@ -269,12 +283,12 @@ namespace example
 					material.diffuse = dummyDiffuse;
 				}
 
-				handle = loadAssimpTexture(aMaterial, aiTextureType_SPECULAR, assetPath, textures);
+				handle = loadAssimpTexture(aMaterial, aiTextureType_UNKNOWN, assetPath, textures);
 				if (bgfx::isValid(handle)) {
-					material.specular = handle;
+					material.metallicRoughness = handle;
 				} else {
-					std::cout << "  Material has no specular, using dummy texture!" << std::endl;
-					material.specular = dummySpecular;
+					std::cout << "  Material has no Metallic Roughness, using dummy texture!" << std::endl;
+					material.metallicRoughness = dummyMetallicRoughness;
 				}
 
 				handle = loadAssimpTexture(aMaterial, aiTextureType_NORMALS, assetPath, textures);
@@ -283,10 +297,6 @@ namespace example
 				} else {
 					std::cout << "  Material has no normal map, using dummy texture!" << std::endl;
 					material.normal = dummyNormal;
-				}
-
-				if (aMaterial->GetTextureCount(aiTextureType_OPACITY) > 0) {
-					material.hasAlpha = true;
 				}
 
 				materials.push_back(material);
@@ -365,11 +375,10 @@ namespace example
 		scene.textures.destroy();
 	}
 
-	Scene loadScene() {
+	Scene loadScene(const std::string& assetPath, const std::string& fileName) {
 		Assimp::Importer importer;
 		int flags = aiProcess_ConvertToLeftHanded | aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_PreTransformVertices | aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals;
-		std::string assetPath = "meshes/";
-		const aiScene* aScene = importer.ReadFile(assetPath + "sponza.dae", flags);
+		const aiScene* aScene = importer.ReadFile(assetPath + fileName, flags);
 
 		BX_CHECK(aScene == nullptr, "Could not open sponza file");
 
@@ -459,7 +468,7 @@ namespace example
 			m_width = _width;
 			m_height = _height;
 			m_debug = BGFX_DEBUG_TEXT;
-			m_reset = BGFX_RESET_NONE;
+			m_reset = BGFX_RESET_MSAA_X8 | BGFX_RESET_VSYNC;
 
 			bgfx::Init initInfo;
 			initInfo.type = args.m_type;
@@ -493,24 +502,25 @@ namespace example
 			example::init(Material::matType);
 
 			// Lets load all the meshes
-			m_scene = loadScene();
+			m_scene = loadScene("meshes/pbr_sponza/", "sponza.gltf");
 			example::init(m_sceneUniforms);
 
 			std::vector<glm::vec3> colors = {
+				{ 1.0f, 1.0f, 1.0f },
 				{ 1.0f, 0.1f, 0.1f },
 				{ 0.1f, 1.0f, 0.1f },
 				{ 0.1f, 0.1f, 1.0f },
 				{ 1.0f, 0.1f, 1.0f },
 				{ 1.0f, 1.0f, 0.1f },
 				{ 0.1f, 1.0f, 1.0f },
-				{ 1.0f, 1.0f, 1.0f },
 			};
 
 			m_lightSet.init("pointLight");
-			for (size_t i = 0; i < m_lightSet.maxLightCount; i++) {
+			int N = m_lightSet.maxLightCount / 2;
+			for (size_t i = 0; i < N; i++) {
 				m_lightSet.addLight(
 					colors[i % colors.size()],
-					5000.0f / m_lightSet.maxLightCount,
+					500.0f / N,
 					{ 10.0f * i, 5.0f, 0.0f }
 				);
 			}
@@ -602,7 +612,7 @@ namespace example
 			// Update camera
 			float view[16];
 
-			cameraUpdate(deltaTime, m_mouseState);
+			cameraUpdate(0.5f * deltaTime, m_mouseState);
 			cameraGetViewMtx(view);
 			// Set view and projection matrix
 			bgfx::setViewTransform(0, view, proj);
@@ -618,9 +628,9 @@ namespace example
 				| BGFX_STATE_DEPTH_TEST_LESS
 				| BGFX_STATE_CULL_CCW
 				| BGFX_STATE_MSAA;
-
+/*
 			uint64_t stateTransparent = stateOpaque | BGFX_STATE_BLEND_ALPHA;
-
+*/
 			// Set view 0 default viewport.
 			bgfx::setViewRect(0, 0, 0, uint16_t(m_width), uint16_t(m_height));
 			bx::Vec3 cameraPos = cameraGetPosition();
@@ -628,32 +638,32 @@ namespace example
 
 			// Update our light positions so they fly around the atrium
 			{
-				float a = 120.0f;
-				float b = 45.0f;
+				float a = 100.0f;
+				float b = 35.0f;
 				float N = float(m_lightSet.lightCount);
 				for (size_t i = 0; i < m_lightSet.lightCount; ++i) {
 					float coeff = (float(i % 8) + 1.0f) / 8.0f;
-					m_lightSet.lightPosData[i].x = coeff * a * bx::cos(0.3f * m_time / coeff + bx::kPi2 * i / N);
-					m_lightSet.lightPosData[i].z = coeff * b * bx::sin(0.3f * m_time / coeff + bx::kPi2 * i / N);
-					m_lightSet.lightPosData[i].y = 80.0f * (i + 1) / N;
+					m_lightSet.lightPosData[i].x = coeff * a * bx::cos(0.1f * m_time / coeff + bx::kPi2 * i / N);
+					m_lightSet.lightPosData[i].z = coeff * b * bx::sin(0.1f * m_time / coeff + bx::kPi2 * i / N);
+					m_lightSet.lightPosData[i].y = 60.0f * (i + 1) / N;
 				}
 			}
 			m_lightSet.setUniforms();
+
+			bgfx::UniformHandle normalTransformHandle = Material::matType.uniformInfo["normalTransform"].handle;
 
 			// Only using one material type for now, otherwise we'd have to navigate through the meshes' material
 			bgfx::ProgramHandle program = Material::matType.program;
 			// Render all our meshes
 			for (auto& mesh : m_scene.meshes) {
 				bgfx::setTransform(glm::value_ptr(mtx));
+				// Not sure if this should be part of the material?
+				bgfx::setUniform(normalTransformHandle, glm::value_ptr(glm::transpose(glm::inverse(mtx))));
+
 				bgfx::setIndexBuffer(mesh.indexHandle);
 				bgfx::setVertexBuffer(0, mesh.vertexHandle);
 				setUniforms(mesh.material);
-				if (mesh.material.hasAlpha) {
-					bgfx::setState(stateTransparent);
-				}
-				else {
-					bgfx::setState(stateOpaque);
-				}
+				bgfx::setState(stateOpaque | mesh.material.blendMode);
 				bgfx::submit(0, program);
 			}
 
