@@ -33,8 +33,6 @@ BIMG_DIR = path.join(DEPENDENCY_DIR, "bimg/")
 
 EXTERNAL_DIR = (BAE_DIR .. "external/")
 GLM_DIR = path.join(EXTERNAL_DIR, "glm/")
--- TINYGLTF_DIR = path.join(EXTERNAL_DIR, "tinygltf/")
--- TINYOBJ_DIR = path.join(EXTERNAL_DIR, "tiny_obj_loader/")
 ASSIMP_DIR = path.join(EXTERNAL_DIR, "assimp/")
 
 local BGFX_SCRIPTS_DIR = (DEPENDENCY_DIR .. "bgfx/scripts/")
@@ -81,6 +79,7 @@ function exampleProjectDefaults()
         path.join(BGFX_DIR, "3rdparty"),
         path.join(BGFX_DIR, "examples/common"),
         path.join(GLM_DIR, "include"),
+        path.join(BAE_DIR, "include"),
         -- path.join(TINYOBJ_DIR, "include"),
         -- path.join(TINYGLTF_DIR, "include"),
         ASSIMP_DIR
@@ -104,7 +103,8 @@ function exampleProjectDefaults()
         "bgfx",
         "bimg_decode",
         "bimg",
-        "bx"
+        "bx",
+        "bae"
     }
 
     configuration {"vs*", "x32 or x64"}
@@ -264,6 +264,7 @@ bgfxProject("", "StaticLib", {})
 dofile(path.join(BX_DIR, "scripts/bx.lua"))
 dofile(path.join(BIMG_DIR, "scripts/bimg.lua"))
 dofile(path.join(BIMG_DIR, "scripts/bimg_decode.lua"))
+dofile("bae.lua")
 
 group "examples"
 dofile(path.join(BGFX_SCRIPTS_DIR, "example-common.lua"))
@@ -274,80 +275,3 @@ dofile(path.join(BGFX_SCRIPTS_DIR, "shaderc.lua"))
 dofile(path.join(BGFX_SCRIPTS_DIR, "texturec.lua"))
 dofile(path.join(BGFX_SCRIPTS_DIR, "texturev.lua"))
 dofile(path.join(BGFX_SCRIPTS_DIR, "geometryc.lua"))
-
--- group "bae"
--- project("bae")
--- uuid(os.uuid("bae"))
--- kind "WindowedApp"
-
--- files {
---     path.join(BAE_DIR, "src", "**.cpp"),
---     path.join(BAE_DIR, "include", "**.h")
--- }
-
--- removefiles {
---     path.join(BAE_DIR, "**.bin.h")
--- }
-
--- defines {
---     "ENTRY_CONFIG_IMPLEMENT_MAIN=1"
--- }
-
--- debugdir(BAE_DIR, "runtime")
-
--- includedirs {
---     path.join(BX_DIR, "include"),
---     path.join(BIMG_DIR, "include"),
---     path.join(BGFX_DIR, "include"),
---     path.join(BGFX_DIR, "3rdparty"),
---     path.join(BGFX_DIR, "examples/common"),
---     path.join(GLM_DIR, "include"),
---     path.join(TINYOBJ_DIR, "include"),
---     path.join(TINYGLTF_DIR, "include")
--- }
-
--- flags {
---     "FatalWarnings"
--- }
-
--- links {
---     "example-common",
---     "example-glue",
---     "bgfx",
---     "bimg_decode",
---     "bimg",
---     "bx"
--- }
-
--- configuration {"vs*", "x32 or x64"}
--- linkoptions {
---     "/ignore:4199" -- LNK4199: /DELAYLOAD:*.dll ignored; no imports found from *.dll
--- }
--- links {
---     -- this is needed only for testing with GLES2/3 on Windows with VS2008
---     "DelayImp"
--- }
-
--- configuration {"vs201*", "x32 or x64"}
--- linkoptions {
---     -- this is needed only for testing with GLES2/3 on Windows with VS201x
---     '/DELAYLOAD:"libEGL.dll"',
---     '/DELAYLOAD:"libGLESv2.dll"'
--- }
-
--- configuration {"mingw*"}
--- targetextension ".exe"
--- links {
---     "gdi32",
---     "psapi"
--- }
-
--- configuration {"vs20*", "x32 or x64"}
--- links {
---     "gdi32",
---     "psapi"
--- }
-
--- configuration {}
-
--- strip()
