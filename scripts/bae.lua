@@ -24,10 +24,6 @@ includedirs {
   ASSIMP_DIR
 }
 
-flags {
-  "FatalWarnings"
-}
-
 links {
   "assimp-vc140-mt",
   "example-common",

@@ -1,6 +1,8 @@
 $input v_position, v_normal, v_tangent, v_bitangent, v_texcoord
 
-#define MAX_LIGHT_COUNT 10
+#include "../examples/common/common.sh"
+
+#define MAX_LIGHT_COUNT 255
 #define DIELECTRIC_SPECULAR 0.04
 #define BLACK vec3(0.0, 0.0, 0.0)
 // Scene
@@ -9,12 +11,11 @@ uniform vec4 pointLight_params;
 uniform vec4 pointLight_colorIntensity[MAX_LIGHT_COUNT];
 uniform vec4 pointLight_pos[MAX_LIGHT_COUNT];
 
-#include "./common/common.sh"
 
 // Material
-SAMPLER2D(baseColor, 0);
+SAMPLER2D(diffuseMap, 0);
 SAMPLER2D(normalMap, 1);
-SAMPLER2D(occlusionRoughnessMetalness, 2);
+SAMPLER2D(metallicRoughnessMap, 2);
 
 
 float D_GGX(float NoH, float linearRoughness) {
@@ -32,12 +33,11 @@ float V_SmithGGXCorrelatedFast(float NoV, float NoL, float a) {
 
 vec3 F_Schlick(float VoH, float reflectance, float metallic, vec3 baseColor) {
     vec3 f0 = mix(vec3_splat(reflectance), baseColor, metallic);
-    // vec3 f0 = vec3_splat(0.16 * reflectance * reflectance * (1.0 - metallic)) + baseColor * metallic;
     float f = pow(1.0 - VoH, 5.0);
     return f + f0 * (1.0 - f);
 }
 
-vec3 specular(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 baseColor, vec4 OccRoughMetal) {
+vec3 specular(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 baseColor, vec3 OccRoughMetal) {
     vec3 h = normalize(lightDir + viewDir);
     float NoV = clamp(dot(normal, viewDir), 1e-5, 1.0);
     float NoL = clampDot(normal, lightDir);
@@ -60,25 +60,31 @@ vec3 diffuseBRDF(vec3 color, float metallic) {
 
 void main()
 {
-    mat3 tbn = mat3(
-        normalize(v_bitangent),
+    mat3 tbn = mat3FromCols(
         normalize(v_tangent),
+        normalize(v_bitangent),
         normalize(v_normal)
     );
     vec3 normal = texture2D(normalMap, v_texcoord).xyz * 2.0 - 1.0;
     normal = normalize(mul(tbn, normal));
+
     vec3 viewDir = normalize(cameraPos.xyz - v_position);
 
     vec3 color = vec3(0.0, 0.0, 0.0);
-    vec4 matColor = toLinear(texture2D(baseColor, v_texcoord));
-    vec4 OccRoughMetal = toLinear(texture2D(occlusionRoughnessMetalness, v_texcoord));
-    for (int i = 0; i < MAX_LIGHT_COUNT; i++) {
-        vec3 lightDir = pointLight_pos[i].xyz - v_position;
-        float _distance = length(lightDir);
-        lightDir = normalize(lightDir);
+    vec4 matColor = texture2D(diffuseMap, v_texcoord);
+    vec3 OccRoughMetal = texture2D(metallicRoughnessMap, v_texcoord).xyz;
 
-        float attenuation = pointLight_colorIntensity[i].w / (_distance * _distance);
-        vec3 light = attenuation * pointLight_colorIntensity[i].xyz * clampDot(normal, lightDir);
+    int numLights = min(int(pointLight_params.x), MAX_LIGHT_COUNT);
+
+    for (int i = 0; i < numLights; i++) {
+        vec3 lightPos = pointLight_pos[i].xyz;
+        vec4 colorIntensity = pointLight_colorIntensity[i];
+        vec3 lightDir = lightPos - v_position;
+        float dist = length(lightDir);
+        lightDir = lightDir / dist;
+
+        float attenuation = colorIntensity.w / (dist * dist);
+        vec3 light = attenuation * colorIntensity.xyz * clampDot(normal, lightDir);
 
         color += (
             diffuseBRDF(matColor.xyz, OccRoughMetal.z) +
@@ -86,5 +92,5 @@ void main()
         ) * light;
     }
 
-    gl_FragColor = vec4(toGamma(color), 1.0);
+    gl_FragColor = vec4(toGammaAccurate(color * matColor.w), matColor.w);
 }

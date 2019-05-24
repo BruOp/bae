@@ -268,7 +268,7 @@ dofile("bae.lua")
 
 group "examples"
 dofile(path.join(BGFX_SCRIPTS_DIR, "example-common.lua"))
-exampleProject(_OPTIONS["with-combined-examples"], "01-tonemapping", "02-forward-rendering")
+exampleProject(_OPTIONS["with-combined-examples"], "01-tonemapping", "02-forward-rendering", "03-deferred-rendering")
 
 group "tools"
 dofile(path.join(BGFX_SCRIPTS_DIR, "shaderc.lua"))

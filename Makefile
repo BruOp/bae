@@ -5,3 +5,6 @@ help: ## Print each command with its help string
 
 setup: ## Build stuff
 	deps/bx/tools/bin/windows/genie.exe --file=scripts/genie.lua vs2017
+
+compile_shaders:
+	cd shaders && make TARGET=$(TARGET)
