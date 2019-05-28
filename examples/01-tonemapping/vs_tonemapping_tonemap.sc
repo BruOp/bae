@@ -1,11 +1,7 @@
 $input a_position, a_texcoord0
 $output v_texcoord0
-/*
- * Copyright 2011-2019 Branimir Karadzic. All rights reserved.
- * License: https://github.com/bkaradzic/bgfx#license-bsd-2-clause
- */
 
-#include "common.sh"
+#include "../common/common.sh"
 
 void main()
 {

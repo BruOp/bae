@@ -1,4 +1,3 @@
-
 #include <bgfx_compute.sh>
 
 #define GROUP_SIZE 256

@@ -5,10 +5,12 @@ $input v_texcoord0
  * License: https://github.com/bkaradzic/bgfx#license-bsd-2-clause
  */
 
-#include "common.sh"
+#include "../common/common.sh"
 
 SAMPLER2D(s_texColor, 0);
 SAMPLER2D(s_texAvgLum, 1);
+
+uniform vec4 u_tonemap;
 
 void main()
 {

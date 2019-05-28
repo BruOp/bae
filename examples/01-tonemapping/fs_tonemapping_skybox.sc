@@ -5,7 +5,7 @@ $input v_texcoord0
  * License: https://github.com/bkaradzic/bgfx#license-bsd-2-clause
  */
 
-#include "common.sh"
+#include "../common/common.sh"
 
 SAMPLERCUBE(s_texCube, 0);
 uniform mat4 u_mtx;

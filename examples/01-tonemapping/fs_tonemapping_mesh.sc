@@ -5,7 +5,10 @@ $input v_pos, v_view, v_normal
  * License: https://github.com/bkaradzic/bgfx#license-bsd-2-clause
  */
 
-#include "common.sh"
+#include "../common/common.sh"
+
+uniform vec4 u_tonemap;
+#define u_time u_tonemap.w
 
 SAMPLERCUBE(s_texCube, 0);
 
