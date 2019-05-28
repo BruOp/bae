@@ -14,7 +14,7 @@ namespace bae
     const std::string ToneMapping::toneMappingProgramName = "bae_tonemapping";
 
 
-    void ToneMapping::init()
+    void ToneMapping::init(const bgfx::Caps* caps)
     {
         histogramProgram = loadProgram(histogramProgramName.c_str(), nullptr);
         averagingProgram = loadProgram(averagingProgramName.c_str(), nullptr);
@@ -37,7 +37,7 @@ namespace bae
 
         ScreenSpaceQuadVertex::init();
 
-        orthoProjection = glm::ortho(0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 100.0f);
+        bx::mtxOrtho(orthoProjection, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 100.0f, 0.0f, caps->homogeneousDepth);
     }
 
     void ToneMapping::destroy()
@@ -57,48 +57,47 @@ namespace bae
     {
         bgfx::ViewId histogramPass = 1;
         bgfx::ViewId averagingPass = 2;
-        bgfx::ViewId tonemapPass = 3;
+        bgfx::ViewId toneMapPass = 3;
 
         bgfx::setViewName(histogramPass, "Luminence Histogram");
         bgfx::setViewName(averagingPass, "Avergaing the Luminence Histogram");
 
-        bgfx::setViewName(tonemapPass, "Tonemap");
-        bgfx::setViewRect(tonemapPass, 0, 0, bgfx::BackbufferRatio::Equal);
-        bgfx::setViewFrameBuffer(tonemapPass, BGFX_INVALID_HANDLE);
+        bgfx::setViewName(toneMapPass, "Tonemap");
+        bgfx::setViewRect(toneMapPass, 0, 0, bgfx::BackbufferRatio::Equal);
+        bgfx::setViewFrameBuffer(toneMapPass, BGFX_INVALID_HANDLE);
 
-        for (bgfx::ViewId i = histogramPass; i <= tonemapPass; i++) {
-            bgfx::setViewTransform(i, nullptr, glm::value_ptr(orthoProjection));
-        }
+        bgfx::setViewTransform(toneMapPass, nullptr, orthoProjection);
 
-        float params[4] = {
-            toneMapParams.minLogLuminance,
-            1.0f / (toneMapParams.maxLogLuminance - toneMapParams.minLogLuminance),
-            0.0f,
-            0.0f
+        float logLumRange = toneMapParams.maxLogLuminance - toneMapParams.minLogLuminance;
+        float histogramParams[4] = {
+                toneMapParams.minLogLuminance,
+                1.0f / (logLumRange),
+                float(toneMapParams.width),
+                float(toneMapParams.height),
         };
         uint32_t groupsX = static_cast<uint32_t>(bx::ceil(toneMapParams.width / 16.0f));
         uint32_t groupsY = static_cast<uint32_t>(bx::ceil(toneMapParams.height / 16.0f));
-        bgfx::setUniform(paramsUniform, params);
+        bgfx::setUniform(paramsUniform, histogramParams);
         bgfx::setImage(0, hdrFbTexture, 0, bgfx::Access::Read, frameBufferFormat);
         bgfx::setBuffer(1, histogramBuffer, bgfx::Access::Write);
         bgfx::dispatch(histogramPass, histogramProgram, groupsX, groupsY, 1);
 
         float timeCoeff = bx::clamp<float>(1.0f - bx::exp(-deltaTime * toneMapParams.tau), 0.0, 1.0);
-        params[1] = toneMapParams.maxLogLuminance - toneMapParams.minLogLuminance;
-        params[2] = timeCoeff;
-        params[3] = static_cast<float>(toneMapParams.width * toneMapParams.height);
-        bgfx::setUniform(paramsUniform, params);
+        float avgParams[4] = {
+                toneMapParams.minLogLuminance,
+                logLumRange,
+                timeCoeff,
+                static_cast<float>(toneMapParams.width * toneMapParams.height),
+        };
+        bgfx::setUniform(paramsUniform, avgParams);
         bgfx::setImage(0, avgLuminanceTarget, 0, bgfx::Access::ReadWrite, bgfx::TextureFormat::R16F);
         bgfx::setBuffer(1, histogramBuffer, bgfx::Access::ReadWrite);
         bgfx::dispatch(averagingPass, averagingProgram, 1, 1, 1);
 
-
-        float tonemap[4] = { 0.18f, bx::square(3.0f), 0.0f, 0.0f };
-        bgfx::setTexture(0, s_hdrTexture, hdrFbTexture);
+        bgfx::setTexture(0, s_hdrTexture, hdrFbTexture, BGFX_SAMPLER_POINT | BGFX_SAMPLER_UVW_CLAMP);
         bgfx::setTexture(1, s_texAvgLuminance, avgLuminanceTarget, BGFX_SAMPLER_POINT | BGFX_SAMPLER_UVW_CLAMP);
-        bgfx::setUniform(paramsUniform, tonemap);
         bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A);
-        setScreenSpaceQuad((float)toneMapParams.width, (float)toneMapParams.height, toneMapParams.originBottomLeft);
-        bgfx::submit(tonemapPass, tonemappingProgram);
+        setScreenSpaceQuad(float(toneMapParams.width), float(toneMapParams.height), toneMapParams.originBottomLeft);
+        bgfx::submit(toneMapPass, tonemappingProgram);
     }
 }

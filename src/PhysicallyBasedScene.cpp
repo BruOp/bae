@@ -90,18 +90,13 @@ namespace bae {
         }
     }
 
-    void Scene::load(const std::string & assetPath, const std::string & fileName) {
+    void Scene::load(const std::string& assetPath, const std::string& fileName) {
         Assimp::Importer importer;
         int flags = aiProcess_ConvertToLeftHanded | aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_PreTransformVertices | aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals;
         const aiScene* aScene = importer.ReadFile(assetPath + fileName, flags);
 
         BX_CHECK(aScene == nullptr, "Could not open sponza file");
 
-        loadMaterials(assetPath, aScene);
-        loadMeshes(aScene);
-    }
-
-    void Scene::loadMaterials(const std::string & assetPath, const aiScene * aScene) {
         // Load in dummy files to use for materials that do not have texture present
         // Allows us to treat all our materials the same way
         std::vector<std::string> dummyFiles{
@@ -109,75 +104,58 @@ namespace bae {
             "textures/dummy_metallicRoughness.dds",
             "textures/dummy_ddn.dds",
         };
-        std::vector<bgfx::TextureHandle> dummyHandles(3);
 
-        for (size_t i = 0; i < dummyFiles.size(); i++) {
-            const auto& fileName = dummyFiles[i];
+        for (const auto& fileName : dummyFiles) {
             bgfx::TextureHandle handle = loadTexture(fileName.c_str());
             textures.add(fileName, handle);
-            dummyHandles[i] = handle;
         }
 
-        const bgfx::TextureHandle& dummyDiffuse = dummyHandles[0];
-        const bgfx::TextureHandle& dummyMetallicRoughness = dummyHandles[1];
-        const bgfx::TextureHandle& dummyNormal = dummyHandles[2];
+        loadMeshes(assetPath, aScene);
 
-        materials.reserve(aScene->mNumMaterials);
-        for (uint32_t i = 0; i < aScene->mNumMaterials; i++) {
-            aiMaterial* aMaterial = aScene->mMaterials[i];
-            aiString name;
-            aMaterial->Get(AI_MATKEY_NAME, name);
+    }
 
-            Material material{
-                name.C_Str()
-            };
+    Material Scene::loadMaterial(const std::string& assetPath, const aiMaterial* aMaterial)
+    {
 
+        aiString name;
+        aMaterial->Get(AI_MATKEY_NAME, name);
 
-            aiString aiAlphaMode;
-            if (aMaterial->Get(AI_MATKEY_GLTF_ALPHAMODE, aiAlphaMode) == AI_SUCCESS) {
-                std::string alphaMode = aiAlphaMode.C_Str();
-                if (alphaMode.compare("MASK") == 0 || alphaMode.compare("BLEND") == 0) {
-                    material.hasAlpha = true;
-                }
-            }
+        Material material{
+            name.C_Str()
+        };
 
-
-            bgfx::TextureHandle handle = loadAssimpTexture(aMaterial, aiTextureType_DIFFUSE, assetPath, textures);
-            if (bgfx::isValid(handle)) {
-                material.diffuse = handle;
-            }
-            else {
-                std::cout << "  Material has no diffuse, using dummy texture!" << std::endl;
-                material.diffuse = dummyDiffuse;
-            }
-
-            handle = loadAssimpTexture(aMaterial, aiTextureType_UNKNOWN, assetPath, textures);
-            if (bgfx::isValid(handle)) {
-                material.metallicRoughness = handle;
-            }
-            else {
-                std::cout << "  Material has no Metallic Roughness, using dummy texture!" << std::endl;
-                material.metallicRoughness = dummyMetallicRoughness;
-            }
-
-            handle = loadAssimpTexture(aMaterial, aiTextureType_NORMALS, assetPath, textures);
-            if (bgfx::isValid(handle)) {
-                material.normal = handle;
-            }
-            else {
-                std::cout << "  Material has no normal map, using dummy texture!" << std::endl;
-                material.normal = dummyNormal;
-            }
-
-            materials.push_back(material);
+        bgfx::TextureHandle handle = loadAssimpTexture(aMaterial, aiTextureType_DIFFUSE, assetPath, textures);
+        if (bgfx::isValid(handle)) {
+            material.diffuse = handle;
+        }
+        else {
+            std::cout << "  Material has no diffuse, using dummy texture!" << std::endl;
+            material.diffuse = textures.get("textures/dummy.dds");
         }
 
+        handle = loadAssimpTexture(aMaterial, aiTextureType_UNKNOWN, assetPath, textures);
+        if (bgfx::isValid(handle)) {
+            material.metallicRoughness = handle;
+        }
+        else {
+            std::cout << "  Material has no Metallic Roughness, using dummy texture!" << std::endl;
+            material.metallicRoughness = textures.get("textures/dummy_metallicRoughness.dds");
+        }
 
+        handle = loadAssimpTexture(aMaterial, aiTextureType_NORMALS, assetPath, textures);
+        if (bgfx::isValid(handle)) {
+            material.normal = handle;
+        }
+        else {
+            std::cout << "  Material has no normal map, using dummy texture!" << std::endl;
+            material.normal = textures.get("textures/dummy_ddn.dds");
+        }
+
+        return material;
     };
 
-    void Scene::loadMeshes(const aiScene * aScene)
+    void Scene::loadMeshes(const std::string& assetPath, const aiScene* aScene)
     {
-        meshes.reserve(aScene->mNumMeshes);
         for (size_t i = 0; i < aScene->mNumMeshes; i++) {
             aiMesh* aMesh = aScene->mMeshes[i];
 
@@ -185,7 +163,6 @@ namespace bae {
             bool hasTangent = aMesh->HasTangentsAndBitangents();
 
             std::vector<Vertex> vertices(aMesh->mNumVertices);
-            //vertices.reserve(aMesh->mNumVertices);
             for (size_t j = 0; j < aMesh->mNumVertices; j++) {
 
                 glm::vec2 texCoords{ 0.0f };
@@ -227,14 +204,28 @@ namespace bae {
             Mesh mesh{
                 bgfx::createVertexBuffer(vertMemory, Vertex::ms_decl),
                 bgfx::createIndexBuffer(indexMemory),
-                materials[aMesh->mMaterialIndex],
             };
 
-            meshes.push_back(mesh);
+            const aiMaterial* aMaterial = aScene->mMaterials[aMesh->mMaterialIndex];
+
+            Material material = loadMaterial(assetPath, aMaterial);
+
+            aiString aiAlphaMode;
+            if (aMaterial->Get(AI_MATKEY_GLTF_ALPHAMODE, aiAlphaMode) == AI_SUCCESS) {
+                std::string alphaMode = aiAlphaMode.C_Str();
+                if (alphaMode.compare("MASK") == 0 || alphaMode.compare("BLEND") == 0) {
+                    transparentMeshes.meshes.push_back(mesh);
+                    transparentMeshes.materials.push_back(material);
+                }
+                else {
+                    opaqueMeshes.meshes.push_back(mesh);
+                    opaqueMeshes.materials.push_back(material);
+                }
+            }
         }
     };
 
-    void init(UniformInfoMap & uniformInfo)
+    void init(UniformInfoMap& uniformInfo)
     {
         for (auto& entry : uniformInfo) {
             const std::string& name = entry.first;
@@ -243,7 +234,7 @@ namespace bae {
         }
     }
 
-    void init(MaterialType & matType)
+    void init(MaterialType& matType)
     {
         std::string vs_name = "vs_" + matType.name;
         std::string fs_name = "fs_" + matType.name;
@@ -252,7 +243,7 @@ namespace bae {
         bae::init(matType.uniformInfo);
     }
 
-    void destroy(UniformInfoMap & uniformInfo)
+    void destroy(UniformInfoMap& uniformInfo)
     {
         for (auto& entry : uniformInfo) {
             bgfx::UniformHandle handle = entry.second.handle;
@@ -262,7 +253,7 @@ namespace bae {
         }
     }
 
-    void destroy(MaterialType & matType)
+    void destroy(MaterialType& matType)
     {
         bae::destroy(matType.uniformInfo);
 
@@ -271,14 +262,18 @@ namespace bae {
         }
     }
 
-    void destroy(const Mesh & mesh)
+    void destroy(const Mesh& mesh)
     {
         bgfx::destroy(mesh.vertexHandle);
         bgfx::destroy(mesh.indexHandle);
     }
 
-    void destroy(Scene & scene) {
-        for (const Mesh& mesh : scene.meshes) {
+    void destroy(Scene& scene)
+    {
+        for (const Mesh& mesh : scene.opaqueMeshes.meshes) {
+            destroy(mesh);
+        }
+        for (const Mesh& mesh : scene.transparentMeshes.meshes) {
             destroy(mesh);
         }
 

@@ -1,4 +1,3 @@
-#pragma once
 #include <string>
 
 #include <bgfx/bgfx.h>
@@ -32,14 +31,14 @@ namespace bae
         bgfx::UniformHandle s_hdrTexture = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_texAvgLuminance = BGFX_INVALID_HANDLE;
 
-        glm::mat4 orthoProjection;
+        float orthoProjection[16];
 
         static constexpr bgfx::TextureFormat::Enum frameBufferFormat = bgfx::TextureFormat::RGBA16F;
         static const std::string histogramProgramName;
         static const std::string averagingProgramName;
         static const std::string toneMappingProgramName;
 
-        void init();
+        void init(const bgfx::Caps* caps);
 
         void destroy();
 

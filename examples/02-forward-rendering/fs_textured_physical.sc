@@ -58,6 +58,10 @@ vec3 diffuseBRDF(vec3 color, float metallic) {
     return mix(color * (1.0 - DIELECTRIC_SPECULAR), BLACK, metallic);
 }
 
+float karisFalloff(float dist, float lightRadius) {
+    return pow(clamp(1.0 - pow(dist/lightRadius, 4), 0.0, 1.0), 2) / (dist * dist + 1);
+}
+
 void main()
 {
     mat3 tbn = mat3FromCols(
@@ -78,12 +82,13 @@ void main()
 
     for (int i = 0; i < numLights; i++) {
         vec3 lightPos = pointLight_pos[i].xyz;
+        float lightRadius = pointLight_pos[i].w;
         vec4 colorIntensity = pointLight_colorIntensity[i];
         vec3 lightDir = lightPos - v_position;
         float dist = length(lightDir);
         lightDir = lightDir / dist;
 
-        float attenuation = colorIntensity.w / (dist * dist);
+        float attenuation = colorIntensity.w * karisFalloff(dist, lightRadius);
         vec3 light = attenuation * colorIntensity.xyz * clampDot(normal, lightDir);
 
         color += (
@@ -91,6 +96,6 @@ void main()
             PI * specular(lightDir, viewDir, normal, matColor.xyz, OccRoughMetal)
         ) * light;
     }
-
-    gl_FragColor = vec4(toGammaAccurate(color * matColor.w), matColor.w);
+    color = color * matColor.w;
+    gl_FragColor = vec4(color, matColor.w);
 }

@@ -24,8 +24,8 @@ namespace bae
             const float miny = 0.0f;
             const float maxy = _height * 2.0f;
 
-            const float texelHalfW = 0.5f / _textureWidth;
-            const float texelHalfH = 0.5f / _textureHeight;
+            const float texelHalfW = 0.0f / _textureWidth;
+            const float texelHalfH = 0.0f / _textureHeight;
             const float minu = -1.0f + texelHalfW;
             const float maxu = 1.0f + texelHalfW;
 
