@@ -4,6 +4,8 @@ namespace bae
 {
     bgfx::VertexDecl ScreenSpaceQuadVertex::ms_decl;
 
+    bool ScreenSpaceQuadVertex::isInitialized  = false;
+
     void setScreenSpaceQuad(
         const float _textureWidth,
         const float _textureHeight,

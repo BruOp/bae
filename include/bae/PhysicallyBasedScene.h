@@ -46,7 +46,7 @@ namespace bae {
         UniformInfoMap uniformInfo;
 
 
-        inline bgfx::UniformHandle getUniformHandle(const std::string& uniformName)
+        inline bgfx::UniformHandle getUniformHandle(const std::string& uniformName) const
         {
             return uniformInfo.at(uniformName).handle;
         }
@@ -61,11 +61,9 @@ namespace bae {
         bgfx::TextureHandle diffuse = BGFX_INVALID_HANDLE;
         bgfx::TextureHandle metallicRoughness = BGFX_INVALID_HANDLE;
         bgfx::TextureHandle normal = BGFX_INVALID_HANDLE;
-
-        static MaterialType matType;
     };
 
-    void setUniforms(const Material& material);
+    void setUniforms(const Material& material, const MaterialType& matType);
 
     struct Mesh
     {
@@ -87,6 +85,11 @@ namespace bae {
 
         MeshGroup<Material> opaqueMeshes;
         MeshGroup<Material> transparentMeshes;
+
+        // These aren't considered "owned" by the scene, so the won't get destroyed
+        // when this scene is.
+        MaterialType opaqueMatType;
+        MaterialType transparentMatType;
 
         void load(const std::string& assetPath, const std::string& fileName);
     private:

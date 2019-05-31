@@ -20,22 +20,11 @@ namespace bae {
 
     bgfx::VertexDecl Vertex::ms_decl;
 
-    MaterialType Material::matType{
-        "textured_physical",
-        BGFX_INVALID_HANDLE,
-        {
-            {"diffuseMap", {bgfx::UniformType::Sampler}},
-            {"normalMap", {bgfx::UniformType::Sampler}},
-            {"metallicRoughnessMap", {bgfx::UniformType::Sampler}},
-            {"normalTransform", {bgfx::UniformType::Mat4}},
-        },
-    };
-
-    void setUniforms(const Material& material)
+    void setUniforms(const Material& material, const MaterialType& matType)
     {
-        bgfx::setTexture(0, material.matType.getUniformHandle("diffuseMap"), material.diffuse);
-        bgfx::setTexture(1, material.matType.getUniformHandle("normalMap"), material.normal);
-        bgfx::setTexture(2, material.matType.getUniformHandle("metallicRoughnessMap"), material.metallicRoughness);
+        bgfx::setTexture(0, matType.getUniformHandle("diffuseMap"), material.diffuse);
+        bgfx::setTexture(1, matType.getUniformHandle("normalMap"), material.normal);
+        bgfx::setTexture(2, matType.getUniformHandle("metallicRoughnessMap"), material.metallicRoughness);
     }
 
     bgfx::TextureHandle loadAssimpTexture(

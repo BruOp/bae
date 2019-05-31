@@ -71,7 +71,7 @@ namespace example
                 return false;
             }
 
-            constexpr float epsilon = 0.002f;
+            constexpr float epsilon = 1.0f / 255.0f;
             float radius = bx::sqrt(intensity / epsilon);
 
             lightPosData[lightCount] = glm::vec4{ position, radius };
@@ -79,8 +79,19 @@ namespace example
             ++lightCount;
             return true;
         }
-
     };
+
+    bae::MaterialType pbrMatType{
+            "textured_physical",
+            BGFX_INVALID_HANDLE,
+            {
+                {"diffuseMap", {bgfx::UniformType::Sampler}},
+                {"normalMap", {bgfx::UniformType::Sampler}},
+                {"metallicRoughnessMap", {bgfx::UniformType::Sampler}},
+                {"normalTransform", {bgfx::UniformType::Mat4}},
+            },
+    };
+
 
     class ExampleForward : public entry::AppI
     {
@@ -125,8 +136,11 @@ namespace example
             // Create vertex stream declaration.
             bae::Vertex::init();
 
-            bae::init(bae::Material::matType);
+            bae::init(pbrMatType);
 
+            // Set the matType for both opaque and transparent passes
+            m_scene.opaqueMatType = pbrMatType;
+            m_scene.transparentMatType = pbrMatType;
             // Lets load all the meshes
             m_scene.load("meshes/pbr_sponza/", "sponza.gltf");
             bae::init(m_sceneUniforms);
@@ -146,7 +160,7 @@ namespace example
             for (size_t i = 0; i < N; i++) {
                 m_lightSet.addLight(
                     colors[i % colors.size()],
-                    100.0f / N,
+                    1000.0f / N,
                     { 10.0f * i, 5.0f, 0.0f }
                 );
             }
@@ -189,7 +203,7 @@ namespace example
             m_lightSet.destroy();
             destroy(m_sceneUniforms);
             destroy(m_scene);
-            destroy(bae::Material::matType);
+            destroy(pbrMatType);
 
             cameraDestroy();
 
@@ -306,9 +320,8 @@ namespace example
             // Set view and projection matrix
             bgfx::setViewTransform(meshPass, view, proj);
 
-
+            // Not scaling or translating our scene
             glm::mat4 mtx = glm::identity<glm::mat4>();
-            //bx::mtxRotateXY(glm::value_ptr(mtx), 0.0f, 0.2f * m_time);
 
             uint64_t stateOpaque = 0
                 | BGFX_STATE_WRITE_RGB
@@ -345,11 +358,8 @@ namespace example
             }
             m_lightSet.setUniforms();
 
-            bgfx::UniformHandle normalTransformHandle = bae::Material::matType.uniformInfo["normalTransform"].handle;
-
-            // Only using one material type for now
-            bgfx::ProgramHandle program = bae::Material::matType.program;
-
+            bgfx::UniformHandle normalTransformHandle = pbrMatType.uniformInfo["normalTransform"].handle;
+            bgfx::ProgramHandle program = m_scene.opaqueMatType.program;
             // Render all our opaque meshes
             for (size_t i = 0; i < m_scene.opaqueMeshes.meshes.size(); ++i) {
                 const auto& mesh = m_scene.opaqueMeshes.meshes[i];
@@ -361,11 +371,12 @@ namespace example
                 bgfx::setState(stateOpaque);
                 bgfx::setIndexBuffer(mesh.indexHandle);
                 bgfx::setVertexBuffer(0, mesh.vertexHandle);
-                setUniforms(m_scene.opaqueMeshes.materials[i]);
+                setUniforms(m_scene.opaqueMeshes.materials[i], m_scene.opaqueMatType);
                 bgfx::submit(meshPass, program);
             }
 
             // Render all our transparent meshes
+            program = m_scene.transparentMatType.program;
             for (size_t i = 0; i < m_scene.transparentMeshes.meshes.size(); ++i) {
                 bgfx::setTransform(glm::value_ptr(mtx));
                 // Not sure if this should be part of the material?
@@ -375,7 +386,7 @@ namespace example
                 const auto& mesh = m_scene.transparentMeshes.meshes[i];
                 bgfx::setIndexBuffer(mesh.indexHandle);
                 bgfx::setVertexBuffer(0, mesh.vertexHandle);
-                setUniforms(m_scene.transparentMeshes.materials[i]);
+                setUniforms(m_scene.transparentMeshes.materials[i], m_scene.transparentMatType);
 
                 bgfx::submit(meshPass, program);
             }
