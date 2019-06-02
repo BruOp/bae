@@ -1,5 +1,6 @@
 #include "IcosahedronFactory.h"
 #include <bx/math.h>
+#include <PhysicallyBasedScene.h>
 
 namespace bae {
     bgfx::VertexDecl BasicVertex::s_decl;
@@ -74,6 +75,19 @@ namespace bae {
             }
             indices = std::move(newIndices);
         }
+    }
+
+    Mesh IcosahedronFactory::getMesh()
+    {
+        const bgfx::Memory* vertMemory = bgfx::copy(vertices.data(), uint32_t(vertices.size()) * sizeof(vertices[0]));
+        const bgfx::Memory* indexMemory = bgfx::copy(indices.data(), uint32_t(indices.size()) * sizeof(indices[0]));
+
+        Mesh mesh{
+            bgfx::createVertexBuffer(vertMemory, BasicVertex::s_decl),
+            bgfx::createIndexBuffer(indexMemory),
+        };
+
+        return mesh;
     }
 
     uint16_t IcosahedronFactory::getOrCreateMidPoint(uint16_t first, uint16_t second)

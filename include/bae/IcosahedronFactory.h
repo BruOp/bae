@@ -1,8 +1,13 @@
 #pragma once
-
-#include "PhysicallyBasedScene.h"
+#include <bgfx/bgfx.h>
+#include <glm/glm.hpp>
+#include <vector>
+#include <unordered_map>
 
 namespace bae {
+
+    class Mesh;
+
     struct BasicVertex
     {
         glm::vec3 position;
@@ -22,6 +27,8 @@ namespace bae {
     {
     public:
         IcosahedronFactory(uint8_t detail);
+
+        Mesh getMesh();
 
         std::vector<BasicVertex> vertices;
         std::vector<uint16_t> indices;
