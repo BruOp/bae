@@ -11,7 +11,7 @@ namespace bae {
         {{-1.0,  t,  0.0}},
         {{ 1.0,  t,  0.0}},
         {{-1.0, -t,  0.0}},
-        {{ 1.0,  t,  0.0}},
+        {{ 1.0, -t,  0.0}},
 
         {{ 0.0, -1.0,  t}},
         {{ 0.0,  1.0,  t}},
@@ -52,6 +52,10 @@ namespace bae {
         vertices{ basicIcosahedronPositions },
         indices{ basicIcosahedronIndices }
     {
+        for (auto& v : vertices) {
+            v.position = glm::normalize(v.position);
+        }
+
         for (uint8_t subdivisionLevel = 0; subdivisionLevel < detail; ++subdivisionLevel) {
             size_t numIndices = indices.size();
             std::vector<uint16_t> newIndices(numIndices * 4);
@@ -63,8 +67,8 @@ namespace bae {
                 uint16_t i_c = indices[i + 2];
 
                 uint16_t i_ab = getOrCreateMidPoint(i_a, i_b);
-                uint16_t i_bc = getOrCreateMidPoint(i_a, i_b);
-                uint16_t i_ac = getOrCreateMidPoint(i_a, i_b);
+                uint16_t i_bc = getOrCreateMidPoint(i_b, i_c);
+                uint16_t i_ac = getOrCreateMidPoint(i_a, i_c);
 
                 newIndices.insert(newIndices.end(), {
                     i_a, i_ab, i_ac,
@@ -104,9 +108,10 @@ namespace bae {
         glm::vec3 firstPos = vertices[first].position;
         glm::vec3 secondPos = vertices[second].position;
 
-        BasicVertex midPoint{ { 0.5f * (secondPos + firstPos) } };
+        BasicVertex midPoint{ glm::normalize(glm::vec3{ 0.5f * (secondPos + firstPos) }) };
         uint16_t newIndex = uint16_t(vertices.size());
         vertices.push_back(midPoint);
         newVertices[key] = newIndex;
+        return newIndex;
     };
 }

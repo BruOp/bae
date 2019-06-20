@@ -6,7 +6,7 @@
 
 namespace bae {
 
-    class Mesh;
+    struct Mesh;
 
     struct BasicVertex
     {
