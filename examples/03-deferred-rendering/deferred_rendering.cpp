@@ -406,14 +406,16 @@ namespace example
             for (size_t i = 0; i < m_lightSet.size(); ++i) {
                 // We need to set up the stencil state
                 uint64_t stencilState = 0
-                    | BGFX_STATE_CULL_CW
-                    | BGFX_STATE_DEPTH_TEST_GREATER;
+                    | BGFX_STATE_DEPTH_TEST_LESS;
 
-                uint32_t backStencilFunc = BGFX_STENCIL_TEST_ALWAYS
-                    | BGFX_STENCIL_FUNC_REF(0)         // value = 0
-                    | BGFX_STENCIL_OP_PASS_Z_INCR;
-                uint32_t frontStencilFunc = BGFX_STENCIL_TEST_NEVER
-                    | BGFX_STENCIL_FUNC_REF(0)         // value = 0
+                uint32_t frontStencilFunc = BGFX_STENCIL_TEST_ALWAYS
+                    | BGFX_STENCIL_FUNC_REF(0)
+                    | BGFX_STENCIL_FUNC_RMASK(0xFF)
+                    | BGFX_STENCIL_OP_FAIL_S_KEEP
+                    | BGFX_STENCIL_OP_FAIL_Z_INCR;
+                uint32_t backStencilFunc = BGFX_STENCIL_TEST_NEVER
+                    | BGFX_STENCIL_FUNC_REF(0)
+                    | BGFX_STENCIL_FUNC_RMASK(0xFF)
                     | BGFX_STENCIL_OP_FAIL_S_KEEP;
 
                 glm::mat4 modelTransform = glm::identity<glm::mat4>();
@@ -433,18 +435,21 @@ namespace example
 
                 uint64_t lightVolumeState = 0
                     | BGFX_STATE_WRITE_RGB
-                    | BGFX_STATE_CULL_CCW
-                    | BGFX_STATE_DEPTH_TEST_LESS;
-                frontStencilFunc = BGFX_STENCIL_TEST_NOTEQUAL
-                    | BGFX_STENCIL_FUNC_REF(0)
+                    | BGFX_STATE_CULL_CW
+                    | BGFX_STATE_DEPTH_TEST_GREATER;
+                frontStencilFunc = BGFX_STENCIL_TEST_EQUAL
                     | BGFX_STENCIL_FUNC_RMASK(0xFF)
+                    | BGFX_STENCIL_FUNC_REF(0);
+                backStencilFunc = BGFX_STENCIL_TEST_EQUAL
+                    | BGFX_STENCIL_FUNC_RMASK(0xFF)
+                    | BGFX_STENCIL_FUNC_REF(0)
                     | BGFX_STENCIL_OP_FAIL_Z_REPLACE
                     | BGFX_STENCIL_OP_PASS_Z_REPLACE;
                 bgfx::setTransform(glm::value_ptr(modelTransform));
                 bgfx::setIndexBuffer(m_lightSet.volumeMesh.indexHandle);
                 bgfx::setVertexBuffer(0, m_lightSet.volumeMesh.vertexHandle);
                 bgfx::setState(lightVolumeState);
-                bgfx::setStencil(frontStencilFunc);
+                bgfx::setStencil(frontStencilFunc, backStencilFunc);
 
                 // Set uniforms
                 // framebuffer textures
@@ -452,6 +457,8 @@ namespace example
 
                 bgfx::setTexture(0, m_pointLightVolumeMatType.getUniformHandle("diffuseRT"), m_gbufferTex[0], BGFX_SAMPLER_POINT | BGFX_SAMPLER_UVW_CLAMP);
                 bgfx::setTexture(1, m_pointLightVolumeMatType.getUniformHandle("normalRT"), m_gbufferTex[1], BGFX_SAMPLER_POINT | BGFX_SAMPLER_UVW_CLAMP);
+                bgfx::setUniform(m_pointLightVolumeMatType.getUniformHandle("posRadius"), glm::value_ptr(m_lightSet.lightPosData[i]));
+                bgfx::setUniform(m_pointLightVolumeMatType.getUniformHandle("colorIntensity"), glm::value_ptr(m_lightSet.lightColorIntensityData[i]));
                 bgfx::submit(lightVolumePass, m_pointLightVolumeMatType.program);
             }
 
