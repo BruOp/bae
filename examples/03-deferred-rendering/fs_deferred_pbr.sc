@@ -22,4 +22,5 @@ void main()
 
     gl_FragData[0] = vec4(diffuse, OccRoughMetal.y);
     gl_FragData[1] = vec4(normal, OccRoughMetal.z);
+    gl_FragData[2] = gl_FragCoord.z;
 }

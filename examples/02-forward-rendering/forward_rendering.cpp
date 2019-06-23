@@ -71,7 +71,7 @@ namespace example
                 return false;
             }
 
-            constexpr float epsilon = 1.0f / 255.0f;
+            constexpr float epsilon = 1.0f / 127.0f;
             float radius = bx::sqrt(intensity / epsilon);
 
             lightPosData[lightCount] = glm::vec4{ position, radius };
@@ -156,11 +156,12 @@ namespace example
             };
 
             m_lightSet.init("pointLight");
-            int N = m_lightSet.maxLightCount / 2;
-            for (size_t i = 0; i < N; i++) {
+            float totalBrightness = 1000.0f;
+            int NUM_LIGHTS = m_lightSet.maxLightCount / 2;
+            for (size_t i = 0; i < NUM_LIGHTS; i++) {
                 m_lightSet.addLight(
                     colors[i % colors.size()],
-                    1000.0f / N,
+                    totalBrightness / NUM_LIGHTS,
                     { 10.0f * i, 5.0f, 0.0f }
                 );
             }

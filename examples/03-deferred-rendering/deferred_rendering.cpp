@@ -47,7 +47,7 @@ namespace example
 
         size_t addLight(const glm::vec3& color, const float intensity, const glm::vec3& position)
         {
-            constexpr float epsilon = 1.0f / 255.0f;
+            constexpr float epsilon = 1.0f / 127.0f;
             float radius = bx::sqrt(intensity / epsilon);
 
             size_t idx = lightPosData.size();
@@ -126,15 +126,15 @@ namespace example
                 { 0.1f, 1.0f, 1.0f },
             };
 
-            constexpr float totalBrightness = 5.0f;
+            constexpr float totalBrightness = 10.0f;
 
             bae::BasicVertex::init();
             m_lightSet.init();
-            int N = 8;
-            for (size_t i = 0; i < N; i++) {
+            int NUM_LIGHTS = 8;
+            for (size_t i = 0; i < NUM_LIGHTS; i++) {
                 m_lightSet.addLight(
                     colors[i % colors.size()],
-                    totalBrightness / N,
+                    totalBrightness / float(NUM_LIGHTS),
                     { 10.0f * i, 5.0f, 0.0f }
                 );
             }
@@ -220,6 +220,7 @@ namespace example
                 m_gbufferTex[1].idx = bgfx::kInvalidHandle;
                 m_gbufferTex[2].idx = bgfx::kInvalidHandle;
                 m_gbufferTex[3].idx = bgfx::kInvalidHandle;
+                m_gbufferTex[4].idx = bgfx::kInvalidHandle;
             }
 
             const uint64_t tsFlags = 0
@@ -230,21 +231,23 @@ namespace example
                 | BGFX_SAMPLER_V_CLAMP
                 ;
 
-            bgfx::Attachment gbufferAt[4];
-
+            bgfx::Attachment gbufferAt[5];
 
             m_gbufferTex[0] = bgfx::createTexture2D(uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_RT | tsFlags);
             m_gbufferTex[1] = bgfx::createTexture2D(uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA16F, BGFX_TEXTURE_RT | tsFlags);
-            m_gbufferTex[2] = bgfx::createTexture2D(uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA16F, BGFX_TEXTURE_RT | tsFlags);
+            m_gbufferTex[2] = bgfx::createTexture2D(uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::R32F, BGFX_TEXTURE_RT | tsFlags);
+            m_gbufferTex[3] = bgfx::createTexture2D(uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA16F, BGFX_TEXTURE_RT | tsFlags);
+
             gbufferAt[0].init(m_gbufferTex[0]);
             gbufferAt[1].init(m_gbufferTex[1]);
             gbufferAt[2].init(m_gbufferTex[2]);
-
-            m_gbufferTex[3] = bgfx::createTexture2D(uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT | tsFlags);
             gbufferAt[3].init(m_gbufferTex[3]);
 
+            m_gbufferTex[4] = bgfx::createTexture2D(uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT | tsFlags);
+            gbufferAt[4].init(m_gbufferTex[4]);
+
             m_gBuffer = bgfx::createFrameBuffer(BX_COUNTOF(gbufferAt), gbufferAt, true);
-            m_lightGBuffer = bgfx::createFrameBuffer(2, &gbufferAt[2], false);
+            m_lightGBuffer = bgfx::createFrameBuffer(2, &gbufferAt[3], false);
 
             m_toneMapParams.width = m_width;
             m_toneMapParams.height = m_height;
@@ -324,11 +327,11 @@ namespace example
             bgfx::setViewRect(lightVolumePass, 0, 0, uint16_t(m_width), uint16_t(m_height));
             bgfx::setViewMode(lightVolumePass, bgfx::ViewMode::Sequential);
             bgfx::setViewName(lightVolumePass, "Light Volume Pass");
-
+/*
             bgfx::ViewId passthroughPass = 2;
             bgfx::setViewRect(passthroughPass, 0, 0, uint16_t(m_width), uint16_t(m_height));
             bgfx::setViewName(passthroughPass, "Pass Through");
-
+*/
             // This dummy draw call is here to make sure that view 0 is cleared
             // if no other draw calls are submitted to view 0.
             bgfx::touch(meshPass);
@@ -395,8 +398,8 @@ namespace example
                 for (size_t i = 0; i < N; ++i) {
                     float radiusCoeff = (float(i % 8) + 1.0f) / 8.0f;
                     // These two are just the equations for an ellipse, with the radius scaled by radiusCoeff and the speed scaled by velocity
-                    m_lightSet.lightPosData[i].x = radiusCoeff * atriumLength * bx::cos(velocity * m_time / radiusCoeff + bx::kPi2 * i / N);
-                    m_lightSet.lightPosData[i].z = radiusCoeff * atriumWidth * bx::sin(velocity * m_time / radiusCoeff + bx::kPi2 * i / N);
+                    m_lightSet.lightPosData[i].x = radiusCoeff * atriumLength * bx::cos(velocity * m_time / radiusCoeff + bx::kPi2 * i / 26.0f);
+                    m_lightSet.lightPosData[i].z = radiusCoeff * atriumWidth * bx::sin(velocity * m_time / radiusCoeff + bx::kPi2 * i / 26.0f);
                     m_lightSet.lightPosData[i].y = atriumHeight * (i + 1) / N;
                 }
             }
@@ -412,11 +415,14 @@ namespace example
                     | BGFX_STENCIL_FUNC_REF(0)
                     | BGFX_STENCIL_FUNC_RMASK(0xFF)
                     | BGFX_STENCIL_OP_FAIL_S_KEEP
-                    | BGFX_STENCIL_OP_FAIL_Z_INCR;
-                uint32_t backStencilFunc = BGFX_STENCIL_TEST_NEVER
+                    | BGFX_STENCIL_OP_FAIL_Z_INCR
+                    | BGFX_STENCIL_OP_PASS_Z_KEEP;
+                uint32_t backStencilFunc = BGFX_STENCIL_TEST_ALWAYS
                     | BGFX_STENCIL_FUNC_REF(0)
                     | BGFX_STENCIL_FUNC_RMASK(0xFF)
-                    | BGFX_STENCIL_OP_FAIL_S_KEEP;
+                    | BGFX_STENCIL_OP_FAIL_S_KEEP
+                    | BGFX_STENCIL_OP_FAIL_Z_KEEP
+                    | BGFX_STENCIL_OP_PASS_Z_INCR;
 
                 glm::mat4 modelTransform = glm::identity<glm::mat4>();
                 glm::vec3 position { m_lightSet.lightPosData[i].x, m_lightSet.lightPosData[i].y, m_lightSet.lightPosData[i].z };
@@ -436,15 +442,14 @@ namespace example
                 uint64_t lightVolumeState = 0
                     | BGFX_STATE_WRITE_RGB
                     | BGFX_STATE_CULL_CW
-                    | BGFX_STATE_DEPTH_TEST_GREATER;
+                    | BGFX_STATE_BLEND_ADD;
                 frontStencilFunc = BGFX_STENCIL_TEST_EQUAL
                     | BGFX_STENCIL_FUNC_RMASK(0xFF)
                     | BGFX_STENCIL_FUNC_REF(0);
                 backStencilFunc = BGFX_STENCIL_TEST_EQUAL
                     | BGFX_STENCIL_FUNC_RMASK(0xFF)
                     | BGFX_STENCIL_FUNC_REF(0)
-                    | BGFX_STENCIL_OP_FAIL_Z_REPLACE
-                    | BGFX_STENCIL_OP_PASS_Z_REPLACE;
+                    | BGFX_STENCIL_OP_FAIL_S_REPLACE;
                 bgfx::setTransform(glm::value_ptr(modelTransform));
                 bgfx::setIndexBuffer(m_lightSet.volumeMesh.indexHandle);
                 bgfx::setVertexBuffer(0, m_lightSet.volumeMesh.vertexHandle);
@@ -457,47 +462,48 @@ namespace example
 
                 bgfx::setTexture(0, m_pointLightVolumeMatType.getUniformHandle("diffuseRT"), m_gbufferTex[0], BGFX_SAMPLER_POINT | BGFX_SAMPLER_UVW_CLAMP);
                 bgfx::setTexture(1, m_pointLightVolumeMatType.getUniformHandle("normalRT"), m_gbufferTex[1], BGFX_SAMPLER_POINT | BGFX_SAMPLER_UVW_CLAMP);
-                bgfx::setUniform(m_pointLightVolumeMatType.getUniformHandle("posRadius"), glm::value_ptr(m_lightSet.lightPosData[i]));
-                bgfx::setUniform(m_pointLightVolumeMatType.getUniformHandle("colorIntensity"), glm::value_ptr(m_lightSet.lightColorIntensityData[i]));
+                bgfx::setTexture(2, m_pointLightVolumeMatType.getUniformHandle("depthRT"), m_gbufferTex[2], BGFX_SAMPLER_POINT | BGFX_SAMPLER_UVW_CLAMP);
+                bgfx::setUniform(m_pointLightVolumeMatType.getUniformHandle("lightPosRadius"), glm::value_ptr(m_lightSet.lightPosData[i]));
+                bgfx::setUniform(m_pointLightVolumeMatType.getUniformHandle("lightColorIntensity"), glm::value_ptr(m_lightSet.lightColorIntensityData[i]));
                 bgfx::submit(lightVolumePass, m_pointLightVolumeMatType.program);
             }
-
+/*
             float orthoProjection[16];
             bx::mtxOrtho(orthoProjection, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 100.0f, 0.0f, m_caps->homogeneousDepth);
             bgfx::setViewTransform(passthroughPass, nullptr, orthoProjection);
-
-            bgfx::setTexture(0, m_passthroughMatType.getUniformHandle("s_diffuseRT"), m_gbufferTex[2], BGFX_SAMPLER_POINT | BGFX_SAMPLER_UVW_CLAMP);
+*/
+            /*bgfx::setTexture(0, m_passthroughMatType.getUniformHandle("s_diffuseRT"), m_gbufferTex[3], BGFX_SAMPLER_POINT | BGFX_SAMPLER_UVW_CLAMP);
             bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A);
             bae::setScreenSpaceQuad(float(m_width), float(m_height), m_caps->originBottomLeft);
             bgfx::submit(passthroughPass, m_passthroughMatType.program);
+*/
+
+            //uint64_t stateTransparent = 0
+            //    | BGFX_STATE_WRITE_RGB
+            //    | BGFX_STATE_WRITE_A
+            //    | BGFX_STATE_DEPTH_TEST_LESS
+            //    | BGFX_STATE_CULL_CCW
+            //    | BGFX_STATE_MSAA
+            //    | BGFX_STATE_BLEND_ALPHA;
 
 
-            /*uint64_t stateTransparent = 0
-                | BGFX_STATE_WRITE_RGB
-                | BGFX_STATE_WRITE_A
-                | BGFX_STATE_DEPTH_TEST_LESS
-                | BGFX_STATE_CULL_CCW
-                | BGFX_STATE_MSAA
-                | BGFX_STATE_BLEND_ALPHA;*/
+            //// Render all our transparent meshes
+            //program = m_scene.transparentMatType.program;
+            //for (size_t i = 0; i < m_scene.transparentMeshes.meshes.size(); ++i) {
+            //    bgfx::setTransform(glm::value_ptr(mtx));
+            //    // Not sure if this should be part of the material?
+            //    bgfx::setUniform(normalTransformHandle, glm::value_ptr(glm::transpose(glm::inverse(mtx))));
 
+            //    bgfx::setState(stateTransparent);
+            //    const auto& mesh = m_scene.transparentMeshes.meshes[i];
+            //    bgfx::setIndexBuffer(mesh.indexHandle);
+            //    bgfx::setVertexBuffer(0, mesh.vertexHandle);
+            //    setUniforms(m_scene.transparentMeshes.materials[i], m_scene.transparentMatType);
 
-                //// Render all our transparent meshes
-                //program = m_scene.transparentMatType.program;
-                //for (size_t i = 0; i < m_scene.transparentMeshes.meshes.size(); ++i) {
-                //    bgfx::setTransform(glm::value_ptr(mtx));
-                //    // Not sure if this should be part of the material?
-                //    bgfx::setUniform(normalTransformHandle, glm::value_ptr(glm::transpose(glm::inverse(mtx))));
+            //    bgfx::submit(meshPass, program);
+            //}
 
-                //    bgfx::setState(stateTransparent);
-                //    const auto& mesh = m_scene.transparentMeshes.meshes[i];
-                //    bgfx::setIndexBuffer(mesh.indexHandle);
-                //    bgfx::setVertexBuffer(0, mesh.vertexHandle);
-                //    setUniforms(m_scene.transparentMeshes.materials[i], m_scene.transparentMatType);
-
-                //    bgfx::submit(meshPass, program);
-                //}
-
-                /*m_toneMapPass.render(m_hdrFbTextures[0], m_toneMapParams, deltaTime);*/
+            m_toneMapPass.render(m_gbufferTex[3], m_toneMapParams, deltaTime);
 
             bgfx::frame();
 
@@ -540,8 +546,9 @@ namespace example
             {
                 {"diffuseRT", {bgfx::UniformType::Sampler}},
                 {"normalRT", {bgfx::UniformType::Sampler}},
-                {"colorIntensity", {bgfx::UniformType::Vec4}},
-                {"posRadius", {bgfx::UniformType::Vec4}},
+                {"depthRT", {bgfx::UniformType::Sampler}},
+                {"lightColorIntensity", {bgfx::UniformType::Vec4}},
+                {"lightPosRadius", {bgfx::UniformType::Vec4}},
             },
         };
 
@@ -560,7 +567,7 @@ namespace example
         // Deferred passes
         bgfx::FrameBufferHandle m_gBuffer = BGFX_INVALID_HANDLE;
         bgfx::FrameBufferHandle m_lightGBuffer = BGFX_INVALID_HANDLE;
-        bgfx::TextureHandle m_gbufferTex[4];
+        bgfx::TextureHandle m_gbufferTex[5];
 
         // Buffer to put final outputs into
         bgfx::TextureHandle m_hdrFbTextures[2];

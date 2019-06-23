@@ -55,9 +55,9 @@ namespace bae
 
     void ToneMapping::render(bgfx::TextureHandle hdrFbTexture, const ToneMapParams& toneMapParams, const float deltaTime)
     {
-        bgfx::ViewId histogramPass = 1;
-        bgfx::ViewId averagingPass = 2;
-        bgfx::ViewId toneMapPass = 3;
+        bgfx::ViewId histogramPass = 2;
+        bgfx::ViewId averagingPass = 3;
+        bgfx::ViewId toneMapPass = 4;
 
         bgfx::setViewName(histogramPass, "Luminence Histogram");
         bgfx::setViewName(averagingPass, "Avergaing the Luminence Histogram");
