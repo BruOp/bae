@@ -24,6 +24,15 @@ namespace example
 
     static float s_texelHalf = 0.0f;
 
+    static std::vector<glm::vec3> LIGHT_COLORS = {
+            { 1.0f, 1.0f, 1.0f },
+            { 1.0f, 0.1f, 0.1f },
+            { 0.1f, 1.0f, 0.1f },
+            { 0.1f, 0.1f, 1.0f },
+            { 1.0f, 0.1f, 1.0f },
+            { 1.0f, 1.0f, 0.1f },
+            { 0.1f, 1.0f, 1.0f },
+    };
 
     class LightSet {
     public:
@@ -53,7 +62,7 @@ namespace example
 
         void setUniforms() const
         {
-            float paramsArr[4]{ float(lightCount), 0.0f, 0.0f, 0.0f };
+            uint32_t paramsArr[4]{ uint32_t(lightCount), 0, 0, 0 };
             bgfx::setUniform(params, paramsArr);
             bgfx::setUniform(lightPos, lightPosData.data(), maxLightCount);
             bgfx::setUniform(lightColorIntensity, lightColorIntensityData.data(), maxLightCount);
@@ -64,20 +73,6 @@ namespace example
             bgfx::destroy(params);
             bgfx::destroy(lightPos);
             bgfx::destroy(lightColorIntensity);
-        }
-
-        bool addLight(const glm::vec3& color, const float intensity, const glm::vec3& position) {
-            if (lightCount >= maxLightCount) {
-                return false;
-            }
-
-            constexpr float epsilon = 1.0f / 127.0f;
-            float radius = bx::sqrt(intensity / epsilon);
-
-            lightPosData[lightCount] = glm::vec4{ position, radius };
-            lightColorIntensityData[lightCount] = glm::vec4{ color, intensity };
-            ++lightCount;
-            return true;
         }
     };
 
@@ -145,25 +140,15 @@ namespace example
             m_scene.load("meshes/pbr_sponza/", "sponza.gltf");
             bae::init(m_sceneUniforms);
 
-            std::vector<glm::vec3> colors = {
-                { 1.0f, 1.0f, 1.0f },
-                { 1.0f, 0.1f, 0.1f },
-                { 0.1f, 1.0f, 0.1f },
-                { 0.1f, 0.1f, 1.0f },
-                { 1.0f, 0.1f, 1.0f },
-                { 1.0f, 1.0f, 0.1f },
-                { 0.1f, 1.0f, 1.0f },
-            };
 
             m_lightSet.init("pointLight");
-            float totalBrightness = 1000.0f;
-            int NUM_LIGHTS = m_lightSet.maxLightCount / 2;
-            for (size_t i = 0; i < NUM_LIGHTS; i++) {
-                m_lightSet.addLight(
-                    colors[i % colors.size()],
-                    totalBrightness / NUM_LIGHTS,
-                    { 10.0f * i, 5.0f, 0.0f }
-                );
+            m_totalBrightness = 500.0f;
+
+            size_t numColors = LIGHT_COLORS.size();
+            m_lightSet.lightCount = 8;
+
+            for (size_t i = 0; i < m_lightSet.maxLightCount; i++) {
+                m_lightSet.lightColorIntensityData[i] = glm::vec4{ LIGHT_COLORS[i % numColors], m_totalBrightness / 500.0f };
             }
 
             m_toneMapParams.width = m_width;
@@ -291,6 +276,25 @@ namespace example
 
             showExampleDialog(this);
 
+            ImGui::SetNextWindowPos(
+                ImVec2(m_width - m_width / 5.0f - 10.0f, 10.0f)
+                , ImGuiCond_FirstUseEver
+            );
+            ImGui::SetNextWindowSize(
+                ImVec2(m_width / 5.0f, m_height / 3.0f)
+                , ImGuiCond_FirstUseEver
+            );
+            ImGui::Begin("Settings"
+                , NULL
+                , 0
+            );
+
+            int lightCount = m_lightSet.lightCount;
+            ImGui::SliderInt("Num lights", &lightCount, 1, m_lightSet.maxLightCount);
+            ImGui::DragFloat("Total Brightness", &m_totalBrightness, 0.5f, 0.0f, 1000.0f);
+
+            ImGui::End();
+
             imguiEndFrame();
 
             bgfx::ViewId meshPass = 0;
@@ -345,16 +349,31 @@ namespace example
             bx::Vec3 cameraPos = cameraGetPosition();
             bgfx::setUniform(m_sceneUniforms.cameraPos, &cameraPos.x);
 
-            // Update our light positions so they fly around the atrium
             {
-                float a = 55.0f;
-                float b = 24.0f;
+                m_lightSet.lightCount = uint16_t(lightCount);
+                //Move our lights around in a cylinder the size of our scene
+                constexpr float sceneWidth = 52.0f;
+                constexpr float sceneLength = 24.0f;
+                constexpr float sceneHeight = 45.0f;
+
                 float N = float(m_lightSet.lightCount);
-                for (size_t i = 0; i < m_lightSet.lightCount; ++i) {
+                float intensity = m_totalBrightness / N;
+                constexpr float EPSILON = 0.01f;
+                float radius = bx::sqrt(intensity / EPSILON);
+
+                for (size_t i = 0; i < m_lightSet.maxLightCount; ++i) {
+                    // This is pretty ad-hoc...
                     float coeff = (float(i % 8) + 1.0f) / 8.0f;
-                    m_lightSet.lightPosData[i].x = coeff * a * bx::cos(0.1f * m_time / coeff + bx::kPi2 * i / N);
-                    m_lightSet.lightPosData[i].z = coeff * b * bx::sin(0.1f * m_time / coeff + bx::kPi2 * i / N);
-                    m_lightSet.lightPosData[i].y = 45.0f * (i + 1) / N;
+                    float phaseOffset = bx::kPi2 * i / N;
+                    m_lightSet.lightPosData[i].x = coeff * sceneWidth * bx::cos(0.1f * m_time / coeff + phaseOffset);
+                    m_lightSet.lightPosData[i].z = coeff * sceneHeight * bx::sin(0.1f * m_time / coeff + phaseOffset);
+                    m_lightSet.lightPosData[i].y = sceneHeight * (i + 1) / N;
+
+                    // Set intensity
+                    m_lightSet.lightColorIntensityData[i].w = intensity;
+
+                    // Set radius
+                    m_lightSet.lightPosData[i].w = radius;
                 }
             }
             m_lightSet.setUniforms();
@@ -392,7 +411,7 @@ namespace example
                 bgfx::submit(meshPass, program);
             }
 
-            m_toneMapPass.render(m_pbrFbTextures[0], m_toneMapParams, deltaTime);
+            m_toneMapPass.render(m_pbrFbTextures[0], m_toneMapParams, deltaTime, meshPass + 1);
 
             bgfx::frame();
 
@@ -411,6 +430,8 @@ namespace example
         uint32_t m_oldWidth;
         uint32_t m_oldHeight;
         uint32_t m_oldReset;
+
+        float m_totalBrightness = 1.0f;
 
         bae::Scene m_scene;
         bae::SceneUniforms m_sceneUniforms;

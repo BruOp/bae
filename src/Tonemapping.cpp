@@ -53,11 +53,11 @@ namespace bae
 
     }
 
-    void ToneMapping::render(bgfx::TextureHandle hdrFbTexture, const ToneMapParams& toneMapParams, const float deltaTime)
+    void ToneMapping::render(bgfx::TextureHandle hdrFbTexture, const ToneMapParams& toneMapParams, const float deltaTime, bgfx::ViewId startingPass)
     {
-        bgfx::ViewId histogramPass = 2;
-        bgfx::ViewId averagingPass = 3;
-        bgfx::ViewId toneMapPass = 4;
+        bgfx::ViewId histogramPass = startingPass;
+        bgfx::ViewId averagingPass = startingPass + 1;
+        bgfx::ViewId toneMapPass = startingPass + 2;
 
         bgfx::setViewName(histogramPass, "Luminence Histogram");
         bgfx::setViewName(averagingPass, "Avergaing the Luminence Histogram");

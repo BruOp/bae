@@ -78,9 +78,9 @@ void main()
     vec4 matColor = texture2D(diffuseMap, v_texcoord);
     vec3 OccRoughMetal = texture2D(metallicRoughnessMap, v_texcoord).xyz;
 
-    int numLights = min(int(pointLight_params.x), MAX_LIGHT_COUNT);
+    int numLights = min(floatBitsToUint(pointLight_params.x), MAX_LIGHT_COUNT);
 
-    for (int i = 0; i < numLights; i++) {
+    for (uint i = 0; i < numLights; i++) {
         vec3 lightPos = pointLight_pos[i].xyz;
         float lightRadius = pointLight_pos[i].w;
         vec4 colorIntensity = pointLight_colorIntensity[i];
@@ -88,7 +88,11 @@ void main()
         float dist = length(lightDir);
         lightDir = lightDir / dist;
 
-        float attenuation = colorIntensity.w * karisFalloff(dist, lightRadius);
+        float attenuation = karisFalloff(dist, lightRadius) * colorIntensity.w;
+        if (attenuation == 0.0) {
+            continue;
+        }
+
         vec3 light = attenuation * colorIntensity.xyz * clampDot(normal, lightDir);
 
         color += (

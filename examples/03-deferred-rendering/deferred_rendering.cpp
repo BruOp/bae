@@ -74,7 +74,7 @@ namespace example
             m_width = _width;
             m_height = _height;
             m_debug = BGFX_DEBUG_TEXT;
-            m_reset = BGFX_RESET_VSYNC;
+            m_reset = BGFX_RESET_VSYNC | BGFX_RESET_MAXANISOTROPY;
 
             bgfx::Init initInfo;
             initInfo.type = args.m_type;
@@ -108,7 +108,6 @@ namespace example
             bae::init(m_deferredPbrMatType);
             bae::init(m_lightStencilMatType);
             bae::init(m_pointLightVolumeMatType);
-            bae::init(m_passthroughMatType);
 
             m_scene.opaqueMatType = m_deferredPbrMatType;
             //m_scene.transparentMatType = pbrMatType;
@@ -126,11 +125,11 @@ namespace example
                 { 0.1f, 1.0f, 1.0f },
             };
 
-            constexpr float totalBrightness = 10.0f;
+            constexpr float totalBrightness = 1000.0f;
 
             bae::BasicVertex::init();
             m_lightSet.init();
-            int NUM_LIGHTS = 8;
+            int NUM_LIGHTS = 256;
             for (size_t i = 0; i < NUM_LIGHTS; i++) {
                 m_lightSet.addLight(
                     colors[i % colors.size()],
@@ -182,7 +181,6 @@ namespace example
                 // Cleanup.
                 destroy(m_sceneUniforms);
                 destroy(m_scene);
-                destroy(m_passthroughMatType);
                 destroy(m_lightStencilMatType);
                 destroy(m_pointLightVolumeMatType);
                 destroy(m_deferredPbrMatType);
@@ -467,16 +465,6 @@ namespace example
                 bgfx::setUniform(m_pointLightVolumeMatType.getUniformHandle("lightColorIntensity"), glm::value_ptr(m_lightSet.lightColorIntensityData[i]));
                 bgfx::submit(lightVolumePass, m_pointLightVolumeMatType.program);
             }
-/*
-            float orthoProjection[16];
-            bx::mtxOrtho(orthoProjection, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 100.0f, 0.0f, m_caps->homogeneousDepth);
-            bgfx::setViewTransform(passthroughPass, nullptr, orthoProjection);
-*/
-            /*bgfx::setTexture(0, m_passthroughMatType.getUniformHandle("s_diffuseRT"), m_gbufferTex[3], BGFX_SAMPLER_POINT | BGFX_SAMPLER_UVW_CLAMP);
-            bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A);
-            bae::setScreenSpaceQuad(float(m_width), float(m_height), m_caps->originBottomLeft);
-            bgfx::submit(passthroughPass, m_passthroughMatType.program);
-*/
 
             //uint64_t stateTransparent = 0
             //    | BGFX_STATE_WRITE_RGB
@@ -503,7 +491,7 @@ namespace example
             //    bgfx::submit(meshPass, program);
             //}
 
-            m_toneMapPass.render(m_gbufferTex[3], m_toneMapParams, deltaTime);
+            m_toneMapPass.render(m_gbufferTex[3], m_toneMapParams, deltaTime, lightVolumePass + 1);
 
             bgfx::frame();
 
@@ -549,14 +537,6 @@ namespace example
                 {"depthRT", {bgfx::UniformType::Sampler}},
                 {"lightColorIntensity", {bgfx::UniformType::Vec4}},
                 {"lightPosRadius", {bgfx::UniformType::Vec4}},
-            },
-        };
-
-        bae::MaterialType m_passthroughMatType = {
-            "passthrough",
-            BGFX_INVALID_HANDLE,
-            {
-                {"s_diffuseRT", {bgfx::UniformType::Sampler}},
             },
         };
 
