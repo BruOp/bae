@@ -26,39 +26,36 @@ namespace example
 
     static float s_texelHalf = 0.0f;
 
+    std::vector<glm::vec3> LIGHT_COLORS = {
+        { 1.0f, 1.0f, 1.0f },
+        { 1.0f, 0.1f, 0.1f },
+        { 0.1f, 1.0f, 0.1f },
+        { 0.1f, 0.1f, 1.0f },
+        { 1.0f, 0.1f, 1.0f },
+        { 1.0f, 1.0f, 0.1f },
+        { 0.1f, 1.0f, 1.0f },
+    };
 
     class LightSet {
     public:
+        size_t numActiveLights;
+        size_t maxNumLights = 2048;
         bae::Mesh volumeMesh;
-        std::vector<glm::vec4> lightPosData;
-        std::vector<glm::vec4> lightColorIntensityData;
+        std::vector<glm::vec4> positionRadiusData;
+        std::vector<glm::vec4> colorIntensityData;
 
         void init()
         {
             bae::IcosahedronFactory factory{ 2 };
             volumeMesh = factory.getMesh();
+            positionRadiusData.resize(maxNumLights);
+            colorIntensityData.resize(maxNumLights);
         }
 
         void destroy()
         {
             bgfx::destroy(volumeMesh.vertexHandle);
             bgfx::destroy(volumeMesh.indexHandle);
-        }
-
-        size_t addLight(const glm::vec3& color, const float intensity, const glm::vec3& position)
-        {
-            constexpr float epsilon = 1.0f / 127.0f;
-            float radius = bx::sqrt(intensity / epsilon);
-
-            size_t idx = lightPosData.size();
-            lightPosData.push_back(glm::vec4{ position, radius });
-            lightColorIntensityData.push_back(glm::vec4{ color, intensity });
-            return idx;
-        }
-
-        size_t size()
-        {
-            return lightPosData.size();
         }
     };
 
@@ -115,27 +112,14 @@ namespace example
             m_scene.load("meshes/pbr_sponza/", "sponza.gltf");
             bae::init(m_sceneUniforms);
 
-            std::vector<glm::vec3> colors = {
-                { 1.0f, 1.0f, 1.0f },
-                { 1.0f, 0.1f, 0.1f },
-                { 0.1f, 1.0f, 0.1f },
-                { 0.1f, 0.1f, 1.0f },
-                { 1.0f, 0.1f, 1.0f },
-                { 1.0f, 1.0f, 0.1f },
-                { 0.1f, 1.0f, 1.0f },
-            };
-
-            constexpr float totalBrightness = 1000.0f;
-
             bae::BasicVertex::init();
             m_lightSet.init();
-            int NUM_LIGHTS = 256;
-            for (size_t i = 0; i < NUM_LIGHTS; i++) {
-                m_lightSet.addLight(
-                    colors[i % colors.size()],
-                    totalBrightness / float(NUM_LIGHTS),
-                    { 10.0f * i, 5.0f, 0.0f }
-                );
+            m_lightSet.numActiveLights = 256;
+            m_totalBrightness = 500.0f;
+            size_t numColors = LIGHT_COLORS.size();
+            // Initialize color data for all lights
+            for (size_t i = 0; i < m_lightSet.maxNumLights; i++) {
+                m_lightSet.colorIntensityData[i] = glm::vec4{ LIGHT_COLORS[i % numColors], 1.0f };
             }
 
             bae::ScreenSpaceQuadVertex::init();
@@ -313,6 +297,25 @@ namespace example
 
             showExampleDialog(this);
 
+            ImGui::SetNextWindowPos(
+                ImVec2(m_width - m_width / 5.0f - 10.0f, 10.0f)
+                , ImGuiCond_FirstUseEver
+            );
+            ImGui::SetNextWindowSize(
+                ImVec2(m_width / 5.0f, m_height / 3.0f)
+                , ImGuiCond_FirstUseEver
+            );
+            ImGui::Begin("Settings"
+                , NULL
+                , 0
+            );
+
+            int numActiveLights = int32_t(m_lightSet.numActiveLights);
+            ImGui::SliderInt("Num lights", &numActiveLights, 1, int(m_lightSet.maxNumLights));
+            ImGui::DragFloat("Total Brightness", &m_totalBrightness, 0.5f, 0.0f, 1000.0f);
+
+            ImGui::End();
+
             imguiEndFrame();
 
             bgfx::ViewId meshPass = 0;
@@ -325,11 +328,7 @@ namespace example
             bgfx::setViewRect(lightVolumePass, 0, 0, uint16_t(m_width), uint16_t(m_height));
             bgfx::setViewMode(lightVolumePass, bgfx::ViewMode::Sequential);
             bgfx::setViewName(lightVolumePass, "Light Volume Pass");
-/*
-            bgfx::ViewId passthroughPass = 2;
-            bgfx::setViewRect(passthroughPass, 0, 0, uint16_t(m_width), uint16_t(m_height));
-            bgfx::setViewName(passthroughPass, "Pass Through");
-*/
+
             // This dummy draw call is here to make sure that view 0 is cleared
             // if no other draw calls are submitted to view 0.
             bgfx::touch(meshPass);
@@ -392,19 +391,47 @@ namespace example
                 constexpr float atriumHeight = 45.0f;
                 constexpr float velocity = 0.1f;
 
-                float N = float(m_lightSet.size());
+                float N = float(m_lightSet.numActiveLights);
                 for (size_t i = 0; i < N; ++i) {
                     float radiusCoeff = (float(i % 8) + 1.0f) / 8.0f;
                     // These two are just the equations for an ellipse, with the radius scaled by radiusCoeff and the speed scaled by velocity
-                    m_lightSet.lightPosData[i].x = radiusCoeff * atriumLength * bx::cos(velocity * m_time / radiusCoeff + bx::kPi2 * i / 26.0f);
-                    m_lightSet.lightPosData[i].z = radiusCoeff * atriumWidth * bx::sin(velocity * m_time / radiusCoeff + bx::kPi2 * i / 26.0f);
-                    m_lightSet.lightPosData[i].y = atriumHeight * (i + 1) / N;
+                    m_lightSet.positionRadiusData[i].x = radiusCoeff * atriumLength * bx::cos(velocity * m_time / radiusCoeff + bx::kPi2 * i / 26.0f);
+                    m_lightSet.positionRadiusData[i].z = radiusCoeff * atriumWidth * bx::sin(velocity * m_time / radiusCoeff + bx::kPi2 * i / 26.0f);
+                    m_lightSet.positionRadiusData[i].y = atriumHeight * (i + 1) / N;
+                }
+            }
+
+            {
+                m_lightSet.numActiveLights = size_t(numActiveLights);
+                //Move our lights around in a cylinder the size of our scene
+                constexpr float sceneWidth = 52.0f;
+                constexpr float sceneLength = 24.0f;
+                constexpr float sceneHeight = 45.0f;
+
+                float N = float(m_lightSet.numActiveLights);
+                float intensity = m_totalBrightness / N;
+                constexpr float EPSILON = 0.01f;
+                float radius = bx::sqrt(intensity / EPSILON);
+
+                for (size_t i = 0; i < m_lightSet.numActiveLights; ++i) {
+                    // This is pretty ad-hoc...
+                    float coeff = (float(i % 8) + 1.0f) / 8.0f;
+                    float phaseOffset = bx::kPi2 * i / N;
+                    m_lightSet.positionRadiusData[i].x = coeff * sceneWidth * bx::cos(0.1f * m_time / coeff + phaseOffset);
+                    m_lightSet.positionRadiusData[i].z = coeff * sceneHeight * bx::sin(0.1f * m_time / coeff + phaseOffset);
+                    m_lightSet.positionRadiusData[i].y = sceneHeight * (i + 1) / N;
+
+                    // Set intensity
+                    m_lightSet.colorIntensityData[i].w = intensity;
+
+                    // Set radius
+                    m_lightSet.positionRadiusData[i].w = radius;
                 }
             }
 
             bgfx::setViewTransform(lightVolumePass, view, proj);
             // Lets render our light volumes
-            for (size_t i = 0; i < m_lightSet.size(); ++i) {
+            for (size_t i = 0; i < m_lightSet.numActiveLights; ++i) {
                 // We need to set up the stencil state
                 uint64_t stencilState = 0
                     | BGFX_STATE_DEPTH_TEST_LESS;
@@ -423,8 +450,8 @@ namespace example
                     | BGFX_STENCIL_OP_PASS_Z_INCR;
 
                 glm::mat4 modelTransform = glm::identity<glm::mat4>();
-                glm::vec3 position { m_lightSet.lightPosData[i].x, m_lightSet.lightPosData[i].y, m_lightSet.lightPosData[i].z };
-                glm::vec3 scale { m_lightSet.lightPosData[i].w };
+                glm::vec3 position{ m_lightSet.positionRadiusData[i].x, m_lightSet.positionRadiusData[i].y, m_lightSet.positionRadiusData[i].z };
+                glm::vec3 scale{ m_lightSet.positionRadiusData[i].w };
                 modelTransform = glm::scale(
                     glm::translate(modelTransform, position),
                     scale
@@ -437,6 +464,7 @@ namespace example
                 bgfx::setVertexBuffer(0, m_lightSet.volumeMesh.vertexHandle);
                 bgfx::submit(lightVolumePass, m_lightStencilMatType.program);
 
+                // Now, with our stencil marking the pixels we DONT want to render, lets perform the shading pass
                 uint64_t lightVolumeState = 0
                     | BGFX_STATE_WRITE_RGB
                     | BGFX_STATE_CULL_CW
@@ -454,42 +482,15 @@ namespace example
                 bgfx::setState(lightVolumeState);
                 bgfx::setStencil(frontStencilFunc, backStencilFunc);
 
-                // Set uniforms
-                // framebuffer textures
-                // light properties
-
                 bgfx::setTexture(0, m_pointLightVolumeMatType.getUniformHandle("diffuseRT"), m_gbufferTex[0], BGFX_SAMPLER_POINT | BGFX_SAMPLER_UVW_CLAMP);
                 bgfx::setTexture(1, m_pointLightVolumeMatType.getUniformHandle("normalRT"), m_gbufferTex[1], BGFX_SAMPLER_POINT | BGFX_SAMPLER_UVW_CLAMP);
                 bgfx::setTexture(2, m_pointLightVolumeMatType.getUniformHandle("depthRT"), m_gbufferTex[2], BGFX_SAMPLER_POINT | BGFX_SAMPLER_UVW_CLAMP);
-                bgfx::setUniform(m_pointLightVolumeMatType.getUniformHandle("lightPosRadius"), glm::value_ptr(m_lightSet.lightPosData[i]));
-                bgfx::setUniform(m_pointLightVolumeMatType.getUniformHandle("lightColorIntensity"), glm::value_ptr(m_lightSet.lightColorIntensityData[i]));
+                bgfx::setUniform(m_pointLightVolumeMatType.getUniformHandle("lightPosRadius"), glm::value_ptr(m_lightSet.positionRadiusData[i]));
+                bgfx::setUniform(m_pointLightVolumeMatType.getUniformHandle("lightColorIntensity"), glm::value_ptr(m_lightSet.colorIntensityData[i]));
                 bgfx::submit(lightVolumePass, m_pointLightVolumeMatType.program);
             }
 
-            //uint64_t stateTransparent = 0
-            //    | BGFX_STATE_WRITE_RGB
-            //    | BGFX_STATE_WRITE_A
-            //    | BGFX_STATE_DEPTH_TEST_LESS
-            //    | BGFX_STATE_CULL_CCW
-            //    | BGFX_STATE_MSAA
-            //    | BGFX_STATE_BLEND_ALPHA;
-
-
-            //// Render all our transparent meshes
-            //program = m_scene.transparentMatType.program;
-            //for (size_t i = 0; i < m_scene.transparentMeshes.meshes.size(); ++i) {
-            //    bgfx::setTransform(glm::value_ptr(mtx));
-            //    // Not sure if this should be part of the material?
-            //    bgfx::setUniform(normalTransformHandle, glm::value_ptr(glm::transpose(glm::inverse(mtx))));
-
-            //    bgfx::setState(stateTransparent);
-            //    const auto& mesh = m_scene.transparentMeshes.meshes[i];
-            //    bgfx::setIndexBuffer(mesh.indexHandle);
-            //    bgfx::setVertexBuffer(0, mesh.vertexHandle);
-            //    setUniforms(m_scene.transparentMeshes.materials[i], m_scene.transparentMatType);
-
-            //    bgfx::submit(meshPass, program);
-            //}
+            // TODO: Render transparent objects without destroying performance
 
             m_toneMapPass.render(m_gbufferTex[3], m_toneMapParams, deltaTime, lightVolumePass + 1);
 
@@ -543,6 +544,8 @@ namespace example
         bae::Scene m_scene;
         bae::SceneUniforms m_sceneUniforms;
         LightSet m_lightSet;
+
+        float m_totalBrightness = 1.0f;
 
         // Deferred passes
         bgfx::FrameBufferHandle m_gBuffer = BGFX_INVALID_HANDLE;

@@ -36,43 +36,43 @@ namespace example
 
     class LightSet {
     public:
-        uint16_t lightCount = 0;
-        uint16_t maxLightCount = 255;  // Has to match whatever we have set in the shader...
+        uint16_t numActiveLights = 0;
+        uint16_t maxNumLights = 255;  // Has to match whatever we have set in the shader...
 
-        std::vector<glm::vec4> lightPosData;
-        std::vector<glm::vec4> lightColorIntensityData;
+        std::vector<glm::vec4> positionRadiusData;
+        std::vector<glm::vec4> colorIntensityData;
 
         // params is bacasically just used to store params.x = lightCount
-        bgfx::UniformHandle params = BGFX_INVALID_HANDLE;
-        bgfx::UniformHandle lightPos = BGFX_INVALID_HANDLE;
-        bgfx::UniformHandle lightColorIntensity = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_params = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_positionRadius = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_colorIntensity = BGFX_INVALID_HANDLE;
 
         void init(const std::string& lightName)
         {
             auto uniformName = lightName + "_params";
-            params = bgfx::createUniform(uniformName.c_str(), bgfx::UniformType::Vec4);
+            u_params = bgfx::createUniform(uniformName.c_str(), bgfx::UniformType::Vec4);
             uniformName = lightName + "_pos";
-            lightPos = bgfx::createUniform(uniformName.c_str(), bgfx::UniformType::Vec4, maxLightCount);
+            u_positionRadius = bgfx::createUniform(uniformName.c_str(), bgfx::UniformType::Vec4, maxNumLights);
             uniformName = lightName + "_colorIntensity";
-            lightColorIntensity = bgfx::createUniform(uniformName.c_str(), bgfx::UniformType::Vec4, maxLightCount);
+            u_colorIntensity = bgfx::createUniform(uniformName.c_str(), bgfx::UniformType::Vec4, maxNumLights);
 
-            lightPosData.resize(maxLightCount);
-            lightColorIntensityData.resize(maxLightCount);
+            positionRadiusData.resize(maxNumLights);
+            colorIntensityData.resize(maxNumLights);
         }
 
         void setUniforms() const
         {
-            uint32_t paramsArr[4]{ uint32_t(lightCount), 0, 0, 0 };
-            bgfx::setUniform(params, paramsArr);
-            bgfx::setUniform(lightPos, lightPosData.data(), maxLightCount);
-            bgfx::setUniform(lightColorIntensity, lightColorIntensityData.data(), maxLightCount);
+            uint32_t paramsArr[4]{ uint32_t(numActiveLights), 0, 0, 0 };
+            bgfx::setUniform(u_params, paramsArr);
+            bgfx::setUniform(u_positionRadius, positionRadiusData.data(), maxNumLights);
+            bgfx::setUniform(u_colorIntensity, colorIntensityData.data(), maxNumLights);
         };
 
         void destroy()
         {
-            bgfx::destroy(params);
-            bgfx::destroy(lightPos);
-            bgfx::destroy(lightColorIntensity);
+            bgfx::destroy(u_params);
+            bgfx::destroy(u_positionRadius);
+            bgfx::destroy(u_colorIntensity);
         }
     };
 
@@ -145,10 +145,10 @@ namespace example
             m_totalBrightness = 500.0f;
 
             size_t numColors = LIGHT_COLORS.size();
-            m_lightSet.lightCount = 8;
+            m_lightSet.numActiveLights = 8;
 
-            for (size_t i = 0; i < m_lightSet.maxLightCount; i++) {
-                m_lightSet.lightColorIntensityData[i] = glm::vec4{ LIGHT_COLORS[i % numColors], m_totalBrightness / 500.0f };
+            for (size_t i = 0; i < m_lightSet.maxNumLights; i++) {
+                m_lightSet.colorIntensityData[i] = glm::vec4{ LIGHT_COLORS[i % numColors], m_totalBrightness / 500.0f };
             }
 
             m_toneMapParams.width = m_width;
@@ -289,8 +289,8 @@ namespace example
                 , 0
             );
 
-            int lightCount = m_lightSet.lightCount;
-            ImGui::SliderInt("Num lights", &lightCount, 1, m_lightSet.maxLightCount);
+            int lightCount = m_lightSet.numActiveLights;
+            ImGui::SliderInt("Num lights", &lightCount, 1, m_lightSet.maxNumLights);
             ImGui::DragFloat("Total Brightness", &m_totalBrightness, 0.5f, 0.0f, 1000.0f);
 
             ImGui::End();
@@ -350,30 +350,30 @@ namespace example
             bgfx::setUniform(m_sceneUniforms.cameraPos, &cameraPos.x);
 
             {
-                m_lightSet.lightCount = uint16_t(lightCount);
+                m_lightSet.numActiveLights = uint16_t(lightCount);
                 //Move our lights around in a cylinder the size of our scene
                 constexpr float sceneWidth = 52.0f;
                 constexpr float sceneLength = 24.0f;
                 constexpr float sceneHeight = 45.0f;
 
-                float N = float(m_lightSet.lightCount);
+                float N = float(m_lightSet.numActiveLights);
                 float intensity = m_totalBrightness / N;
                 constexpr float EPSILON = 0.01f;
                 float radius = bx::sqrt(intensity / EPSILON);
 
-                for (size_t i = 0; i < m_lightSet.maxLightCount; ++i) {
+                for (size_t i = 0; i < m_lightSet.numActiveLights; ++i) {
                     // This is pretty ad-hoc...
                     float coeff = (float(i % 8) + 1.0f) / 8.0f;
                     float phaseOffset = bx::kPi2 * i / N;
-                    m_lightSet.lightPosData[i].x = coeff * sceneWidth * bx::cos(0.1f * m_time / coeff + phaseOffset);
-                    m_lightSet.lightPosData[i].z = coeff * sceneHeight * bx::sin(0.1f * m_time / coeff + phaseOffset);
-                    m_lightSet.lightPosData[i].y = sceneHeight * (i + 1) / N;
+                    m_lightSet.positionRadiusData[i].x = coeff * sceneWidth * bx::cos(0.1f * m_time / coeff + phaseOffset);
+                    m_lightSet.positionRadiusData[i].z = coeff * sceneHeight * bx::sin(0.1f * m_time / coeff + phaseOffset);
+                    m_lightSet.positionRadiusData[i].y = sceneHeight * (i + 1) / N;
 
                     // Set intensity
-                    m_lightSet.lightColorIntensityData[i].w = intensity;
+                    m_lightSet.colorIntensityData[i].w = intensity;
 
                     // Set radius
-                    m_lightSet.lightPosData[i].w = radius;
+                    m_lightSet.positionRadiusData[i].w = radius;
                 }
             }
             m_lightSet.setUniforms();
