@@ -113,14 +113,6 @@ namespace example
             // Enable m_debug text.
             bgfx::setDebug(m_debug);
 
-            // Set view 0 clear state.
-            bgfx::setViewClear(0
-                , BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
-                , 0x000000ff
-                , 1.0f
-                , 0
-            );
-
             m_caps = bgfx::getCaps();
             m_computeSupported = !!(m_caps->supported & BGFX_CAPS_COMPUTE);
 
@@ -132,6 +124,7 @@ namespace example
             bae::Vertex::init();
 
             bae::init(pbrMatType);
+            bae::init(m_prepassProgram);
 
             // Set the matType for both opaque and transparent passes
             m_scene.opaqueMatType = pbrMatType;
@@ -139,7 +132,6 @@ namespace example
             // Lets load all the meshes
             m_scene.load("meshes/pbr_sponza/", "sponza.gltf");
             bae::init(m_sceneUniforms);
-
 
             m_lightSet.init("pointLight");
             m_totalBrightness = 500.0f;
@@ -189,6 +181,7 @@ namespace example
             m_lightSet.destroy();
             destroy(m_sceneUniforms);
             destroy(m_scene);
+            destroy(m_prepassProgram);
             destroy(pbrMatType);
 
             cameraDestroy();
@@ -292,18 +285,33 @@ namespace example
             int lightCount = m_lightSet.numActiveLights;
             ImGui::SliderInt("Num lights", &lightCount, 1, m_lightSet.maxNumLights);
             ImGui::DragFloat("Total Brightness", &m_totalBrightness, 0.5f, 0.0f, 1000.0f);
+            ImGui::Checkbox("Z-Prepass Enabled", &m_zPrepassEnabled);
 
             ImGui::End();
 
             imguiEndFrame();
 
-            bgfx::ViewId meshPass = 0;
+            bgfx::ViewId zPrepass = 0;
+            bgfx::setViewFrameBuffer(zPrepass, m_pbrFramebuffer);
+            bgfx::setViewName(zPrepass, "Z Prepass");
+            bgfx::setViewRect(zPrepass, 0, 0, uint16_t(m_width), uint16_t(m_height));
+
+            bgfx::ViewId meshPass = 1;
             bgfx::setViewFrameBuffer(meshPass, m_pbrFramebuffer);
             bgfx::setViewName(meshPass, "Draw Meshes");
+            bgfx::setViewRect(meshPass, 0, 0, uint16_t(m_width), uint16_t(m_height));
 
             // This dummy draw call is here to make sure that view 0 is cleared
             // if no other draw calls are submitted to view 0.
-            bgfx::touch(meshPass);
+            if (m_zPrepassEnabled) {
+                bgfx::setViewClear(zPrepass, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x000000ff, 1.0f, 0);
+                bgfx::setViewClear(meshPass, 0);
+                bgfx::touch(zPrepass);
+            }
+            else {
+                bgfx::setViewClear(meshPass, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x000000ff, 1.0f, 0);
+                bgfx::touch(meshPass);
+            }
 
 
             int64_t now = bx::getHPCounter();
@@ -323,29 +331,13 @@ namespace example
             cameraUpdate(0.5f * deltaTime, m_mouseState);
             cameraGetViewMtx(view);
             // Set view and projection matrix
+            bgfx::setViewTransform(zPrepass, view, proj);
             bgfx::setViewTransform(meshPass, view, proj);
 
             // Not scaling or translating our scene
             glm::mat4 mtx = glm::identity<glm::mat4>();
 
-            uint64_t stateOpaque = 0
-                | BGFX_STATE_WRITE_RGB
-                | BGFX_STATE_WRITE_A
-                | BGFX_STATE_WRITE_Z
-                | BGFX_STATE_DEPTH_TEST_LESS
-                | BGFX_STATE_CULL_CCW
-                | BGFX_STATE_MSAA;
-
-            uint64_t stateTransparent = 0
-                | BGFX_STATE_WRITE_RGB
-                | BGFX_STATE_WRITE_A
-                | BGFX_STATE_DEPTH_TEST_LESS
-                | BGFX_STATE_CULL_CCW
-                | BGFX_STATE_MSAA
-                | BGFX_STATE_BLEND_ALPHA;
-
             // Set view 0 default viewport.
-            bgfx::setViewRect(meshPass, 0, 0, uint16_t(m_width), uint16_t(m_height));
             bx::Vec3 cameraPos = cameraGetPosition();
             bgfx::setUniform(m_sceneUniforms.cameraPos, &cameraPos.x);
 
@@ -376,8 +368,50 @@ namespace example
                     m_lightSet.positionRadiusData[i].w = radius;
                 }
             }
-            m_lightSet.setUniforms();
 
+
+            uint64_t stateOpaque = 0
+                | BGFX_STATE_WRITE_RGB
+                | BGFX_STATE_WRITE_A
+                | BGFX_STATE_CULL_CCW
+                | BGFX_STATE_MSAA;
+
+            if (m_zPrepassEnabled) {
+                stateOpaque |= BGFX_STATE_DEPTH_TEST_EQUAL;
+            }
+            else {
+                stateOpaque |= BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS;
+            }
+
+            uint64_t stateTransparent = 0
+                | BGFX_STATE_WRITE_RGB
+                | BGFX_STATE_WRITE_A
+                | BGFX_STATE_DEPTH_TEST_LESS
+                | BGFX_STATE_CULL_CCW
+                | BGFX_STATE_MSAA
+                | BGFX_STATE_BLEND_ALPHA;
+
+            if (m_zPrepassEnabled)
+            {
+                uint64_t statePrepass = 0
+                    | BGFX_STATE_WRITE_Z
+                    | BGFX_STATE_DEPTH_TEST_LESS
+                    | BGFX_STATE_CULL_CCW
+                    | BGFX_STATE_MSAA;
+
+                for (size_t i = 0; i < m_scene.opaqueMeshes.meshes.size(); ++i) {
+                    const auto& mesh = m_scene.opaqueMeshes.meshes[i];
+
+                    bgfx::setTransform(glm::value_ptr(mtx));
+                    // Not sure if this should be part of the material?
+                    bgfx::setState(statePrepass);
+                    bgfx::setIndexBuffer(mesh.indexHandle);
+                    bgfx::setVertexBuffer(0, mesh.vertexHandle);
+                    bgfx::submit(zPrepass, m_prepassProgram.program);
+                }
+            }
+
+            m_lightSet.setUniforms();
             bgfx::UniformHandle normalTransformHandle = pbrMatType.uniformInfo["normalTransform"].handle;
             bgfx::ProgramHandle program = m_scene.opaqueMatType.program;
             // Render all our opaque meshes
@@ -432,6 +466,13 @@ namespace example
         uint32_t m_oldReset;
 
         float m_totalBrightness = 1.0f;
+        float m_time;
+
+        bae::MaterialType m_prepassProgram = {
+            "z_prepass",
+            BGFX_INVALID_HANDLE,
+            {},
+        };
 
         bae::Scene m_scene;
         bae::SceneUniforms m_sceneUniforms;
@@ -443,10 +484,10 @@ namespace example
         bae::ToneMapParams m_toneMapParams;
         bae::ToneMapping m_toneMapPass;
 
-        bool m_computeSupported = true;
-
         const bgfx::Caps* m_caps;
-        float m_time;
+
+        bool m_computeSupported = true;
+        bool m_zPrepassEnabled = true;
     };
 
 }  // namespace example

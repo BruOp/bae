@@ -559,10 +559,10 @@ namespace example
         bae::ToneMapParams m_toneMapParams;
         bae::ToneMapping m_toneMapPass;
 
-        bool m_computeSupported = true;
-
         const bgfx::Caps* m_caps;
         float m_time;
+
+        bool m_computeSupported = true;
     };
 
 }  // namespace example
