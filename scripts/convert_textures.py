@@ -14,6 +14,7 @@ def process_folder(folder_path, texturec_path):
 
     diffuse_files = list(path.glob('*_diffuse*'))
     diffuse_files.extend(path.glob('*_baseColor*'))
+    diffuse_files.extend(path.glob('*_albedo*'))
 
     process_files(texturec_tool, diffuse_files, type='RGBA8')
 
@@ -21,8 +22,9 @@ def process_folder(folder_path, texturec_path):
     process_files(texturec_tool, normal_maps, type='RGBA8', is_linear=True, is_normal=True)
 
     pbr_maps = list(path.glob('*_metallicRoughness*'))
+    pbr_maps.extend(path.glob('*_metalRoughness*'))
     pbr_maps.extend(path.glob('*_occlusionRoughnessMetallic*'))
-    process_files(texturec_tool, pbr_maps, type='RGBA8', is_linear=False)
+    process_files(texturec_tool, pbr_maps, type='RGBA8', is_linear=True)
 
 
 def process_files(texturec_tool, files, type=None, is_linear=False, is_normal=False, additional_args=None):

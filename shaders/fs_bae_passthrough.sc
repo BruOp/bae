@@ -5,7 +5,7 @@ $input v_texcoord
  * License: https://github.com/bkaradzic/bgfx#license-bsd-2-clause
  */
 
-#include "../common/common.sh"
+#include "../examples/common/common.sh"
 
 SAMPLER2D(s_diffuseRT, 0);
 

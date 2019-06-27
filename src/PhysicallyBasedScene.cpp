@@ -47,8 +47,8 @@ namespace bae {
 
         if (!textures.has(fileName)) {
             std::string filePath = assetPath + fileName;
-            uint64_t flags = 0;
-            if (textureType != aiTextureType_NORMALS) {
+            uint64_t flags = 0 | BGFX_SAMPLER_MAG_ANISOTROPIC;
+            if (textureType == aiTextureType_DIFFUSE) {
                 flags |= BGFX_TEXTURE_SRGB;
             }
 

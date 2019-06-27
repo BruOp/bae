@@ -1,7 +1,7 @@
 $input a_position, a_texcoord0
 $output v_texcoord
 
-#include "../common/common.sh"
+#include "../examples/common/common.sh"
 
 void main()
 {

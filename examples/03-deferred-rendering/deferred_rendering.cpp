@@ -16,7 +16,6 @@
 
 #include "camera.h"
 #include "bae/PhysicallyBasedScene.h"
-#include "bae/Offscreen.h"
 #include "bae/Tonemapping.h"
 #include "bae/IcosahedronFactory.h"
 
