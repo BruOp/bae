@@ -5,23 +5,23 @@
 namespace bae {
     bgfx::VertexDecl BasicVertex::s_decl;
 
-    float t = (1.0 + bx::sqrt(5.0)) / 2.0;
+    float t = (1.0f + bx::sqrt(5.0f)) / 2.0f;
 
     std::vector<BasicVertex> basicIcosahedronPositions = {
-        {{-1.0,  t,  0.0}},
-        {{ 1.0,  t,  0.0}},
-        {{-1.0, -t,  0.0}},
-        {{ 1.0, -t,  0.0}},
+        {{-1.0f,  t,  0.0f}},
+        {{ 1.0,  t,  0.0f}},
+        {{-1.0f, -t,  0.0f}},
+        {{ 1.0, -t,  0.0f}},
 
-        {{ 0.0, -1.0,  t}},
-        {{ 0.0,  1.0,  t}},
-        {{ 0.0, -1.0, -t}},
-        {{ 0.0,  1.0, -t}},
+        {{ 0.0f, -1.0f,  t}},
+        {{ 0.0f,  1.0,  t}},
+        {{ 0.0f, -1.0f, -t}},
+        {{ 0.0f,  1.0, -t}},
 
-        {{ t, 0.0, -1.0}},
-        {{ t, 0.0,  1.0}},
-        {{-t, 0.0, -1.0}},
-        {{-t, 0.0,  1.0}},
+        {{ t, 0.0f, -1.0f}},
+        {{ t, 0.0f,  1.0}},
+        {{-t, 0.0f, -1.0f}},
+        {{-t, 0.0f,  1.0}},
     };
 
     std::vector<uint16_t> basicIcosahedronIndices = {
