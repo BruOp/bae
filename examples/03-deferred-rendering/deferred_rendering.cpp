@@ -121,8 +121,6 @@ namespace example
                 m_lightSet.colorIntensityData[i] = glm::vec4{ LIGHT_COLORS[i % numColors], 1.0f };
             }
 
-            bae::ScreenSpaceQuadVertex::init();
-
             m_toneMapParams.width = m_width;
             m_toneMapParams.width = m_height;
             m_toneMapParams.originBottomLeft = m_caps->originBottomLeft;
@@ -409,7 +407,7 @@ namespace example
 
                 float N = float(m_lightSet.numActiveLights);
                 float intensity = m_totalBrightness / N;
-                constexpr float EPSILON = 0.01f;
+                constexpr float EPSILON = 0.005f;
                 float radius = bx::sqrt(intensity / EPSILON);
 
                 for (size_t i = 0; i < m_lightSet.numActiveLights; ++i) {
