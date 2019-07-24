@@ -273,7 +273,7 @@ exampleProject(
     "01-tonemapping",
     "02-forward-rendering",
     "03-deferred-rendering",
-    "04-pbr-irb"
+    "04-pbr-ibl"
 )
 
 group "tools"
