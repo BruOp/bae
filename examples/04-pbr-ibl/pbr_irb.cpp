@@ -32,6 +32,52 @@ namespace example
         { 0.1f, 1.0f, 1.0f },
     };
 
+    class BrdfLutCreator
+    {
+    public:
+        void init()
+        {
+            const std::string brdfLutShader = "cs_brdf_lut";
+            brdfLUTProgram = loadProgram(brdfLutShader.c_str(), nullptr);
+
+            uint64_t lutFlags = BGFX_TEXTURE_COMPUTE_WRITE | SAMPLER_POINT_CLAMP;
+            brdfLUT = bgfx::createTexture2D(width, width, false, 1, bgfx::TextureFormat::RG16F, lutFlags);
+            bgfx::setName(brdfLUT, "Smith BRDF LUT");
+        }
+
+        bgfx::TextureHandle getLUT()
+        {
+            return brdfLUT;
+        }
+
+        void renderLUT(bgfx::ViewId view)
+        {
+            const uint16_t threadCount = 16u;
+            bgfx::setViewName(view, "BRDF LUT creation pass");
+
+            bgfx::setImage(0, brdfLUT, 0, bgfx::Access::Write, bgfx::TextureFormat::RG16F);
+            bgfx::dispatch(view, brdfLUTProgram, width / threadCount, width / threadCount, 1);
+            rendered = true;
+        }
+
+        void destroy()
+        {
+            bgfx::destroy(brdfLUTProgram);
+            if (destroyTextureOnClose) {
+                bgfx::destroy(brdfLUT);
+            }
+        }
+
+        uint16_t width = 128u;
+
+        // PBR IRB Textures and LUT
+        bgfx::TextureHandle brdfLUT;
+        bgfx::ProgramHandle brdfLUTProgram = BGFX_INVALID_HANDLE;
+
+        bool rendered = false;
+        bool destroyTextureOnClose = false;
+    };
+
     class ExampleIbl : public entry::AppI
     {
     public:
@@ -80,6 +126,9 @@ namespace example
             m_toneMapParams.originBottomLeft = m_caps->originBottomLeft;
             m_toneMapPass.init(m_caps);
 
+            m_brdfPass.destroyTextureOnClose = true;
+            m_brdfPass.init();
+            m_brdfLUT = m_brdfPass.getLUT();
 
             // Imgui.
             imguiCreate();
@@ -106,7 +155,7 @@ namespace example
                 }
 
                 m_toneMapPass.destroy();
-
+                m_brdfPass.destroy();
                 // Cleanup.
                 cameraDestroy();
 
@@ -180,12 +229,18 @@ namespace example
 
         bool update() override
         {
+            bgfx::ViewId viewId = 0;
+
             if (entry::processEvents(m_width, m_height, m_debug, m_reset, &m_mouseState)) {
                 return false;
             }
 
             if (!m_computeSupported) {
                 return false;
+            }
+
+            if (!m_brdfPass.rendered) {
+                m_brdfPass.renderLUT(viewId++);
             }
 
             if (!bgfx::isValid(m_hdrFrameBuffer)
@@ -224,7 +279,7 @@ namespace example
 
             imguiEndFrame();
 
-            bgfx::ViewId meshPass = 0;
+            bgfx::ViewId meshPass = viewId;
             bgfx::setViewRect(meshPass, 0, 0, uint16_t(m_width), uint16_t(m_height));
             bgfx::setViewFrameBuffer(meshPass, m_hdrFrameBuffer);
             bgfx::setViewName(meshPass, "Draw Meshes");
@@ -252,13 +307,12 @@ namespace example
             // Set view and projection matrix
             bgfx::setViewTransform(meshPass, view, proj);
 
-
             glm::mat4 mtx = glm::identity<glm::mat4>();
 
             // Set view 0 default viewport.
             bx::Vec3 cameraPos = cameraGetPosition();
 
-            m_toneMapPass.render(m_hdrFbTextures[0], m_toneMapParams, deltaTime, meshPass + 1);
+            //m_toneMapPass.render(m_hdrFbTextures[0], m_toneMapParams, deltaTime, meshPass + 1);
 
             bgfx::frame();
 
@@ -278,12 +332,15 @@ namespace example
 
         float m_totalBrightness = 1.0f;
 
+        // PBR IRB Textures and LUT
+        bgfx::TextureHandle m_brdfLUT;
         // Buffer to put final outputs into
         bgfx::TextureHandle m_hdrFbTextures[2];
         bgfx::FrameBufferHandle m_hdrFrameBuffer = BGFX_INVALID_HANDLE;
 
         bae::ToneMapParams m_toneMapParams;
         bae::ToneMapping m_toneMapPass;
+        BrdfLutCreator m_brdfPass;
 
         const bgfx::Caps* m_caps;
         float m_time;
