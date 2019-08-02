@@ -86,6 +86,7 @@ namespace example
             const std::string shader = "cs_prefilter_env_map";
             program = loadProgram(shader.c_str(), nullptr);
             uint64_t flags = BGFX_TEXTURE_COMPUTE_WRITE;
+            u_sourceCubeMap = bgfx::createUniform("u_source", bgfx::UniformType::Sampler);
             u_params = bgfx::createUniform("u_params", bgfx::UniformType::Vec4);
             filteredCubeMap = bgfx::createTextureCube(width, true, 1, bgfx::TextureFormat::RGBA16F, flags);
             bgfx::setName(filteredCubeMap, "Prefilter Env Map");
@@ -108,7 +109,7 @@ namespace example
                 float roughness = mipLevel / maxMipLevel;
                 float params[] = { roughness, float(mipLevel), float(width), 0.0f };
                 bgfx::setUniform(u_params, params);
-                bgfx::setImage(0, sourceCubeMap, 0, bgfx::Access::Read, bgfx::TextureFormat::RGBA16F);
+                bgfx::setTexture(0, u_sourceCubeMap, sourceCubeMap);
                 bgfx::setImage(1, filteredCubeMap, uint8_t(mipLevel), bgfx::Access::Write, bgfx::TextureFormat::RGBA16F);
                 bgfx::dispatch(view, program, mipWidth / threadCount, mipWidth / threadCount, 1);
             }
@@ -118,10 +119,12 @@ namespace example
         void destroy()
         {
             bgfx::destroy(program);
+            bgfx::destroy(u_sourceCubeMap);
+            bgfx::destroy(u_params);
+
             if (destroyTextureOnClose) {
                 bgfx::destroy(sourceCubeMap);
                 bgfx::destroy(filteredCubeMap);
-                //bgfx::destroy(u_sourceCubeMap);
             }
         }
 
@@ -129,6 +132,7 @@ namespace example
 
         // PBR IRB Textures and LUT
         bgfx::UniformHandle u_params;
+        bgfx::UniformHandle u_sourceCubeMap;
         bgfx::TextureHandle sourceCubeMap;
         bgfx::TextureHandle filteredCubeMap;
         bgfx::ProgramHandle program = BGFX_INVALID_HANDLE;
