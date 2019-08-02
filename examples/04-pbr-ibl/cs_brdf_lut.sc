@@ -4,7 +4,7 @@
 #define GROUP_SIZE 256
 #define THREADS 16
 
-IMAGE2D_RW(s_target, rg16f, 0);
+IMAGE2D_WR(s_target, rg16f, 0);
 
 // Karis 2014
 vec2 integrateBRDF(float linearRoughness, float NoV)

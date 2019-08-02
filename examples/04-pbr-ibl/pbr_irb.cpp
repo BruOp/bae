@@ -75,9 +75,67 @@ namespace example
         bgfx::ProgramHandle brdfLUTProgram = BGFX_INVALID_HANDLE;
 
         bool rendered = false;
-        bool destroyTextureOnClose = false;
+        bool destroyTextureOnClose = true;
     };
 
+    class CubeMapFilterer
+    {
+    public:
+        void init()
+        {
+            const std::string shader = "cs_prefilter_env_map";
+            program = loadProgram(shader.c_str(), nullptr);
+            uint64_t flags = BGFX_TEXTURE_COMPUTE_WRITE;
+            u_params = bgfx::createUniform("u_params", bgfx::UniformType::Vec4);
+            filteredCubeMap = bgfx::createTextureCube(width, true, 1, bgfx::TextureFormat::RGBA16F, flags);
+            bgfx::setName(filteredCubeMap, "Prefilter Env Map");
+        }
+
+        bgfx::TextureHandle getCubeMap()
+        {
+            return filteredCubeMap;
+        }
+
+        void render(bgfx::ViewId view)
+        {
+            const uint16_t threadCount = 8u;
+            bgfx::setViewName(view, "Prefilter Env Map pass");
+
+            float maxMipLevel = bx::log2(float(width));
+            for (float mipLevel = 0; mipLevel <= maxMipLevel; ++mipLevel)
+            {
+                uint16_t mipWidth = width / uint16_t(bx::pow(2.0f, mipLevel));
+                float roughness = mipLevel / maxMipLevel;
+                float params[] = { roughness, float(mipLevel), float(width), 0.0f };
+                bgfx::setUniform(u_params, params);
+                bgfx::setImage(0, sourceCubeMap, 0, bgfx::Access::Read, bgfx::TextureFormat::RGBA16F);
+                bgfx::setImage(1, filteredCubeMap, uint8_t(mipLevel), bgfx::Access::Write, bgfx::TextureFormat::RGBA16F);
+                bgfx::dispatch(view, program, mipWidth / threadCount, mipWidth / threadCount, 1);
+            }
+            rendered = true;
+        }
+
+        void destroy()
+        {
+            bgfx::destroy(program);
+            if (destroyTextureOnClose) {
+                bgfx::destroy(sourceCubeMap);
+                bgfx::destroy(filteredCubeMap);
+                //bgfx::destroy(u_sourceCubeMap);
+            }
+        }
+
+        uint16_t width = 0u;
+
+        // PBR IRB Textures and LUT
+        bgfx::UniformHandle u_params;
+        bgfx::TextureHandle sourceCubeMap;
+        bgfx::TextureHandle filteredCubeMap;
+        bgfx::ProgramHandle program = BGFX_INVALID_HANDLE;
+
+        bool rendered = false;
+        bool destroyTextureOnClose = true;
+    };
     class ExampleIbl : public entry::AppI
     {
     public:
@@ -126,9 +184,12 @@ namespace example
             m_toneMapParams.originBottomLeft = m_caps->originBottomLeft;
             m_toneMapPass.init(m_caps);
 
-            m_brdfPass.destroyTextureOnClose = true;
             m_brdfPass.init();
             m_brdfLUT = m_brdfPass.getLUT();
+
+            m_prefilteredEnvMapCreator.sourceCubeMap = loadTexture("textures/pisa.ktx");
+            m_prefilteredEnvMapCreator.width = 1024u; // Based off size of pisa.ktx
+            m_prefilteredEnvMapCreator.init();
 
             // Imgui.
             imguiCreate();
@@ -153,8 +214,8 @@ namespace example
                 {
                     bgfx::destroy(m_hdrFrameBuffer);
                 }
-
                 m_toneMapPass.destroy();
+                m_prefilteredEnvMapCreator.destroy();
                 m_brdfPass.destroy();
                 // Cleanup.
                 cameraDestroy();
@@ -241,6 +302,10 @@ namespace example
 
             if (!m_brdfPass.rendered) {
                 m_brdfPass.renderLUT(viewId++);
+            }
+
+            if (!m_prefilteredEnvMapCreator.rendered) {
+                m_prefilteredEnvMapCreator.render(viewId++);
             }
 
             if (!bgfx::isValid(m_hdrFrameBuffer)
@@ -340,7 +405,9 @@ namespace example
 
         bae::ToneMapParams m_toneMapParams;
         bae::ToneMapping m_toneMapPass;
+
         BrdfLutCreator m_brdfPass;
+        CubeMapFilterer m_prefilteredEnvMapCreator;
 
         const bgfx::Caps* m_caps;
         float m_time;
