@@ -14,11 +14,7 @@ NUM_THREADS(THREADS, THREADS, 6)
 void main()
 {
     int imgSize = 64;
-    ivec3 globalId = ivec3(gl_GlobalInvocationID.xyz);
-    if (globalId.x >= imgSize || globalId.y >= imgSize)
-    {
-        return;
-    }
+    ivec3 globalId = gl_GlobalInvocationID.xyz;
 
     vec3 N = normalize(toWorldCoords(globalId, float(imgSize)));
 
@@ -28,8 +24,8 @@ void main()
 
     vec3 color = vec3_splat(0.0);
     float sampleCount = 0.0;
-    float deltaPhi = TWO_PI / 180.0;
-    float deltaTheta = HALF_PI / 64.0;
+    float deltaPhi = TWO_PI / 360.0;
+    float deltaTheta = HALF_PI / 90.0;
     for (float phi = 0.0; phi < TWO_PI; phi += deltaPhi) {
         for (float theta = 0.0; theta < HALF_PI; theta += deltaPhi) {
             // Spherical to World Space in two steps...

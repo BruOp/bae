@@ -88,7 +88,7 @@ namespace example
             shader = "cs_irradiance";
             irradianceProgram = loadProgram(shader.c_str(), nullptr);
 
-            uint64_t flags = BGFX_TEXTURE_COMPUTE_WRITE;
+            uint64_t flags = BGFX_TEXTURE_COMPUTE_WRITE | SAMPLER_POINT_CLAMP;
             u_sourceCubeMap = bgfx::createUniform("u_source", bgfx::UniformType::Sampler);
             u_params = bgfx::createUniform("u_params", bgfx::UniformType::Vec4);
             filteredCubeMap = bgfx::createTextureCube(width, true, 1, bgfx::TextureFormat::RGBA16F, flags);
@@ -210,8 +210,8 @@ namespace example
             m_brdfPass.init();
             m_brdfLUT = m_brdfPass.getLUT();
 
-            m_prefilteredEnvMapCreator.sourceCubeMap = loadTexture("textures/papermill.ktx");
-            m_prefilteredEnvMapCreator.width = 512u; // Based off size of papermill.ktx
+            m_prefilteredEnvMapCreator.sourceCubeMap = loadTexture("textures/papermill_with_mips.ktx");
+            m_prefilteredEnvMapCreator.width = 512u; // Based off size of pisa_with_mips.ktx
             m_prefilteredEnvMapCreator.init();
 
             // Imgui.

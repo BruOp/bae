@@ -15,6 +15,18 @@ vec2 hammersley(uint i, uint N)
     return vec2(float(i) /float(N), rdi);
 }
 
+float D_GGX(float NoH, float linearRoughness) {
+    float a = NoH * linearRoughness;
+    float k = linearRoughness / (1.0 - NoH * NoH + a * a);
+    return k * k * (1.0 / PI);
+}
+
+vec3 F_Schlick(float VoH, float reflectance, float metallic, vec3 baseColor) {
+    vec3 f0 = mix(vec3_splat(reflectance), baseColor, metallic);
+    float f = pow(1.0 - VoH, 5.0);
+    return f + f0 * (1.0 - f);
+}
+
 // From the filament docs. Geometric Shadowing function
 // https://google.github.io/filament/Filament.html#toc4.4.2
 float G_Smith(float NoV, float NoL, float roughness)
@@ -24,7 +36,6 @@ float G_Smith(float NoV, float NoL, float roughness)
     float GGXV = NoV / (NoV * (1.0 - k) + k);
     return GGXL * GGXV;
 }
-
 
 // Based on Karis 2014
 vec3 importanceSampleGGX(vec2 Xi, float roughness, vec3 N)
@@ -49,20 +60,21 @@ vec3 importanceSampleGGX(vec2 Xi, float roughness, vec3 N)
 
 vec3 toWorldCoords(ivec3 globalId, float size)
 {
-    float uc = 2.0 * float(globalId.x) / size - 1.0;
-    float vc = -(2.0 * float(globalId.y) / size - 1.0);
+    vec2 uvc = (vec2(globalId.xy) + 0.5) / size;
+    uvc = 2.0 * uvc - 1.0;
+    uvc.y *= -1.0;
     switch (globalId.z) {
     case 0:
-        return vec3(1.0, vc, -uc);
+        return vec3(1.0, uvc.y, -uvc.x);
     case 1:
-        return vec3(-1.0, vc, uc);
+        return vec3(-1.0, uvc.y, uvc.x);
     case 2:
-        return vec3(uc, 1.0, -vc);
+        return vec3(uvc.x, 1.0, -uvc.y);
     case 3:
-        return vec3(uc, -1.0, vc);
+        return vec3(uvc.x, -1.0, uvc.y);
     case 4:
-        return vec3(uc, vc, 1.0);
+        return vec3(uvc.x, uvc.y, 1.0);
     default:
-        return vec3(-uc, vc, -1.0);
+        return vec3(-uvc.x, uvc.y, -1.0);
     }
 }
