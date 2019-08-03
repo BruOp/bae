@@ -1,12 +1,10 @@
 #include "bgfx_compute.sh"
 #include "pbr_helpers.sh"
-#include "../common/shaderlib.sh"
 
 #define PI 3.141592653589793
 
-#define GROUP_SIZE 64
 #define THREADS 8
-#define NUM_SAMPLES 2048u
+#define NUM_SAMPLES 1024u
 
 uniform vec4 u_params;
 // u_params.x == roughness
@@ -14,28 +12,6 @@ uniform vec4 u_params;
 
 SAMPLERCUBE(s_source, 0);
 IMAGE2D_ARRAY_WR(s_target, rgba16f, 1);
-
-vec3 toWorldCoords(ivec3 globalId, float size)
-{
-    float uc = 2.0 * float(globalId.x) / size - 1.0;
-    float vc = -(2.0 * float(globalId.y) / size - 1.0);
-    switch (globalId.z) {
-    case 0:
-        return vec3(1.0, vc, -uc);
-    case 1:
-        return vec3(-1.0, vc, uc);
-    case 2:
-        return vec3(uc, 1.0, -vc);
-    case 3:
-        return vec3(uc, -1.0, vc);
-    case 4:
-        return vec3(uc, vc, 1.0);
-    default:
-        return vec3(-uc, vc, -1.0);
-    }
-}
-
-
 
 // From Karis, 2014
 vec3 prefilterEnvMap(float roughness, vec3 R, float imgSize)
@@ -57,15 +33,6 @@ vec3 prefilterEnvMap(float roughness, vec3 R, float imgSize)
         }
     }
     return prefilteredColor / totalWeight;
-}
-
-vec3 sphericalToCartesian(vec2 phiTheta)
-{
-  return vec3(
-    sin(phiTheta.y) * cos(phiTheta.x),
-    sin(phiTheta.y) * sin(phiTheta.x),
-    cos(phiTheta.y)
-  );
 }
 
 NUM_THREADS(THREADS, THREADS, 6)

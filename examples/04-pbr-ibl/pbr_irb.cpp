@@ -83,16 +83,25 @@ namespace example
     public:
         void init()
         {
-            const std::string shader = "cs_prefilter_env_map";
-            program = loadProgram(shader.c_str(), nullptr);
+            std::string shader = "cs_prefilter_env_map";
+            preFilteringProgram = loadProgram(shader.c_str(), nullptr);
+            shader = "cs_irradiance";
+            irradianceProgram = loadProgram(shader.c_str(), nullptr);
+
             uint64_t flags = BGFX_TEXTURE_COMPUTE_WRITE;
             u_sourceCubeMap = bgfx::createUniform("u_source", bgfx::UniformType::Sampler);
             u_params = bgfx::createUniform("u_params", bgfx::UniformType::Vec4);
             filteredCubeMap = bgfx::createTextureCube(width, true, 1, bgfx::TextureFormat::RGBA16F, flags);
+            irradianceMap = bgfx::createTextureCube(irradianceMapSize, false, 1, bgfx::TextureFormat::RGBA16F, flags);
             bgfx::setName(filteredCubeMap, "Prefilter Env Map");
         }
 
-        bgfx::TextureHandle getCubeMap()
+        bgfx::TextureHandle getPrefilteredMap()
+        {
+            return filteredCubeMap;
+        }
+
+        bgfx::TextureHandle getIrradianceMap()
         {
             return filteredCubeMap;
         }
@@ -100,7 +109,7 @@ namespace example
         void render(bgfx::ViewId view)
         {
             const uint16_t threadCount = 8u;
-            bgfx::setViewName(view, "Prefilter Env Map pass");
+            bgfx::setViewName(view, "Env Map Filtering Pass");
 
             float maxMipLevel = bx::log2(float(width));
             for (float mipLevel = 0; mipLevel <= maxMipLevel; ++mipLevel)
@@ -111,31 +120,41 @@ namespace example
                 bgfx::setUniform(u_params, params);
                 bgfx::setTexture(0, u_sourceCubeMap, sourceCubeMap);
                 bgfx::setImage(1, filteredCubeMap, uint8_t(mipLevel), bgfx::Access::Write, bgfx::TextureFormat::RGBA16F);
-                bgfx::dispatch(view, program, mipWidth / threadCount, mipWidth / threadCount, 1);
+                bgfx::dispatch(view, preFilteringProgram, mipWidth / threadCount, mipWidth / threadCount, 1);
             }
+
+
+            bgfx::setTexture(0, u_sourceCubeMap, sourceCubeMap);
+            bgfx::setImage(1, irradianceMap, 0, bgfx::Access::Write, bgfx::TextureFormat::RGBA16F);
+            bgfx::dispatch(view, irradianceProgram, irradianceMapSize / threadCount, irradianceMapSize / threadCount, 1);
+
             rendered = true;
         }
 
         void destroy()
         {
-            bgfx::destroy(program);
+            bgfx::destroy(preFilteringProgram);
             bgfx::destroy(u_sourceCubeMap);
             bgfx::destroy(u_params);
 
             if (destroyTextureOnClose) {
                 bgfx::destroy(sourceCubeMap);
                 bgfx::destroy(filteredCubeMap);
+                bgfx::destroy(irradianceMap);
             }
         }
 
         uint16_t width = 0u;
+        uint16_t irradianceMapSize = 64u;
 
         // PBR IRB Textures and LUT
-        bgfx::UniformHandle u_params;
-        bgfx::UniformHandle u_sourceCubeMap;
-        bgfx::TextureHandle sourceCubeMap;
-        bgfx::TextureHandle filteredCubeMap;
-        bgfx::ProgramHandle program = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_params = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_sourceCubeMap = BGFX_INVALID_HANDLE;
+        bgfx::TextureHandle sourceCubeMap = BGFX_INVALID_HANDLE;
+        bgfx::TextureHandle filteredCubeMap = BGFX_INVALID_HANDLE;
+        bgfx::TextureHandle irradianceMap = BGFX_INVALID_HANDLE;
+        bgfx::ProgramHandle preFilteringProgram = BGFX_INVALID_HANDLE;
+        bgfx::ProgramHandle irradianceProgram = BGFX_INVALID_HANDLE;
 
         bool rendered = false;
         bool destroyTextureOnClose = true;
@@ -191,8 +210,8 @@ namespace example
             m_brdfPass.init();
             m_brdfLUT = m_brdfPass.getLUT();
 
-            m_prefilteredEnvMapCreator.sourceCubeMap = loadTexture("textures/pisa.ktx");
-            m_prefilteredEnvMapCreator.width = 1024u; // Based off size of pisa.ktx
+            m_prefilteredEnvMapCreator.sourceCubeMap = loadTexture("textures/papermill.ktx");
+            m_prefilteredEnvMapCreator.width = 512u; // Based off size of papermill.ktx
             m_prefilteredEnvMapCreator.init();
 
             // Imgui.
@@ -221,9 +240,8 @@ namespace example
                 m_toneMapPass.destroy();
                 m_prefilteredEnvMapCreator.destroy();
                 m_brdfPass.destroy();
-                // Cleanup.
-                cameraDestroy();
 
+                cameraDestroy();
                 imguiDestroy();
             }
 
