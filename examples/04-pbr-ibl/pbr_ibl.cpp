@@ -1,8 +1,3 @@
-/*
- * Copyright 2011-2019 Branimir Karadzic. All rights reserved.
- * License: https://github.com/bkaradzic/bgfx#license-bsd-2-clause
- */
-
 #include <array>
 #include "bgfx_utils.h"
 #include "common.h"
@@ -13,8 +8,9 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "camera.h"
+#include "bae/Offscreen.h"
 #include "bae/Tonemapping.h"
-#include "bae/IcosahedronFactory.h"
+#include "bae/PhysicallyBasedScene.h"
 
 namespace example
 {
@@ -88,7 +84,7 @@ namespace example
             shader = "cs_irradiance";
             irradianceProgram = loadProgram(shader.c_str(), nullptr);
 
-            uint64_t flags = BGFX_TEXTURE_COMPUTE_WRITE | SAMPLER_POINT_CLAMP;
+            uint64_t flags = BGFX_TEXTURE_COMPUTE_WRITE;
             u_sourceCubeMap = bgfx::createUniform("u_source", bgfx::UniformType::Sampler);
             u_params = bgfx::createUniform("u_params", bgfx::UniformType::Vec4);
             filteredCubeMap = bgfx::createTextureCube(width, true, 1, bgfx::TextureFormat::RGBA16F, flags);
@@ -103,7 +99,7 @@ namespace example
 
         bgfx::TextureHandle getIrradianceMap()
         {
-            return filteredCubeMap;
+            return irradianceMap;
         }
 
         void render(bgfx::ViewId view)
@@ -159,6 +155,33 @@ namespace example
         bool rendered = false;
         bool destroyTextureOnClose = true;
     };
+
+    class SceneUniforms
+    {
+    public:
+        bgfx::UniformHandle m_cameraPos = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle m_envParams = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle m_brdfLUT = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle m_prefilteredEnv = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle m_irradiance = BGFX_INVALID_HANDLE;
+
+        void init() {
+            m_cameraPos = bgfx::createUniform("u_cameraPos", bgfx::UniformType::Vec4);
+            m_envParams = bgfx::createUniform("u_envParams", bgfx::UniformType::Vec4);
+            m_brdfLUT = bgfx::createUniform("s_brdfLUT", bgfx::UniformType::Sampler);
+            m_prefilteredEnv = bgfx::createUniform("s_prefilteredEnv", bgfx::UniformType::Sampler);
+            m_irradiance = bgfx::createUniform("s_irradiance", bgfx::UniformType::Sampler);
+
+        }
+
+        void destroy() {
+            bgfx::destroy(m_cameraPos);
+            bgfx::destroy(m_brdfLUT);
+            bgfx::destroy(m_prefilteredEnv);
+            bgfx::destroy(m_irradiance);
+        }
+    };
+
     class ExampleIbl : public entry::AppI
     {
     public:
@@ -171,7 +194,7 @@ namespace example
             m_width = _width;
             m_height = _height;
             m_debug = BGFX_DEBUG_TEXT;
-            m_reset = BGFX_RESET_VSYNC | BGFX_RESET_MAXANISOTROPY;
+            m_reset = BGFX_RESET_VSYNC | BGFX_RESET_MAXANISOTROPY | BGFX_RESET_MSAA_X16;
 
             bgfx::Init initInfo;
             initInfo.type = args.m_type;
@@ -199,19 +222,27 @@ namespace example
                 return;
             }
 
-            // Create vertex stream declaration.
-            bae::BasicVertex::init();
+            bae::init(m_skyboxMatType);
+            bae::init(m_pbrIrbMatType);
+            m_sceneUniforms.init();
+
+            bae::Vertex::init();
+            // Set the matType for both opaque and transparent passes
+            m_scene.opaqueMatType = m_pbrIrbMatType;
+            m_scene.transparentMatType = m_pbrIrbMatType;
+            // Lets load all the meshes
+            m_scene.load("meshes/FlightHelmet/", "FlightHelmet.gltf");
 
             m_toneMapParams.width = m_width;
             m_toneMapParams.width = m_height;
             m_toneMapParams.originBottomLeft = m_caps->originBottomLeft;
             m_toneMapPass.init(m_caps);
 
-            m_brdfPass.init();
-            m_brdfLUT = m_brdfPass.getLUT();
+            m_brdfLutCreator.init();
 
-            m_prefilteredEnvMapCreator.sourceCubeMap = loadTexture("textures/papermill_with_mips.ktx");
-            m_prefilteredEnvMapCreator.width = 512u; // Based off size of pisa_with_mips.ktx
+            m_envMap = loadTexture("textures/pisa_with_mips.ktx");
+            m_prefilteredEnvMapCreator.sourceCubeMap = m_envMap;
+            m_prefilteredEnvMapCreator.width = 1024u; // Based off size of pisa_with_mips.ktx
             m_prefilteredEnvMapCreator.init();
 
             // Imgui.
@@ -221,7 +252,9 @@ namespace example
 
             // Init camera
             cameraCreate();
-            cameraSetPosition({ 0.0f, 10.5f, 0.0f });
+            cameraSetPosition({ -3.5f, 0.0f, 7.0f });
+            cameraSetHorizontalAngle(bx::atan2(3.5f, -7.0f));
+            cameraSetVerticalAngle(bx::toRad(-10.0f));
 
             m_oldWidth = 0;
             m_oldHeight = 0;
@@ -239,7 +272,7 @@ namespace example
                 }
                 m_toneMapPass.destroy();
                 m_prefilteredEnvMapCreator.destroy();
-                m_brdfPass.destroy();
+                m_brdfLutCreator.destroy();
 
                 cameraDestroy();
                 imguiDestroy();
@@ -312,7 +345,6 @@ namespace example
 
         bool update() override
         {
-            bgfx::ViewId viewId = 0;
 
             if (entry::processEvents(m_width, m_height, m_debug, m_reset, &m_mouseState)) {
                 return false;
@@ -322,13 +354,18 @@ namespace example
                 return false;
             }
 
-            if (!m_brdfPass.rendered) {
-                m_brdfPass.renderLUT(viewId++);
+            bgfx::ViewId viewId = 0;
+
+            if (!m_brdfLutCreator.rendered) {
+                m_brdfLutCreator.renderLUT(viewId);
             }
+            // Have to still skip using this viewId, or reset the views to remove all the associated state.
+            viewId++;
 
             if (!m_prefilteredEnvMapCreator.rendered) {
-                m_prefilteredEnvMapCreator.render(viewId++);
+                m_prefilteredEnvMapCreator.render(viewId);
             }
+            viewId++;
 
             if (!bgfx::isValid(m_hdrFrameBuffer)
                 || m_oldWidth != m_width
@@ -366,40 +403,148 @@ namespace example
 
             imguiEndFrame();
 
-            bgfx::ViewId meshPass = viewId;
+
+            bgfx::ViewId meshPass = viewId++;
             bgfx::setViewRect(meshPass, 0, 0, uint16_t(m_width), uint16_t(m_height));
+            bgfx::setViewClear(meshPass, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030ff, 1.0f, 0);
             bgfx::setViewFrameBuffer(meshPass, m_hdrFrameBuffer);
             bgfx::setViewName(meshPass, "Draw Meshes");
 
-            // This dummy draw call is here to make sure that view 0 is cleared
-            // if no other draw calls are submitted to view 0.
-            bgfx::touch(meshPass);
+            // Set views.
+            bgfx::ViewId skyboxPass = viewId++;
+            bgfx::setViewName(skyboxPass, "Skybox");
+            bgfx::setViewRect(skyboxPass, 0, 0, bgfx::BackbufferRatio::Equal);
+            bgfx::setViewFrameBuffer(skyboxPass, m_hdrFrameBuffer);
 
             int64_t now = bx::getHPCounter();
             static int64_t last = now;
             const int64_t frameTime = now - last;
             last = now;
             const double freq = double(bx::getHPFrequency());
-            const float deltaTime = (float)(frameTime / freq);
+            const float deltaTime = bx::max(0.0001f, (float)(frameTime / freq));
             m_time += deltaTime;
+
+            float orthoProjection[16];
+            bx::mtxOrtho(orthoProjection, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 100.0f, 0.0f, m_caps->homogeneousDepth);
 
             float proj[16];
             bx::mtxProj(proj, 60.0f, float(m_width) / float(m_height), 0.1f, 1000.0f, bgfx::getCaps()->homogeneousDepth);
 
             // Update camera
             float view[16];
-
             cameraUpdate(0.5f * deltaTime, m_mouseState);
             cameraGetViewMtx(view);
-            // Set view and projection matrix
-            bgfx::setViewTransform(meshPass, view, proj);
-
-            glm::mat4 mtx = glm::identity<glm::mat4>();
-
-            // Set view 0 default viewport.
             bx::Vec3 cameraPos = cameraGetPosition();
 
-            //m_toneMapPass.render(m_hdrFbTextures[0], m_toneMapParams, deltaTime, meshPass + 1);
+            float viewCopy[16] = {};
+            bx::memCopy(viewCopy, view, 16 * sizeof(view[0]));
+            // Remove translation...
+            viewCopy[12] = 0.0f;
+            viewCopy[13] = 0.0f;
+            viewCopy[14] = 0.0f;
+
+            float rotationViewProj[16] = {};
+            bx::mtxMul(rotationViewProj, viewCopy, proj);
+            float invRotationViewProj[16] = {};
+            bx::mtxInverse(invRotationViewProj, rotationViewProj);
+
+            // Render skybox into view hdrSkybox.
+            bgfx::setTexture(0, m_skyboxMatType.getUniformHandle("s_envMap"), m_envMap);
+            bgfx::setUniform(m_skyboxMatType.getUniformHandle("u_invRotationViewProj"), invRotationViewProj);
+            bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_DEPTH_TEST_LEQUAL);
+            bgfx::setViewTransform(skyboxPass, nullptr, orthoProjection);
+            bae::setScreenSpaceQuad((float)m_width, (float)m_height, true);
+            bgfx::submit(skyboxPass, m_skyboxMatType.program);
+
+            // Set view and projection matrix
+
+            uint64_t stateOpaque = 0
+                | BGFX_STATE_WRITE_RGB
+                | BGFX_STATE_WRITE_A
+                | BGFX_STATE_CULL_CCW
+                | BGFX_STATE_MSAA
+                | BGFX_STATE_WRITE_Z
+                | BGFX_STATE_DEPTH_TEST_LESS;
+
+            uint64_t stateTransparent = 0
+                | BGFX_STATE_WRITE_RGB
+                | BGFX_STATE_WRITE_A
+                | BGFX_STATE_DEPTH_TEST_LESS
+                | BGFX_STATE_CULL_CCW
+                | BGFX_STATE_MSAA
+                | BGFX_STATE_BLEND_ALPHA;
+
+            bgfx::setViewTransform(meshPass, view, proj);
+
+            // Not moving our models at all
+            glm::mat4 mtx = glm::identity<glm::mat4>();
+            mtx = glm::rotate(mtx, bx::kPi, glm::vec3(0.0f, 1.0f, 0.0f));
+
+            // Opaque Meshes
+            bgfx::ProgramHandle program = m_scene.opaqueMatType.program;
+            bae::MaterialType& matType = m_scene.opaqueMatType;
+            bgfx::UniformHandle normalTransformHandle = matType.getUniformHandle("u_normalTransform");
+            bgfx::UniformHandle diffuseMapHandle = matType.getUniformHandle("s_diffuseMap");
+            bgfx::UniformHandle normalMapHandle = matType.getUniformHandle("s_normalMap");
+            bgfx::UniformHandle metallicRoughnessMapHandle = matType.getUniformHandle("s_metallicRoughnessMap");
+
+            // Render all our opaque meshes
+            for (size_t i = 0; i < m_scene.opaqueMeshes.meshes.size(); ++i) {
+                const auto& mesh = m_scene.opaqueMeshes.meshes[i];
+
+                bgfx::setTransform(glm::value_ptr(mtx));
+                // Not sure if this should be part of the material?
+                bgfx::setUniform(normalTransformHandle, glm::value_ptr(glm::transpose(glm::inverse(mtx))));
+                bgfx::setUniform(m_sceneUniforms.m_cameraPos, &cameraPos.x);
+
+                float envParams[] = { bx::log2(float(m_prefilteredEnvMapCreator.width)), 0.0f, 0.0f, 0.0f };
+                bgfx::setUniform(m_sceneUniforms.m_envParams, envParams);
+
+                bgfx::setTexture(3, m_sceneUniforms.m_brdfLUT, m_brdfLutCreator.getLUT());
+                bgfx::setTexture(4, m_sceneUniforms.m_prefilteredEnv, m_prefilteredEnvMapCreator.getPrefilteredMap());
+                bgfx::setTexture(5, m_sceneUniforms.m_irradiance, m_prefilteredEnvMapCreator.getIrradianceMap());
+
+                bgfx::setState(stateOpaque);
+                bgfx::setIndexBuffer(mesh.indexHandle);
+                bgfx::setVertexBuffer(0, mesh.vertexHandle);
+                bae::Material& material = m_scene.opaqueMeshes.materials[i];
+                bgfx::setTexture(0, diffuseMapHandle, material.diffuse);
+                bgfx::setTexture(1, normalMapHandle, material.normal);
+                bgfx::setTexture(2, metallicRoughnessMapHandle, material.metallicRoughness);
+                bgfx::submit(meshPass, program);
+            }
+
+            // Transparent Meshes
+            matType = m_scene.transparentMatType;
+            program = m_scene.transparentMatType.program;
+            normalTransformHandle = matType.getUniformHandle("u_normalTransform");
+            diffuseMapHandle = matType.getUniformHandle("s_diffuseMap");
+            normalMapHandle = matType.getUniformHandle("s_normalMap");
+            metallicRoughnessMapHandle = matType.getUniformHandle("s_metallicRoughnessMap");
+
+            // Render all our transparent meshes
+            for (size_t i = 0; i < m_scene.transparentMeshes.meshes.size(); ++i) {
+                bgfx::setTransform(glm::value_ptr(mtx));
+                // Not sure if this should be part of the material?
+                bgfx::setUniform(normalTransformHandle, glm::value_ptr(glm::transpose(glm::inverse(mtx))));
+                bgfx::setUniform(m_sceneUniforms.m_cameraPos, &cameraPos.x);
+                bgfx::setTexture(3, m_sceneUniforms.m_brdfLUT, m_brdfLutCreator.getLUT());
+                bgfx::setTexture(4, m_sceneUniforms.m_prefilteredEnv, m_prefilteredEnvMapCreator.getPrefilteredMap());
+                bgfx::setTexture(5, m_sceneUniforms.m_irradiance, m_prefilteredEnvMapCreator.getIrradianceMap());
+
+                bgfx::setState(stateTransparent);
+                const auto& mesh = m_scene.transparentMeshes.meshes[i];
+                bgfx::setIndexBuffer(mesh.indexHandle);
+                bgfx::setVertexBuffer(0, mesh.vertexHandle);
+
+                bae::Material& material = m_scene.transparentMeshes.materials[i];
+                bgfx::setTexture(0, diffuseMapHandle, material.diffuse);
+                bgfx::setTexture(1, normalMapHandle, material.normal);
+                bgfx::setTexture(2, metallicRoughnessMapHandle, material.metallicRoughness);
+                bgfx::submit(meshPass, program);
+            }
+
+            m_toneMapPass.render(m_hdrFbTextures[0], m_toneMapParams, deltaTime, viewId);
 
             bgfx::frame();
 
@@ -419,8 +564,28 @@ namespace example
 
         float m_totalBrightness = 1.0f;
 
+        bae::MaterialType m_skyboxMatType = {
+            "skybox",
+            BGFX_INVALID_HANDLE,
+            {
+                {"s_envMap", {bgfx::UniformType::Sampler}},
+                {"u_invRotationViewProj", {bgfx::UniformType::Mat4}}
+            },
+        };
+
+        bae::MaterialType m_pbrIrbMatType = {
+            "pbr_ibl",
+            BGFX_INVALID_HANDLE,
+            {
+                {"s_diffuseMap", {bgfx::UniformType::Sampler}},
+                {"s_normalMap", {bgfx::UniformType::Sampler}},
+                {"s_metallicRoughnessMap", {bgfx::UniformType::Sampler}},
+                {"u_normalTransform", {bgfx::UniformType::Mat4}},
+            },
+        };
+
         // PBR IRB Textures and LUT
-        bgfx::TextureHandle m_brdfLUT;
+        bgfx::TextureHandle m_envMap = BGFX_INVALID_HANDLE;
         // Buffer to put final outputs into
         bgfx::TextureHandle m_hdrFbTextures[2];
         bgfx::FrameBufferHandle m_hdrFrameBuffer = BGFX_INVALID_HANDLE;
@@ -428,8 +593,11 @@ namespace example
         bae::ToneMapParams m_toneMapParams;
         bae::ToneMapping m_toneMapPass;
 
-        BrdfLutCreator m_brdfPass;
+        BrdfLutCreator m_brdfLutCreator;
         CubeMapFilterer m_prefilteredEnvMapCreator;
+
+        bae::Scene m_scene;
+        SceneUniforms m_sceneUniforms;
 
         const bgfx::Caps* m_caps;
         float m_time;
