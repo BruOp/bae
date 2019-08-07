@@ -37,7 +37,7 @@ namespace bae
 
         ScreenSpaceQuadVertex::init();
 
-        bx::mtxOrtho(orthoProjection, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 100.0f, 0.0f, caps->homogeneousDepth);
+        bx::mtxOrtho(orthoProjection, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 2.0f, 0.0f, caps->homogeneousDepth);
     }
 
     void ToneMapping::destroy()

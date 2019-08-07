@@ -40,6 +40,7 @@ void main()
 
     vec3 lightDir = reflect(-viewDir, normal);
     vec3 H = normalize(lightDir + viewDir);
+    float VoH = clampDot(viewDir, H);
     float NoV = clamp(dot(normal, viewDir), 1e-5, 1.0);
 
     float roughness = OccRoughMetal.y;

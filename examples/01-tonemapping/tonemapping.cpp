@@ -378,8 +378,6 @@ namespace
                 bx::mtxLookAt(view, tmp, at);
                 bx::mtxProj(proj, 60.0f, float(m_width) / float(m_height), 0.1f, 100.0f, caps->homogeneousDepth);
 
-                // Set view and projection matrix for view hdrMesh.
-                bgfx::setViewTransform(hdrMesh, view, proj);
 
                 // Render skybox into view hdrSkybox.
                 bgfx::setTexture(0, s_texCube, m_envTexture);
@@ -388,6 +386,8 @@ namespace
                 screenSpaceQuad((float)m_width, (float)m_height, true);
                 bgfx::submit(hdrSkybox, m_skyProgram);
 
+                // Set view and projection matrix for view hdrMesh.
+                bgfx::setViewTransform(hdrMesh, view, proj);
                 // Render m_mesh into view hdrMesh.
                 bgfx::setTexture(0, s_texCube, m_envTexture);
                 meshSubmit(m_mesh, hdrMesh, m_meshProgram, NULL);

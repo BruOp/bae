@@ -24,12 +24,16 @@ float D_GGX(float NoH, float linearRoughness) {
     return k * k * (1.0 / PI);
 }
 
-float V_SmithGGXCorrelatedFast(float NoV, float NoL, float a) {
-    // a = linearRoughness;
-    float GGXV = NoL * (NoV * (1.0 - a) + a);
-    float GGXL = NoV * (NoL * (1.0 - a) + a);
-    return 0.5 / (GGXV + GGXL);
+// From the filament docs. Geometric Shadowing function
+// https://google.github.io/filament/Filament.html#toc4.4.2
+float G_Smith(float NoV, float NoL, float roughness)
+{
+    float k = (roughness * roughness) / 2.0;
+    float GGXL = NoL / (NoL * (1.0 - k) + k);
+    float GGXV = NoV / (NoV * (1.0 - k) + k);
+    return GGXL * GGXV;
 }
+
 
 vec3 F_Schlick(float VoH, float reflectance, float metallic, vec3 baseColor) {
     vec3 f0 = mix(vec3_splat(reflectance), baseColor, metallic);
@@ -50,7 +54,7 @@ vec3 specular(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 baseColor, vec3 Occ
     float linearRoughness = OccRoughMetal.y;
     float D = D_GGX(NoH, linearRoughness);
     vec3  F = F_Schlick(VoH, DIELECTRIC_SPECULAR, metallic, baseColor);
-    float V = V_SmithGGXCorrelatedFast(NoV, NoL, linearRoughness);
+    float V = G_Smith(NoV, NoL, linearRoughness);
     return vec3(D * V * F);// * V * F;
 }
 
