@@ -409,17 +409,17 @@ namespace example
             imguiEndFrame();
 
 
-            bgfx::ViewId meshPass = viewId++;
-            bgfx::setViewRect(meshPass, 0, 0, uint16_t(m_width), uint16_t(m_height));
-            bgfx::setViewClear(meshPass, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030ff, 1.0f, 0);
-            bgfx::setViewFrameBuffer(meshPass, m_hdrFrameBuffer);
-            bgfx::setViewName(meshPass, "Draw Meshes");
-
             // Set views.
             bgfx::ViewId skyboxPass = viewId++;
             bgfx::setViewName(skyboxPass, "Skybox");
+            bgfx::setViewClear(skyboxPass, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030ff, 1.0f, 0);
             bgfx::setViewRect(skyboxPass, 0, 0, bgfx::BackbufferRatio::Equal);
             bgfx::setViewFrameBuffer(skyboxPass, m_hdrFrameBuffer);
+
+            bgfx::ViewId meshPass = viewId++;
+            bgfx::setViewRect(meshPass, 0, 0, uint16_t(m_width), uint16_t(m_height));
+            bgfx::setViewFrameBuffer(meshPass, m_hdrFrameBuffer);
+            bgfx::setViewName(meshPass, "Draw Meshes");
 
             int64_t now = bx::getHPCounter();
             static int64_t last = now;
@@ -456,7 +456,7 @@ namespace example
             // Render skybox into view hdrSkybox.
             bgfx::setTexture(0, m_skyboxMatType.getUniformHandle("s_envMap"), m_prefilteredEnvMapCreator.getPrefilteredMap());
             bgfx::setUniform(m_skyboxMatType.getUniformHandle("u_invRotationViewProj"), invRotationViewProj);
-            bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_DEPTH_TEST_LEQUAL);
+            bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A);
             bgfx::setViewTransform(skyboxPass, nullptr, orthoProjection);
             bae::setScreenSpaceQuad((float)m_width, (float)m_height, true);
             bgfx::submit(skyboxPass, m_skyboxMatType.program);
