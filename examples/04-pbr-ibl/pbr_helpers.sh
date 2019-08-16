@@ -16,8 +16,9 @@ vec2 hammersley(uint i, uint N)
 }
 
 float D_GGX(float NoH, float linearRoughness) {
-    float a = NoH * linearRoughness;
-    float k = linearRoughness / (1.0 - NoH * NoH + a * a);
+    float alpha = linearRoughness * linearRoughness;
+    float a = NoH * alpha;
+    float k = alpha / (1.0 - NoH * NoH + a * a);
     return k * k * (1.0 / PI);
 }
 
@@ -29,12 +30,11 @@ vec3 F_Schlick(float VoH, float reflectance, float metallic, vec3 baseColor) {
 
 // From the filament docs. Geometric Shadowing function
 // https://google.github.io/filament/Filament.html#toc4.4.2
-float G_Smith(float NoV, float NoL, float roughness)
-{
-    float k = (roughness * roughness) / 2.0;
-    float GGXL = NoL / (NoL * (1.0 - k) + k);
-    float GGXV = NoV / (NoV * (1.0 - k) + k);
-    return GGXL * GGXV;
+float V_SmithGGXCorrelated(float NoV, float NoL, float roughness) {
+    float a2 = roughness * roughness;
+    float GGXV = NoL * sqrt(NoV * NoV * (1.0 - a2) + a2);
+    float GGXL = NoV * sqrt(NoL * NoL * (1.0 - a2) + a2);
+    return 0.5 / (GGXV + GGXL);
 }
 
 // Based on Karis 2014
@@ -46,16 +46,20 @@ vec3 importanceSampleGGX(vec2 Xi, float roughness, vec3 N)
     float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a * a - 1.0) * Xi.y));
     float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
     // Construct tangent space vector
-    vec3 H;
-    H.x = sinTheta * cos(phi);
-    H.y = sinTheta * sin(phi);
-    H.z = cosTheta;
+    vec3 H = vec3(
+        sinTheta * cos(phi),
+        sinTheta * sin(phi),
+        cosTheta
+    );
 
     // Tangent to world space
     vec3 upVector = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
     vec3 tangentX = normalize(cross(upVector, N));
-    vec3 tangentY = cross(N, tangentX);
-    return tangentX * H.x + tangentY * H.y + N * H.z;
+    vec3 tangentY = normalize(cross(N, tangentX));
+    return normalize(tangentX * H.x + tangentY * H.y + N * H.z);
+
+    // Convert to world Space
+    return normalize(tangentX * H.x + tangentY * H.y + N * H.z);
 }
 
 vec3 toWorldCoords(ivec3 globalId, float size)

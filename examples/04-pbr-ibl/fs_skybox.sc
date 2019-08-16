@@ -9,5 +9,5 @@ void main()
 {
     vec4 clipSpace = vec4(2.0 * v_texcoord - 1.0, 1.0, 1.0);
     vec3 dir = normalize(mul(u_invRotationViewProj, clipSpace).xyz);
-    gl_FragColor = textureCube(s_envMap, dir);
+    gl_FragColor = textureCubeLod(s_envMap, dir, 0);
 }

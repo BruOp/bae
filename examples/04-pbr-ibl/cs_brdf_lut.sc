@@ -34,15 +34,15 @@ vec2 integrateBRDF(float linearRoughness, float NoV)
         float VoH = saturate(dot(V, H));
 
         if (NoL > 0.0) {
-            float G = G_Smith(NoV, NoL, linearRoughness);
-            float G_Vis = G * VoH / (NoH * NoV);
+            // Terms besides V are from the GGX PDF we're dividing by
+            float V_pdf = V_SmithGGXCorrelated(NoV, NoL, linearRoughness) * VoH * NoL / NoH;
             float Fc = pow(1.0 - VoH, 5.0);
-            A += (1.0 - Fc) * G_Vis;
-            B += Fc * G_Vis;
+            A += (1.0 - Fc) * V_pdf;
+            B += Fc * V_pdf;
         }
     }
 
-    return vec2(A, B) / float(numSamples);
+    return 4.0 * vec2(A, B) / float(numSamples);
 }
 
 

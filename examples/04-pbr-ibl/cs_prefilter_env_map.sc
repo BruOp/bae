@@ -41,7 +41,7 @@ vec3 prefilterEnvMap(float roughness, vec3 R, float imgSize)
             float omegaS = 1.0 / (float(NUM_SAMPLES) * pdf);
             // Solid angle  of pixel
             float omegaP = 4.0 * PI / (6.0 * imgSize * imgSize);
-            float mipLevel = max(0.5 * log2(omegaS / omegaP), 0.0);
+            float mipLevel = roughness == 0.0 ? 0.0 : max(0.5 * log2(omegaS / omegaP), 0.0);
             prefilteredColor += textureCubeLod(s_source, L, mipLevel).rgb * NoL;
             totalWeight += NoL;
         }
