@@ -394,10 +394,15 @@ namespace example
                 ImVec2(m_width / 5.0f, m_height / 3.0f)
                 , ImGuiCond_FirstUseEver
             );
+
             ImGui::Begin("Settings"
                 , NULL
                 , 0
             );
+
+            ImGui::RadioButton("Single Scattering", &m_iblMode, 0);
+            ImGui::RadioButton("Multi-scattering, standard Fresnel", &m_iblMode, 1);
+            ImGui::RadioButton("Multiscattering, roughness depedent", &m_iblMode, 2);
 
             ImGui::End();
 
@@ -449,7 +454,7 @@ namespace example
             bx::mtxInverse(invRotationViewProj, rotationViewProj);
 
             // Render skybox into view hdrSkybox.
-            bgfx::setTexture(0, m_skyboxMatType.getUniformHandle("s_envMap"), m_envMap);
+            bgfx::setTexture(0, m_skyboxMatType.getUniformHandle("s_envMap"), m_prefilteredEnvMapCreator.getPrefilteredMap());
             bgfx::setUniform(m_skyboxMatType.getUniformHandle("u_invRotationViewProj"), invRotationViewProj);
             bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_DEPTH_TEST_LEQUAL);
             bgfx::setViewTransform(skyboxPass, nullptr, orthoProjection);
@@ -497,7 +502,7 @@ namespace example
                 bgfx::setUniform(normalTransformHandle, glm::value_ptr(glm::transpose(glm::inverse(mtx))));
                 bgfx::setUniform(m_sceneUniforms.m_cameraPos, &cameraPos.x);
 
-                float envParams[] = { bx::log2(float(m_prefilteredEnvMapCreator.width)), 0.0f, 0.0f, 0.0f };
+                float envParams[] = { bx::log2(float(m_prefilteredEnvMapCreator.width)), float(m_iblMode), 0.0f, 0.0f };
                 bgfx::setUniform(m_sceneUniforms.m_envParams, envParams);
 
                 bgfx::setTexture(3, m_sceneUniforms.m_brdfLUT, m_brdfLutCreator.getLUT());
@@ -528,6 +533,10 @@ namespace example
                 // Not sure if this should be part of the material?
                 bgfx::setUniform(normalTransformHandle, glm::value_ptr(glm::transpose(glm::inverse(mtx))));
                 bgfx::setUniform(m_sceneUniforms.m_cameraPos, &cameraPos.x);
+
+                float envParams[] = { bx::log2(float(m_prefilteredEnvMapCreator.width)), float(m_iblMode), 0.0f, 0.0f };
+                bgfx::setUniform(m_sceneUniforms.m_envParams, envParams);
+
                 bgfx::setTexture(3, m_sceneUniforms.m_brdfLUT, m_brdfLutCreator.getLUT());
                 bgfx::setTexture(4, m_sceneUniforms.m_prefilteredEnv, m_prefilteredEnvMapCreator.getPrefilteredMap());
                 bgfx::setTexture(5, m_sceneUniforms.m_irradiance, m_prefilteredEnvMapCreator.getIrradianceMap());
@@ -603,6 +612,7 @@ namespace example
         float m_time;
 
         bool m_computeSupported = true;
+        int m_iblMode = 0;
     };
 
 }  // namespace example

@@ -10,6 +10,7 @@ $input v_position, v_normal, v_tangent, v_bitangent, v_texcoord
 // Scene
 uniform vec4 u_envParams;
 #define numEnvLevels u_envParams.x
+#define iblMode u_envParams.y
 
 uniform vec4 u_cameraPos;
 
@@ -45,30 +46,37 @@ void main()
 
     float roughness = OccRoughMetal.y;
     float metalness = OccRoughMetal.z;
-    // From Aguera 2019
-    vec3 F0 = mix(vec3_splat(DIELECTRIC_SPECULAR), baseColor.xyz, metalness);
 
+    // From GLTF spec
+    vec3 diffuseColor = baseColor.rgb * (1.0 - DIELECTRIC_SPECULAR) * (1.0 - metalness);
+    vec3 F0 = mix(vec3_splat(DIELECTRIC_SPECULAR), baseColor.xyz, metalness);
+    // Load textures
     vec2 f_ab = texture2D(s_brdfLUT, vec2(NoV, roughness)).xy;
     float lodLevel = roughness * numEnvLevels;
     vec3 radiance = textureCubeLod(s_prefilteredEnv, lightDir, lodLevel).xyz;
     vec3 irradiance = textureCubeLod(s_irradiance, normal, 0).xyz;
 
-    vec3 Fr = max(vec3_splat(1.0 - roughness), F0) - F0;
-    vec3 k_S = F0 + F0 * pow(1.0 - NoV, 5.0);
+    vec3 F_prime = F0;
+    if (iblMode == 2.0) {
+        // Roughness dependent fresnel
+        vec3 Fr = max(vec3_splat(1.0 - roughness), F0) - F0;
+        F_prime += Fr * pow(1.0 - NoV, 5.0);
+    }
 
-    vec3 FssEss = k_S * f_ab.x + f_ab.y;
-
-    float Ess = f_ab.x + f_ab.y;
-    float Ems = 1.0 - Ess;
+    vec3 FssEss = F_prime * f_ab.x + f_ab.y;
+    float Ems = (1.0 - (f_ab.x + f_ab.y));
     vec3 F_avg = F0 + (1.0 - F0) / 21.0;
-    vec3 Fms = FssEss / (1.0 - (1.0 - Ess) * F_avg);
+    vec3 FmsEms = Ems * FssEss * F_avg / (1.0 - F_avg * Ems);
+    vec3 k_D = diffuseColor * (1 - FssEss - FmsEms);
 
-    // // For Dielectrics
-    // float diffuseColor = mix(baseColor.rgb * (1.0 - DIELECTRIC_SPECULAR), BLACK, metalness) * irradiance;
-    // vec3 color = radiance * (F0 * f_ab.x + f_ab.y) + diffuseColor;
-
-    vec3 k_D = baseColor.xyz * (1 - (FssEss + Fms * Ems));
-    vec3 color = FssEss * radiance + (Fms * Ems + k_D) * irradiance * baseColor.w * OccRoughMetal.x;
+    vec3 color;
+    if (iblMode >= 1.0) {
+        // Multiple scattering
+        color = FssEss * radiance + (FmsEms + k_D) * irradiance;
+    } else {
+        // Single scattering
+        color = FssEss * radiance + diffuseColor * irradiance;
+    }
 
     gl_FragColor = vec4(color, baseColor.w);
 }
