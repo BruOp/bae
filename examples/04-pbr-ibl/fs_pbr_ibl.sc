@@ -54,7 +54,7 @@ void main()
     vec3 irradiance = textureCubeLod(s_irradiance, normal, 0).xyz;
 
     vec3 Fr = max(vec3_splat(1.0 - roughness), F0) - F0;
-    vec3 k_S = F0 + Fr * pow(1.0 - NoV, 5.0);
+    vec3 k_S = F0 + F0 * pow(1.0 - NoV, 5.0);
 
     vec3 FssEss = k_S * f_ab.x + f_ab.y;
 
@@ -68,8 +68,7 @@ void main()
     // vec3 color = radiance * (F0 * f_ab.x + f_ab.y) + diffuseColor;
 
     vec3 k_D = baseColor.xyz * (1 - (FssEss + Fms * Ems));
-    vec3 color = FssEss * radiance + (Fms * Ems + k_D) * irradiance;
+    vec3 color = FssEss * radiance + (Fms * Ems + k_D) * irradiance * baseColor.w * OccRoughMetal.x;
 
-    color = OccRoughMetal.x * color * baseColor.w;
     gl_FragColor = vec4(color, baseColor.w);
 }

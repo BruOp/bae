@@ -1,9 +1,8 @@
 #include "bgfx_compute.sh"
 #include "pbr_helpers.sh"
 
-#define PI      3.141592653589793
-#define TWO_PI  6.283185307179586
-#define HALF_PI 1.570796326794896
+#define TWO_PI 6.2831853071795864769252867665590
+#define HALF_PI 1.5707963267948966192313216916398
 
 #define THREADS 8
 
@@ -23,11 +22,11 @@ void main()
     up = cross(N, right);
 
     vec3 color = vec3_splat(0.0);
-    float sampleCount = 0.0;
+    uint sampleCount = 0u;
     float deltaPhi = TWO_PI / 360.0;
     float deltaTheta = HALF_PI / 90.0;
     for (float phi = 0.0; phi < TWO_PI; phi += deltaPhi) {
-        for (float theta = 0.0; theta < HALF_PI; theta += deltaPhi) {
+        for (float theta = 0.0; theta < HALF_PI; theta += deltaTheta) {
             // Spherical to World Space in two steps...
             vec3 tempVec = cos(phi) * right + sin(phi) * up;
             vec3 sampleVector = cos(theta) * N + sin(theta) * tempVec;
@@ -35,5 +34,5 @@ void main()
             sampleCount++;
         }
     }
-    imageStore(s_target, globalId, vec4(PI * color / sampleCount, 1.0));
+    imageStore(s_target, globalId, vec4(PI * color / float(sampleCount), 1.0));
 }
