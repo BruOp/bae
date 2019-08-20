@@ -2,6 +2,8 @@
 #define PI 3.141592653589793
 #endif // PI
 
+#define MIN_ROUGHNESS 0.045
+
 // Taken from https://github.com/SaschaWillems/Vulkan-glTF-PBR/blob/master/data/shaders/genbrdflut.frag
 // Based on http://holger.dammertz.org/stuff/notes_HammersleyOnHemisphere.html
 vec2 hammersley(uint i, uint N)
@@ -15,8 +17,8 @@ vec2 hammersley(uint i, uint N)
     return vec2(float(i) /float(N), rdi);
 }
 
-float D_GGX(float NoH, float linearRoughness) {
-    float alpha = linearRoughness * linearRoughness;
+float D_GGX(float NoH, float roughness) {
+    float alpha = roughness * roughness;
     float a = NoH * alpha;
     float k = alpha / (1.0 - NoH * NoH + a * a);
     return k * k * (1.0 / PI);
@@ -31,7 +33,7 @@ vec3 F_Schlick(float VoH, float reflectance, float metallic, vec3 baseColor) {
 // From the filament docs. Geometric Shadowing function
 // https://google.github.io/filament/Filament.html#toc4.4.2
 float V_SmithGGXCorrelated(float NoV, float NoL, float roughness) {
-    float a2 = roughness * roughness;
+    float a2 = pow(roughness, 4.0);
     float GGXV = NoL * sqrt(NoV * NoV * (1.0 - a2) + a2);
     float GGXL = NoV * sqrt(NoL * NoL * (1.0 - a2) + a2);
     return 0.5 / (GGXV + GGXL);

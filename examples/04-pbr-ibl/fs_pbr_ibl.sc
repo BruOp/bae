@@ -42,7 +42,7 @@ void main()
 
     vec4 baseColor = texture2D(s_diffuseMap, v_texcoord);
     vec3 OccRoughMetal = texture2D(s_metallicRoughnessMap, v_texcoord).xyz;
-    float roughness = OccRoughMetal.y;
+    float roughness = max(OccRoughMetal.y, MIN_ROUGHNESS);
     float metalness = OccRoughMetal.z;
 
     // From GLTF spec
@@ -55,14 +55,14 @@ void main()
     vec3 radiance = textureCubeLod(s_prefilteredEnv, lightDir, lodLevel).xyz;
     vec3 irradiance = textureCubeLod(s_irradiance, normal, 0).xyz;
 
-    vec3 F_prime = F0;
+    vec3 k_S = F0;
     if (iblMode == 2.0) {
         // Roughness dependent fresnel, from Fdez-Aguera
         vec3 Fr = max(vec3_splat(1.0 - roughness), F0) - F0;
-        F_prime += Fr * pow(1.0 - NoV, 5.0);
+        k_S += Fr * pow(1.0 - NoV, 5.0);
     }
 
-    vec3 FssEss = F_prime * f_ab.x + f_ab.y;
+    vec3 FssEss = k_S * f_ab.x + f_ab.y;
 
     vec3 color;
     if (iblMode >= 1.0) {
@@ -70,7 +70,7 @@ void main()
         float Ems = (1.0 - (f_ab.x + f_ab.y));
         vec3 F_avg = F0 + (1.0 - F0) / 21.0;
         vec3 FmsEms = Ems * FssEss * F_avg / (1.0 - F_avg * Ems);
-        vec3 k_D = diffuseColor * (1 - FssEss - FmsEms);
+        vec3 k_D = diffuseColor * (1.0 - FssEss - FmsEms);
         color = FssEss * radiance + (FmsEms + k_D) * irradiance;
     } else {
         // Single scattering, from Karis

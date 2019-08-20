@@ -50,9 +50,9 @@ NUM_THREADS(THREADS, THREADS, 1)
 void main()
 {
     // Normalized pixel coordinates (from 0 to 1)
-    vec2 uv = vec2(gl_GlobalInvocationID.xy + 1) / vec2(imageSize(s_target).xy);
+    vec2 uv = vec2(gl_GlobalInvocationID.xy) / vec2(imageSize(s_target).xy);
     float mu = uv.x;
-    float a = uv.y;
+    float a = max(uv.y, MIN_ROUGHNESS);
 
 
     // Output to screen
