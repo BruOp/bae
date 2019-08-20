@@ -7,7 +7,7 @@
 IMAGE2D_WR(s_target, rg16f, 0);
 
 // Karis 2014
-vec2 integrateBRDF(float linearRoughness, float NoV)
+vec2 integrateBRDF(float roughness, float NoV)
 {
 	vec3 V;
     V.x = sqrt(1.0 - NoV * NoV); // sin
@@ -24,7 +24,7 @@ vec2 integrateBRDF(float linearRoughness, float NoV)
     for (uint i = 0u; i < numSamples; i++) {
         vec2 Xi = hammersley(i, numSamples);
         // Sample microfacet direction
-        vec3 H = importanceSampleGGX(Xi, linearRoughness, N);
+        vec3 H = importanceSampleGGX(Xi, roughness, N);
 
         // Get the light direction
         vec3 L = 2.0 * dot(V, H) * H - V;
@@ -35,7 +35,7 @@ vec2 integrateBRDF(float linearRoughness, float NoV)
 
         if (NoL > 0.0) {
             // Terms besides V are from the GGX PDF we're dividing by
-            float V_pdf = V_SmithGGXCorrelated(NoV, NoL, linearRoughness) * VoH * NoL / NoH;
+            float V_pdf = V_SmithGGXCorrelated(NoV, NoL, roughness) * VoH * NoL / NoH;
             float Fc = pow(1.0 - VoH, 5.0);
             A += (1.0 - Fc) * V_pdf;
             B += Fc * V_pdf;

@@ -3,9 +3,7 @@ $input v_position, v_normal, v_tangent, v_bitangent, v_texcoord
 #include "../common/common.sh"
 #include "pbr_helpers.sh"
 
-#define MAX_LIGHT_COUNT 255
 #define DIELECTRIC_SPECULAR 0.04
-#define BLACK vec3(0.0, 0.0, 0.0)
 
 // Scene
 uniform vec4 u_envParams;
@@ -19,7 +17,7 @@ SAMPLER2D(s_diffuseMap, 0);
 SAMPLER2D(s_normalMap, 1);
 SAMPLER2D(s_metallicRoughnessMap, 2);
 
-// IRB Stuff
+// IBL Stuff
 SAMPLER2D(s_brdfLUT, 3);
 SAMPLERCUBE(s_prefilteredEnv, 4);
 SAMPLERCUBE(s_irradiance, 5);
