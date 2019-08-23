@@ -231,7 +231,7 @@ namespace example
             m_scene.opaqueMatType = m_pbrIrbMatType;
             m_scene.transparentMatType = m_pbrIrbMatType;
             // Lets load all the meshes
-            m_scene.load("meshes/DamagedHelmet/", "DamagedHelmet.gltf");
+            m_scene.load("meshes/FlightHelmet/", "FlightHelmet.gltf");
 
             m_toneMapParams.width = m_width;
             m_toneMapParams.width = m_height;

@@ -130,7 +130,7 @@ namespace example
             m_scene.opaqueMatType = pbrMatType;
             m_scene.transparentMatType = pbrMatType;
             // Lets load all the meshes
-            m_scene.load("meshes/pbr_sponza/", "sponza.gltf");
+            m_scene.load("meshes/Sponza/", "Sponza.gltf");
             bae::init(m_sceneUniforms);
 
             m_lightSet.init("pointLight");
