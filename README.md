@@ -27,3 +27,13 @@ On linux, you'll probably have to download a whole bunch of `devel` packages. In
 ```zsh
 sudo eopkg install libglu libglu-devel libx11 libx11-devel xorg-server xorg-server-devel
 ```
+
+## Using GLTF files
+
+There's an GLTF loader in `PhysicallyBasedScene.cpp` that doesn't support the spec fully. Additionally, since BGFX doesn't expose any way of generating mip maps for textures a la `glGenMipmaps`, we have to pre-process the GLTF files to produce mip-mapped DDS versions of the source textures.
+
+To pre-process the GLTFs you'll need `python` 3.7 or greater installed (sorry), and then you can run the following from the project root:
+
+```bash
+python3 scripts/convert_textures.py path/to/Source/GLTF/file.gltf examples/runtime/meshes/output_dir
+```
