@@ -1,5 +1,5 @@
 #include "bgfx_compute.sh"
-#include "pbr_helpers.sh"
+#include "../common/pbr_helpers.sh"
 
 #define GROUP_SIZE 256
 #define THREADS 16

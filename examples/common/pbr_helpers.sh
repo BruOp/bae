@@ -2,6 +2,7 @@
 #define PI 3.141592653589793
 #endif // PI
 
+#define DIELECTRIC_SPECULAR 0.04
 #define MIN_ROUGHNESS 0.045
 
 // Taken from https://github.com/SaschaWillems/Vulkan-glTF-PBR/blob/master/data/shaders/genbrdflut.frag
@@ -24,8 +25,8 @@ float D_GGX(float NoH, float roughness) {
     return k * k * (1.0 / PI);
 }
 
-vec3 F_Schlick(float VoH, float reflectance, float metallic, vec3 baseColor) {
-    vec3 f0 = mix(vec3_splat(reflectance), baseColor, metallic);
+vec3 F_Schlick(float VoH, float metallic, vec3 baseColor) {
+    vec3 f0 = mix(vec3_splat(DIELECTRIC_SPECULAR), baseColor, metallic);
     float f = pow(1.0 - VoH, 5.0);
     return f + f0 * (1.0 - f);
 }
@@ -37,6 +38,10 @@ float V_SmithGGXCorrelated(float NoV, float NoL, float roughness) {
     float GGXV = NoL * sqrt(NoV * NoV * (1.0 - a2) + a2);
     float GGXL = NoV * sqrt(NoL * NoL * (1.0 - a2) + a2);
     return 0.5 / (GGXV + GGXL);
+}
+
+vec3 diffuseColor(vec3 baseColor, float metallic) {
+    return baseColor * (1.0 - DIELECTRIC_SPECULAR) * (1.0 - metallic);
 }
 
 // Based on Karis 2014

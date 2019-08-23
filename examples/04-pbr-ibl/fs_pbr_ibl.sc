@@ -1,9 +1,7 @@
 $input v_position, v_normal, v_tangent, v_bitangent, v_texcoord
 
 #include "../common/common.sh"
-#include "pbr_helpers.sh"
-
-#define DIELECTRIC_SPECULAR 0.04
+#include "../common/pbr_helpers.sh"
 
 // Scene
 uniform vec4 u_envParams;

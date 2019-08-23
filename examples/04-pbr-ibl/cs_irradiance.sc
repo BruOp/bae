@@ -1,5 +1,5 @@
 #include "bgfx_compute.sh"
-#include "pbr_helpers.sh"
+#include "../common/pbr_helpers.sh"
 
 #define TWO_PI 6.2831853071795864769252867665590
 #define HALF_PI 1.5707963267948966192313216916398

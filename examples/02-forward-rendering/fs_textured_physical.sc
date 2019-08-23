@@ -1,10 +1,10 @@
 $input v_position, v_normal, v_tangent, v_bitangent, v_texcoord
 
 #include "../common/common.sh"
+#include "../common/pbr_helpers.sh"
 
 #define MAX_LIGHT_COUNT 255
-#define DIELECTRIC_SPECULAR 0.04
-#define BLACK vec3(0.0, 0.0, 0.0)
+
 // Scene
 uniform vec4 cameraPos;
 uniform vec4 pointLight_params;
@@ -18,29 +18,6 @@ SAMPLER2D(normalMap, 1);
 SAMPLER2D(metallicRoughnessMap, 2);
 
 
-float D_GGX(float NoH, float linearRoughness) {
-    float a = NoH * linearRoughness;
-    float k = linearRoughness / (1.0 - NoH * NoH + a * a);
-    return k * k * (1.0 / PI);
-}
-
-// From the filament docs. Geometric Shadowing function
-// https://google.github.io/filament/Filament.html#toc4.4.2
-float G_Smith(float NoV, float NoL, float roughness)
-{
-    float k = (roughness * roughness) / 2.0;
-    float GGXL = NoL / (NoL * (1.0 - k) + k);
-    float GGXV = NoV / (NoV * (1.0 - k) + k);
-    return GGXL * GGXV;
-}
-
-
-vec3 F_Schlick(float VoH, float reflectance, float metallic, vec3 baseColor) {
-    vec3 f0 = mix(vec3_splat(reflectance), baseColor, metallic);
-    float f = pow(1.0 - VoH, 5.0);
-    return f + f0 * (1.0 - f);
-}
-
 vec3 specular(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 baseColor, vec3 OccRoughMetal) {
     vec3 h = normalize(lightDir + viewDir);
     float NoV = clamp(dot(normal, viewDir), 1e-5, 1.0);
@@ -51,15 +28,11 @@ vec3 specular(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 baseColor, vec3 Occ
     // Needs to be a uniform
 
     float metallic = OccRoughMetal.z;
-    float linearRoughness = OccRoughMetal.y;
-    float D = D_GGX(NoH, linearRoughness);
-    vec3  F = F_Schlick(VoH, DIELECTRIC_SPECULAR, metallic, baseColor);
-    float V = G_Smith(NoV, NoL, linearRoughness);
-    return vec3(D * V * F);// * V * F;
-}
-
-vec3 diffuseBRDF(vec3 color, float metallic) {
-    return mix(color * (1.0 - DIELECTRIC_SPECULAR), BLACK, metallic);
+    float roughness = OccRoughMetal.y;
+    float D = D_GGX(NoH, roughness);
+    vec3  F = F_Schlick(VoH, metallic, baseColor);
+    float V = V_SmithGGXCorrelated(NoV, NoL, roughness);
+    return vec3(D * V * F);
 }
 
 float karisFalloff(float dist, float lightRadius) {
@@ -79,7 +52,7 @@ void main()
     vec3 viewDir = normalize(cameraPos.xyz - v_position);
 
     vec3 color = vec3(0.0, 0.0, 0.0);
-    vec4 matColor = texture2D(diffuseMap, v_texcoord);
+    vec4 baseColor = texture2D(diffuseMap, v_texcoord);
     vec3 OccRoughMetal = texture2D(metallicRoughnessMap, v_texcoord).xyz;
 
     int numLights = min(floatBitsToUint(pointLight_params.x), MAX_LIGHT_COUNT);
@@ -100,10 +73,9 @@ void main()
         vec3 light = attenuation * colorIntensity.xyz * clampDot(normal, lightDir);
 
         color += (
-            diffuseBRDF(matColor.xyz, OccRoughMetal.z) +
-            PI * specular(lightDir, viewDir, normal, matColor.xyz, OccRoughMetal)
+            diffuseColor(baseColor.xyz, OccRoughMetal.z) +
+            PI * specular(lightDir, viewDir, normal, baseColor.xyz, OccRoughMetal)
         ) * light;
     }
-    color = color * matColor.w;
-    gl_FragColor = vec4(color, matColor.w);
+    gl_FragColor = vec4(color, baseColor.w);
 }
