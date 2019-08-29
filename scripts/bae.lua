@@ -21,11 +21,10 @@ includedirs {
   path.join(BGFX_DIR, "include"),
   path.join(BGFX_DIR, "examples/common"),
   path.join(GLM_DIR, "include"),
-  ASSIMP_DIR
+  path.join(TINYGLTF_DIR, "include"),
 }
 
 links {
-  "assimp-vc140-mt",
   "example-common",
   "bgfx",
   "bimg_decode",
