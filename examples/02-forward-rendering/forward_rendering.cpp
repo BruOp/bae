@@ -198,8 +198,8 @@ namespace example
 
             // Init camera
             cameraCreate();
-            cameraSetPosition({ 0.0f, 10.5f, 0.0f });
-
+            cameraSetPosition({ 0.0f, 0.0f, 2.0f });
+            cameraSetHorizontalAngle(bx::kPi);
             m_oldWidth = 0;
             m_oldHeight = 0;
             m_oldReset = m_reset;
@@ -367,7 +367,7 @@ namespace example
             m_time += deltaTime;
 
             float proj[16];
-            bx::mtxProj(proj, 60.0f, float(m_width) / float(m_height), 0.1f, 1000.0f, bgfx::getCaps()->homogeneousDepth);
+            bx::mtxProj(proj, 60.0f, float(m_width) / float(m_height), 0.1f, 200.0f, bgfx::getCaps()->homogeneousDepth);
 
             // Update camera
             float view[16];
@@ -453,8 +453,6 @@ namespace example
                     bgfx::submit(zPrepass, m_prepassProgram);
                 }
             }
-
-            m_lightSet.setUniforms();
             
             // Render all our opaque meshes
             for (size_t i = 0; i < m_model.opaqueMeshes.meshes.size(); ++i) {
@@ -462,12 +460,11 @@ namespace example
                 const auto& transform = m_model.opaqueMeshes.transforms[i];
                 const auto& material = m_model.opaqueMeshes.materials[i];
 
-
-                
                 bgfx::setState(stateOpaque);
                 // Not sure if this should be part of the material?
                 bindMaterialUniforms(m_uniforms, material, transform);
                 bindSceneUniforms(m_uniforms, cameraPos);
+                m_lightSet.setUniforms();
                 mesh.setBuffers();
                 
                 bgfx::submit(meshPass, m_pbrShader);
@@ -530,7 +527,7 @@ namespace example
         const bgfx::Caps* m_caps;
 
         bool m_computeSupported = true;
-        bool m_zPrepassEnabled = true;
+        bool m_zPrepassEnabled = false;
     };
 
 }  // namespace example

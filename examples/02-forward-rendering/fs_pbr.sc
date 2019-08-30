@@ -3,7 +3,7 @@ $input v_position, v_normal, v_tangent, v_bitangent, v_texcoord
 #include "../common/common.sh"
 #include "../common/pbr_helpers.sh"
 
-#define MAX_LIGHT_COUNT 255
+#define MAX_LIGHT_COUNT 255u
 
 // Scene
 uniform vec4 u_cameraPos;
@@ -52,10 +52,10 @@ void main()
     vec3 viewDir = normalize(u_cameraPos.xyz - v_position);
 
     vec3 color = vec3(0.0, 0.0, 0.0);
-    vec4 baseColor = texture2D(s_baseColor, v_texcoord);
+    vec4 baseColor = toLinear(texture2D(s_baseColor, v_texcoord));
     vec3 OccRoughMetal = texture2D(s_metallicRoughness, v_texcoord).xyz;
 
-    int numLights = min(floatBitsToUint(pointLight_params.x), MAX_LIGHT_COUNT);
+    uint numLights = min(floatBitsToUint(pointLight_params.x), MAX_LIGHT_COUNT);
 
     for (uint i = 0; i < numLights; i++) {
         vec3 lightPos = pointLight_pos[i].xyz;
@@ -77,5 +77,5 @@ void main()
             PI * specular(lightDir, viewDir, normal, baseColor.xyz, OccRoughMetal)
         ) * light;
     }
-    gl_FragColor = vec4(color, baseColor.w);
+    gl_FragColor = vec4(color, 1.0);
 }

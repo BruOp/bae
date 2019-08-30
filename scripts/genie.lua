@@ -33,7 +33,6 @@ BIMG_DIR = path.join(DEPENDENCY_DIR, "bimg/")
 
 EXTERNAL_DIR = (BAE_DIR .. "external/")
 GLM_DIR = path.join(EXTERNAL_DIR, "glm/")
-TINYGLTF_DIR = path.join(EXTERNAL_DIR, "tinygltf/")
 
 local BGFX_SCRIPTS_DIR = (DEPENDENCY_DIR .. "bgfx/scripts/")
 local BUILD_DIR = path.join(BAE_DIR, ".build")
@@ -80,8 +79,6 @@ function exampleProjectDefaults()
         path.join(BGFX_DIR, "examples/common"),
         path.join(GLM_DIR, "include"),
         path.join(BAE_DIR, "include"),
-        -- path.join(TINYOBJ_DIR, "include"),
-        -- path.join(TINYGLTF_DIR, "include"),
     }
 
     flags {

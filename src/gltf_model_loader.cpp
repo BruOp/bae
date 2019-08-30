@@ -10,6 +10,7 @@
 
 #include "bgfx_utils.h"
 #include "PhysicallyBasedScene.h"
+#include "tangent_calc.h"
 
 // Define these only in *one* .cc file.
 #define TINYGLTF_IMPLEMENTATION
@@ -84,10 +85,10 @@ namespace bae
         if (node.rotation.size() == 4) {
             // Quaternion
             glm::quat rotation{
+                    static_cast<float>(node.rotation[3]),
                     static_cast<float>(node.rotation[0]),
                     static_cast<float>(node.rotation[1]),
                     static_cast<float>(node.rotation[2]),
-                    static_cast<float>(node.rotation[3]),
             };
             localTransform = glm::toMat4(rotation) * localTransform;
         }
@@ -108,9 +109,10 @@ namespace bae
 
     // Given a GLTF primitive, return a mesh
     // TODO: Targets and weights
-    Mesh processPrimitive(const tinygltf::Model& gltf_model, const tinygltf::Primitive& primitive)
+    Mesh processPrimitive(tinygltf::Model& gltf_model, const tinygltf::Primitive& primitive)
     {
         Mesh mesh{};
+        VertexData vertData{};
 
         // Get indices
         {
@@ -118,11 +120,13 @@ namespace bae
             if (indexAccessor.type != TINYGLTF_TYPE_SCALAR || indexAccessor.componentType != TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT) {
                 throw std::runtime_error("Don't know how to handle non uint16_t indices");
             }
+            vertData.numFaces = indexAccessor.count / 3u;
 
             const tinygltf::BufferView& bufferView = gltf_model.bufferViews[indexAccessor.bufferView];
             const tinygltf::Buffer& buffer = gltf_model.buffers[bufferView.buffer];
             const bgfx::Memory* indexMemory = bgfx::copy(&buffer.data.at(0) + bufferView.byteOffset, bufferView.byteLength);
             mesh.indexHandle = bgfx::createIndexBuffer(indexMemory);
+            vertData.p_indices = (uint16_t*)(buffer.data.data() + bufferView.byteOffset);
         }
 
         const std::string ATTRIBUTE_NAMES[] = {
@@ -132,30 +136,36 @@ namespace bae
             "TEXCOORD_0"
         };
 
+        bgfx::VertexDecl decls[BX_COUNTOF(ATTRIBUTE_NAMES)];
+
         for (size_t i = 0; i < BX_COUNTOF(ATTRIBUTE_NAMES); ++i) {
             const std::string& attrName = ATTRIBUTE_NAMES[i];
 
-            int accessorIndex = -1;
-            if (attrName == "TANGENT") {
-                if (primitive.attributes.count("TANGENT") > 0) {
-                    accessorIndex = primitive.attributes.at("TANGENT");
+            if (primitive.attributes.count(attrName) == 0) {
+                if (attrName != "TANGENT") {
+                    throw std::runtime_error("Cannot handle meshes without " + attrName + " attribute");
                 } else {
-                    throw std::runtime_error("Still don't have a way of handling meshes without tangent");
+                    // Skip tangents for now, we can calculate later
+                    continue;
                 }
-            } else {
-                accessorIndex = primitive.attributes.at(attrName);
             }
+
+            int accessorIndex = primitive.attributes.at(attrName);
             const tinygltf::Accessor& accessor{ gltf_model.accessors[accessorIndex] };
 
             // Copy Associated Memory
             const tinygltf::BufferView& bufferView{ gltf_model.bufferViews[accessor.bufferView] };
-            const tinygltf::Buffer& buffer{ gltf_model.buffers[bufferView.buffer] };
+            tinygltf::Buffer& buffer{ gltf_model.buffers[bufferView.buffer] };
 
-            const bgfx::Memory* vertMemory = bgfx::copy(&(buffer.data.at(bufferView.byteOffset)), bufferView.byteLength);
+            if (attrName == "POSITION") {
+                vertData.numVertices = bufferView.byteLength / sizeof(glm::vec3);
+            }
+
+            vertData.data[i] = &(buffer.data.at(bufferView.byteOffset));
+            vertData.byteLengths[i] = bufferView.byteLength;
 
             // Define vertex specification/declaration for bgfx
-            bgfx::VertexDecl decl;
-            decl.begin()
+            decls[i].begin()
                 .add(
                     GLTF_TO_BGFX_ATTRIBUTE_MAPS.attributes.at(attrName),
                     GLTF_TO_BGFX_ATTRIBUTE_MAPS.sizes.at(accessor.type),
@@ -163,16 +173,36 @@ namespace bae
                     accessor.normalized
                 )
                 .end();
-
-            // Create the buffer and store the handles in our geometry object
-            mesh.addVertexHandle(bgfx::createVertexBuffer(vertMemory, decl));
         }
 
+        // If our tangents are missing, calculate them
+        std::vector<glm::vec4> tangentData{};
+        if (vertData.data[2] == nullptr) {
+            tangentData.resize(vertData.numVertices);
+            vertData.byteLengths[2] = vertData.numVertices * sizeof(glm::vec4);
+            vertData.data[2] = (unsigned char*)tangentData.data();
+            MikktSpace::calcTangents(vertData);
+
+            decls[2].begin()
+                .add(bgfx::Attrib::Tangent, 4, bgfx::AttribType::Float, false)
+                .end();
+        }
+
+        for (size_t i = 0; i < BX_COUNTOF(ATTRIBUTE_NAMES); ++i) {
+            mesh.addVertexHandle(
+                bgfx::createVertexBuffer(
+                    bgfx::copy(vertData.data[i], vertData.byteLengths[i]),
+                    decls[i]
+                )
+            );
+        }
+
+        // Create the buffer and store the handles in our geometry object
         return mesh;
     }
 
 
-    void loadModelNode(Model& output_model, const tinygltf::Model& gltf_model, const tinygltf::Node& node, glm::mat4 parentTransform, const MaterialsList& materials_list)
+    void loadModelNode(Model& output_model, tinygltf::Model& gltf_model, const tinygltf::Node& node, glm::mat4 parentTransform, const MaterialsList& materials_list)
     {
         // Process the transform
         glm::mat4 transform = processTransform(node, parentTransform);
@@ -220,7 +250,6 @@ namespace bae
         std::string err, warn;
         tinygltf::Model gltf_model;
         bool res = loader.LoadASCIIFromFile(&gltf_model, &err, &warn, assetPath + fileName);
-        TransparencyMode transparency_mode = TransparencyMode::OPAQUE_;
 
         if (!warn.empty()) {
             std::cout << warn << std::endl;
@@ -253,7 +282,7 @@ namespace bae
         }
         // TEXTURES
         for (const tinygltf::Texture& texture : gltf_model.textures) {
-            std::string& uri = assetPath + gltf_model.images[texture.source].uri;
+            const std::string& uri = assetPath + gltf_model.images[texture.source].uri;
 
             // Ignore the sampling options for filter -- always use mag: LINEAR and min: LINEAR_MIPMAP_LINEAR
             uint64_t flags = BGFX_TEXTURE_NONE | BGFX_SAMPLER_MIN_ANISOTROPIC;
@@ -290,8 +319,7 @@ namespace bae
                 }
             }
 
-            bgfx::TextureInfo textureInfo;
-            bgfx::TextureHandle handle = loadTexture(uri.c_str(), flags, 0u, &textureInfo);
+            bgfx::TextureHandle handle = loadTexture(uri.c_str(), flags);
             output_model.textures.push_back(handle);
         }
 
@@ -314,6 +342,7 @@ namespace bae
                 output_model.textures[0], // emissiveTexture as dummy_white;
                 output_model.textures[0], // occlusionTexture as dummy_white;
             };
+            TransparencyMode transparency_mode = TransparencyMode::OPAQUE_;
 
             auto valuesEnd = material.values.end();
             auto p_keyValue = material.values.find("baseColorTexture");
@@ -367,7 +396,7 @@ namespace bae
 
             p_keyValue = material.additionalValues.find("occlusionTexture");
             if (p_keyValue != valuesEnd) {
-                materialData.baseColorFactor = glm::make_vec4(p_keyValue->second.ColorFactor().data());
+                materialData.occlusionTexture = output_model.textures[p_keyValue->second.TextureIndex() + DUMMY_TEXTURE_COUNT];
             }
 
             p_keyValue = material.additionalValues.find("metallicRoughnessTexture");
