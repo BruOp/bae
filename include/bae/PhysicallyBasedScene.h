@@ -2,36 +2,13 @@
 #include <bgfx/bgfx.h>
 #include <glm/glm.hpp>
 #include <string>
-#include <unordered_map>
 #include <vector>
+#include <stdexcept>
 
 #include "ResourceList.h"
 
 namespace bae
 {
-    struct Vertex
-    {
-        glm::vec3 position;
-        glm::vec2 uv;
-        glm::vec3 normal;
-        glm::vec3 tangent;
-        glm::vec3 bitangent;
-
-        static void init();
-
-        static bgfx::VertexDecl ms_decl;
-    };
-
-    class Program
-    {
-    public:
-        virtual void init() = 0;
-        virtual void destroy() = 0;
-
-    private:
-        ~Program() = default;
-    };
-
     struct Mesh
     {
         // Different handle for each "stream" of vertex attributes
@@ -46,24 +23,29 @@ namespace bae
             BGFX_INVALID_HANDLE,
         };
         bgfx::IndexBufferHandle indexHandle = BGFX_INVALID_HANDLE;
-    };
+        uint8_t numVertexHandles = 0;
 
-    void destroy(Mesh& mesh);
+        static const uint8_t maxVertexHandles = 4;
 
-    template<typename Material>
-    struct MeshGroup
-    {
-        std::vector<Material> materials;
-        std::vector<Mesh> meshes;
-        std::vector<glm::mat4> transforms;
-
-        void destroy()
+        void addVertexHandle(const bgfx::VertexBufferHandle vbh)
         {
-            for (const Mesh& mesh : meshes) {
-                destroy(mesh);
+            if (numVertexHandles < maxVertexHandles) {
+                vertexHandles[numVertexHandles++] = vbh;
+            } else {
+                throw std::runtime_error("Cannot add additional vertex handle to this mesh.");
+            }
+        }
+
+        void setBuffers() const
+        {
+            bgfx::setIndexBuffer(indexHandle);
+            for (uint8_t j = 0; j < numVertexHandles; ++j) {
+                bgfx::setVertexBuffer(j, vertexHandles[j]);
             }
         }
     };
+
+    void destroy(const Mesh& mesh);
 
     // Struct containing material information according to the GLTF spec
     // Note: Doesn't fully support the spec :)
@@ -82,13 +64,20 @@ namespace bae
         bgfx::TextureHandle occlusionTexture = BGFX_INVALID_HANDLE;
     };
 
+    struct MeshGroup
+    {
+        std::vector<PBRMaterial> materials;
+        std::vector<Mesh> meshes;
+        std::vector<glm::mat4> transforms;
+    };
+    
     struct Model
     {
         std::vector<bgfx::TextureHandle> textures;
 
-        MeshGroup<PBRMaterial> opaqueMeshes;
-        MeshGroup<PBRMaterial> maskedMeshes;
-        MeshGroup<PBRMaterial> transparentMeshes;
+        MeshGroup opaqueMeshes;
+        MeshGroup maskedMeshes;
+        MeshGroup transparentMeshes;
     };
 
     void destroy(Model& model);

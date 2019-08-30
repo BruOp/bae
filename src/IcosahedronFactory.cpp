@@ -86,10 +86,9 @@ namespace bae {
         const bgfx::Memory* vertMemory = bgfx::copy(vertices.data(), uint32_t(vertices.size()) * sizeof(vertices[0]));
         const bgfx::Memory* indexMemory = bgfx::copy(indices.data(), uint32_t(indices.size()) * sizeof(indices[0]));
 
-        Mesh mesh{
-            bgfx::createVertexBuffer(vertMemory, BasicVertex::s_decl),
-            bgfx::createIndexBuffer(indexMemory),
-        };
+        Mesh mesh{};
+        mesh.addVertexHandle(bgfx::createVertexBuffer(vertMemory, BasicVertex::s_decl));
+        mesh.indexHandle = bgfx::createIndexBuffer(indexMemory);
 
         return mesh;
     }
@@ -99,7 +98,7 @@ namespace bae {
         uint32_t smaller = bx::min(first, second);
         uint32_t larger = bx::max(first, second);
         uint32_t key = (smaller << 16) | larger;
-        auto& iter = newVertices.find(key);
+        const auto& iter = newVertices.find(key);
 
         if (iter != newVertices.end()) {
             return iter->second;

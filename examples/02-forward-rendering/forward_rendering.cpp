@@ -17,6 +17,7 @@
 #include "camera.h"
 #include "bae/PhysicallyBasedScene.h"
 #include "bae/Tonemapping.h"
+#include "bae/gltf_model_loader.h"
 
 namespace example
 {
@@ -76,17 +77,63 @@ namespace example
         }
     };
 
-    bae::MaterialType pbrMatType{
-            "textured_physical",
-            BGFX_INVALID_HANDLE,
-            {
-                {"diffuseMap", {bgfx::UniformType::Sampler}},
-                {"normalMap", {bgfx::UniformType::Sampler}},
-                {"metallicRoughnessMap", {bgfx::UniformType::Sampler}},
-                {"normalTransform", {bgfx::UniformType::Mat4}},
-            },
-    };
+	struct PBRShaderUniforms {
+        bgfx::UniformHandle s_baseColor         = BGFX_INVALID_HANDLE;
+		bgfx::UniformHandle s_normal            = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_metallicRoughness = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_emissive          = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_occlusion         = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_factors           = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_cameraPos         = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_normalTransform   = BGFX_INVALID_HANDLE;
+	};
 
+    void init(PBRShaderUniforms& uniforms)
+    {
+        uniforms.s_baseColor = bgfx::createUniform("s_baseColor", bgfx::UniformType::Sampler);
+        uniforms.s_normal = bgfx::createUniform("s_normal", bgfx::UniformType::Sampler);
+        uniforms.s_metallicRoughness = bgfx::createUniform("s_metallicRoughness", bgfx::UniformType::Sampler);
+        uniforms.s_emissive = bgfx::createUniform("s_emissive", bgfx::UniformType::Sampler);
+        uniforms.s_occlusion = bgfx::createUniform("s_occlusion", bgfx::UniformType::Sampler);
+        // We are going to pack our baseColorFactor, emissiveFactor, roughnessFactor
+        // and metallicFactor into this uniform
+        uniforms.u_factors = bgfx::createUniform("u_factors", bgfx::UniformType::Vec4, 3);
+        uniforms.u_cameraPos = bgfx::createUniform("u_cameraPos", bgfx::UniformType::Vec4);
+        uniforms.u_normalTransform = bgfx::createUniform("u_normalTransform", bgfx::UniformType::Mat4);
+    }
+
+    void destroy(PBRShaderUniforms& uniforms)
+    {
+        bgfx::destroy(uniforms.s_baseColor);
+        bgfx::destroy(uniforms.s_normal);
+        bgfx::destroy(uniforms.s_metallicRoughness);
+        bgfx::destroy(uniforms.s_emissive);
+        bgfx::destroy(uniforms.s_occlusion);
+        bgfx::destroy(uniforms.u_factors);
+        bgfx::destroy(uniforms.u_cameraPos);
+        bgfx::destroy(uniforms.u_normalTransform);
+    }
+
+	void bindMaterialUniforms(const PBRShaderUniforms& uniforms, const bae::PBRMaterial& material, const glm::mat4& transform) {
+        bgfx::setTexture(0, uniforms.s_baseColor, material.baseColorTexture);
+        bgfx::setTexture(1, uniforms.s_normal, material.normalTexture);
+        bgfx::setTexture(2, uniforms.s_metallicRoughness, material.metallicRoughnessTexture);
+        bgfx::setTexture(3, uniforms.s_emissive, material.emissiveTexture);
+        bgfx::setTexture(4, uniforms.s_occlusion, material.occlusionTexture);
+        // We are going to pack our baseColorFactor, emissiveFactor, roughnessFactor
+        // and metallicFactor into this uniform
+        bgfx::setUniform(uniforms.u_factors, &material.baseColorFactor, 3);
+
+        // Transforms
+        bgfx::setTransform(glm::value_ptr(transform));
+        glm::mat4 normalTransform{ glm::transpose(glm::inverse(transform)) };
+        bgfx::setUniform(uniforms.u_normalTransform, glm::value_ptr(normalTransform));
+	}
+
+    void bindSceneUniforms(const PBRShaderUniforms& uniforms, const bx::Vec3 cameraPos)
+    {
+        bgfx::setUniform(uniforms.u_cameraPos, &cameraPos);
+    }
 
     class ExampleForward : public entry::AppI
     {
@@ -120,18 +167,14 @@ namespace example
                 return;
             }
 
-            // Create vertex stream declaration.
-            bae::Vertex::init();
+            m_prepassProgram = loadProgram("vs_z_prepass", "fs_z_prepass");
+            m_pbrShader = loadProgram("vs_pbr", "fs_pbr");
+            m_pbrShaderWithMasking = loadProgram("vs_pbr", "fs_pbr_masked");
 
-            bae::init(pbrMatType);
-            bae::init(m_prepassProgram);
-
-            // Set the matType for both opaque and transparent passes
-            m_scene.opaqueMatType = pbrMatType;
-            m_scene.transparentMatType = pbrMatType;
             // Lets load all the meshes
-            m_scene.load("meshes/Sponza/", "Sponza.gltf");
-            bae::init(m_sceneUniforms);
+            m_model = bae::loadGltfModel("meshes/Sponza/", "Sponza.gltf");
+            
+            example::init(m_uniforms);
 
             m_lightSet.init("pointLight");
             m_totalBrightness = 500.0f;
@@ -179,10 +222,11 @@ namespace example
 
             // Cleanup.
             m_lightSet.destroy();
-            destroy(m_sceneUniforms);
-            destroy(m_scene);
-            destroy(m_prepassProgram);
-            destroy(pbrMatType);
+            example::destroy(m_uniforms);
+            bae::destroy(m_model);
+            bgfx::destroy(m_prepassProgram);
+            bgfx::destroy(m_pbrShader);
+            bgfx::destroy(m_pbrShaderWithMasking);
 
             cameraDestroy();
 
@@ -339,8 +383,7 @@ namespace example
 
             // Set view 0 default viewport.
             bx::Vec3 cameraPos = cameraGetPosition();
-            bgfx::setUniform(m_sceneUniforms.cameraPos, &cameraPos.x);
-
+            
             {
                 m_lightSet.numActiveLights = uint16_t(lightCount);
                 //Move our lights around in a cylinder the size of our scene
@@ -383,13 +426,13 @@ namespace example
                 stateOpaque |= BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS;
             }
 
-            uint64_t stateTransparent = 0
-                | BGFX_STATE_WRITE_RGB
-                | BGFX_STATE_WRITE_A
-                | BGFX_STATE_DEPTH_TEST_LESS
-                | BGFX_STATE_CULL_CCW
-                | BGFX_STATE_MSAA
-                | BGFX_STATE_BLEND_ALPHA;
+            //uint64_t stateTransparent = 0
+            //    | BGFX_STATE_WRITE_RGB
+            //    | BGFX_STATE_WRITE_A
+            //    | BGFX_STATE_DEPTH_TEST_LESS
+            //    | BGFX_STATE_CULL_CCW
+            //    | BGFX_STATE_MSAA
+            //    | BGFX_STATE_BLEND_ALPHA;
 
             if (m_zPrepassEnabled)
             {
@@ -399,51 +442,52 @@ namespace example
                     | BGFX_STATE_CULL_CCW
                     | BGFX_STATE_MSAA;
 
-                for (size_t i = 0; i < m_scene.opaqueMeshes.meshes.size(); ++i) {
-                    const auto& mesh = m_scene.opaqueMeshes.meshes[i];
-
-                    bgfx::setTransform(glm::value_ptr(mtx));
+                for (size_t i = 0; i < m_model.opaqueMeshes.meshes.size(); ++i) {
+                    const auto& mesh = m_model.opaqueMeshes.meshes[i];
+                    const auto& transform = m_model.opaqueMeshes.transforms[i];
+                    
+                    bgfx::setTransform(glm::value_ptr(transform));
                     // Not sure if this should be part of the material?
                     bgfx::setState(statePrepass);
-                    bgfx::setIndexBuffer(mesh.indexHandle);
-                    bgfx::setVertexBuffer(0, mesh.vertexHandle);
-                    bgfx::submit(zPrepass, m_prepassProgram.program);
+                    mesh.setBuffers();
+                    bgfx::submit(zPrepass, m_prepassProgram);
                 }
             }
 
             m_lightSet.setUniforms();
-            bgfx::UniformHandle normalTransformHandle = pbrMatType.uniformInfo["normalTransform"].handle;
-            bgfx::ProgramHandle program = m_scene.opaqueMatType.program;
+            
             // Render all our opaque meshes
-            for (size_t i = 0; i < m_scene.opaqueMeshes.meshes.size(); ++i) {
-                const auto& mesh = m_scene.opaqueMeshes.meshes[i];
+            for (size_t i = 0; i < m_model.opaqueMeshes.meshes.size(); ++i) {
+                const auto& mesh = m_model.opaqueMeshes.meshes[i];
+                const auto& transform = m_model.opaqueMeshes.transforms[i];
+                const auto& material = m_model.opaqueMeshes.materials[i];
 
-                bgfx::setTransform(glm::value_ptr(mtx));
-                // Not sure if this should be part of the material?
-                bgfx::setUniform(normalTransformHandle, glm::value_ptr(glm::transpose(glm::inverse(mtx))));
 
+                
                 bgfx::setState(stateOpaque);
-                bgfx::setIndexBuffer(mesh.indexHandle);
-                bgfx::setVertexBuffer(0, mesh.vertexHandle);
-                setUniforms(m_scene.opaqueMeshes.materials[i], m_scene.opaqueMatType);
-                bgfx::submit(meshPass, program);
-            }
-
-            // Render all our transparent meshes
-            program = m_scene.transparentMatType.program;
-            for (size_t i = 0; i < m_scene.transparentMeshes.meshes.size(); ++i) {
-                bgfx::setTransform(glm::value_ptr(mtx));
                 // Not sure if this should be part of the material?
-                bgfx::setUniform(normalTransformHandle, glm::value_ptr(glm::transpose(glm::inverse(mtx))));
-
-                bgfx::setState(stateTransparent);
-                const auto& mesh = m_scene.transparentMeshes.meshes[i];
-                bgfx::setIndexBuffer(mesh.indexHandle);
-                bgfx::setVertexBuffer(0, mesh.vertexHandle);
-                setUniforms(m_scene.transparentMeshes.materials[i], m_scene.transparentMatType);
-
-                bgfx::submit(meshPass, program);
+                bindMaterialUniforms(m_uniforms, material, transform);
+                bindSceneUniforms(m_uniforms, cameraPos);
+                mesh.setBuffers();
+                
+                bgfx::submit(meshPass, m_pbrShader);
             }
+
+            //// Render all our transparent meshes
+            //program = m_scene.transparentMatType.program;
+            //for (size_t i = 0; i < m_scene.transparentMeshes.meshes.size(); ++i) {
+            //    bgfx::setTransform(glm::value_ptr(mtx));
+            //    // Not sure if this should be part of the material?
+            //    bgfx::setUniform(normalTransformHandle, glm::value_ptr(glm::transpose(glm::inverse(mtx))));
+
+            //    bgfx::setState(stateTransparent);
+            //    const auto& mesh = m_scene.transparentMeshes.meshes[i];
+            //    bgfx::setIndexBuffer(mesh.indexHandle);
+            //    bgfx::setVertexBuffer(0, mesh.vertexHandle);
+            //    setUniforms(m_scene.transparentMeshes.materials[i], m_scene.transparentMatType);
+
+            //    bgfx::submit(meshPass, program);
+            //}
 
             m_toneMapPass.render(m_pbrFbTextures[0], m_toneMapParams, deltaTime, meshPass + 1);
 
@@ -468,14 +512,13 @@ namespace example
         float m_totalBrightness = 1.0f;
         float m_time;
 
-        bae::MaterialType m_prepassProgram = {
-            "z_prepass",
-            BGFX_INVALID_HANDLE,
-            {},
-        };
+        bgfx::ProgramHandle m_prepassProgram;
+        bgfx::ProgramHandle m_pbrShader;
+        bgfx::ProgramHandle m_pbrShaderWithMasking;
 
-        bae::Scene m_scene;
-        bae::SceneUniforms m_sceneUniforms;
+        PBRShaderUniforms m_uniforms;
+
+        bae::Model m_model;
         LightSet m_lightSet;
 
         bgfx::TextureHandle m_pbrFbTextures[2];

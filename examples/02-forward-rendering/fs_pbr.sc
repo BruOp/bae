@@ -6,16 +6,16 @@ $input v_position, v_normal, v_tangent, v_bitangent, v_texcoord
 #define MAX_LIGHT_COUNT 255
 
 // Scene
-uniform vec4 cameraPos;
+uniform vec4 u_cameraPos;
 uniform vec4 pointLight_params;
 uniform vec4 pointLight_colorIntensity[MAX_LIGHT_COUNT];
 uniform vec4 pointLight_pos[MAX_LIGHT_COUNT];
 
 
 // Material
-SAMPLER2D(diffuseMap, 0);
-SAMPLER2D(normalMap, 1);
-SAMPLER2D(metallicRoughnessMap, 2);
+SAMPLER2D(s_baseColor, 0);
+SAMPLER2D(s_normal, 1);
+SAMPLER2D(s_metallicRoughness, 2);
 
 
 vec3 specular(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 baseColor, vec3 OccRoughMetal) {
@@ -46,14 +46,14 @@ void main()
         normalize(v_bitangent),
         normalize(v_normal)
     );
-    vec3 normal = texture2D(normalMap, v_texcoord).xyz * 2.0 - 1.0;
+    vec3 normal = texture2D(s_normal, v_texcoord).xyz * 2.0 - 1.0;
     normal = normalize(mul(tbn, normal));
 
-    vec3 viewDir = normalize(cameraPos.xyz - v_position);
+    vec3 viewDir = normalize(u_cameraPos.xyz - v_position);
 
     vec3 color = vec3(0.0, 0.0, 0.0);
-    vec4 baseColor = texture2D(diffuseMap, v_texcoord);
-    vec3 OccRoughMetal = texture2D(metallicRoughnessMap, v_texcoord).xyz;
+    vec4 baseColor = texture2D(s_baseColor, v_texcoord);
+    vec3 OccRoughMetal = texture2D(s_metallicRoughness, v_texcoord).xyz;
 
     int numLights = min(floatBitsToUint(pointLight_params.x), MAX_LIGHT_COUNT);
 

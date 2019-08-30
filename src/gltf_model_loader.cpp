@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/ext/matrix_transform.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/quaternion.hpp>
 
 #include "bgfx_utils.h"
@@ -18,6 +19,22 @@
 
 namespace bae
 {
+
+    bool loadImageDataCallback(
+        tinygltf::Image* image,
+        const int image_idx,
+        std::string* err,
+        std::string* warn,
+        int req_width,
+        int req_height,
+        const unsigned char* bytes,
+        int size,
+        void* user_data
+    )
+    {
+        return true;
+    };
+
     struct GltfToBgfxAttributeMaps
     {
         std::unordered_map<std::string, bgfx::Attrib::Enum> attributes;
@@ -54,14 +71,155 @@ namespace bae
 
     typedef std::vector<std::pair<PBRMaterial, TransparencyMode>> MaterialsList;
 
+
+    // Returns a transformation matrix for a given GLTF node
+    // Order of operations (right to left) in glTF: parentTransform * (T * R * S)
+    glm::mat4 processTransform(const tinygltf::Node& node, const glm::mat4& parentTransform)
+    {
+        glm::mat4 localTransform = glm::identity<glm::mat4>();
+        if (node.scale.size() == 3) {
+            localTransform = glm::scale(localTransform, glm::vec3{ node.scale[0], node.scale[0], node.scale[0] });
+        }
+
+        if (node.rotation.size() == 4) {
+            // Quaternion
+            glm::quat rotation{
+                    static_cast<float>(node.rotation[0]),
+                    static_cast<float>(node.rotation[1]),
+                    static_cast<float>(node.rotation[2]),
+                    static_cast<float>(node.rotation[3]),
+            };
+            localTransform = glm::toMat4(rotation) * localTransform;
+        }
+
+        if (node.translation.size() == 3) {
+            localTransform = glm::translate(
+                localTransform,
+                glm::vec3{
+                    static_cast<float>(node.translation[0]),
+                    static_cast<float>(node.translation[1]),
+                    static_cast<float>(node.translation[2]),
+                });
+        }
+
+        return parentTransform * localTransform;
+    }
+
+
+    // Given a GLTF primitive, return a mesh
+    // TODO: Targets and weights
+    Mesh processPrimitive(const tinygltf::Model& gltf_model, const tinygltf::Primitive& primitive)
+    {
+        Mesh mesh{};
+
+        // Get indices
+        {
+            const tinygltf::Accessor& indexAccessor = gltf_model.accessors[primitive.indices];
+            if (indexAccessor.type != TINYGLTF_TYPE_SCALAR || indexAccessor.componentType != TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT) {
+                throw std::runtime_error("Don't know how to handle non uint16_t indices");
+            }
+
+            const tinygltf::BufferView& bufferView = gltf_model.bufferViews[indexAccessor.bufferView];
+            const tinygltf::Buffer& buffer = gltf_model.buffers[bufferView.buffer];
+            const bgfx::Memory* indexMemory = bgfx::copy(&buffer.data.at(0) + bufferView.byteOffset, bufferView.byteLength);
+            mesh.indexHandle = bgfx::createIndexBuffer(indexMemory);
+        }
+
+        const std::string ATTRIBUTE_NAMES[] = {
+            "POSITION",
+            "NORMAL",
+            "TANGENT",
+            "TEXCOORD_0"
+        };
+
+        for (size_t i = 0; i < BX_COUNTOF(ATTRIBUTE_NAMES); ++i) {
+            const std::string& attrName = ATTRIBUTE_NAMES[i];
+
+            int accessorIndex = -1;
+            if (attrName == "TANGENT") {
+                if (primitive.attributes.count("TANGENT") > 0) {
+                    accessorIndex = primitive.attributes.at("TANGENT");
+                } else {
+                    throw std::runtime_error("Still don't have a way of handling meshes without tangent");
+                }
+            } else {
+                accessorIndex = primitive.attributes.at(attrName);
+            }
+            const tinygltf::Accessor& accessor{ gltf_model.accessors[accessorIndex] };
+
+            // Copy Associated Memory
+            const tinygltf::BufferView& bufferView{ gltf_model.bufferViews[accessor.bufferView] };
+            const tinygltf::Buffer& buffer{ gltf_model.buffers[bufferView.buffer] };
+
+            const bgfx::Memory* vertMemory = bgfx::copy(&(buffer.data.at(bufferView.byteOffset)), bufferView.byteLength);
+
+            // Define vertex specification/declaration for bgfx
+            bgfx::VertexDecl decl;
+            decl.begin()
+                .add(
+                    GLTF_TO_BGFX_ATTRIBUTE_MAPS.attributes.at(attrName),
+                    GLTF_TO_BGFX_ATTRIBUTE_MAPS.sizes.at(accessor.type),
+                    GLTF_TO_BGFX_ATTRIBUTE_MAPS.componentType.at(accessor.componentType),
+                    accessor.normalized
+                )
+                .end();
+
+            // Create the buffer and store the handles in our geometry object
+            mesh.addVertexHandle(bgfx::createVertexBuffer(vertMemory, decl));
+        }
+
+        return mesh;
+    }
+
+
+    void loadModelNode(Model& output_model, const tinygltf::Model& gltf_model, const tinygltf::Node& node, glm::mat4 parentTransform, const MaterialsList& materials_list)
+    {
+        // Process the transform
+        glm::mat4 transform = processTransform(node, parentTransform);
+
+        // Process the mesh (resulting in a Mesh, Material, RenderState and Transform?)
+        if (node.mesh != -1) {
+            const tinygltf::Mesh& mesh = gltf_model.meshes[node.mesh];
+
+            for (const tinygltf::Primitive& primitive : mesh.primitives) {
+                if (primitive.material != -1) {
+                    Mesh newMesh = processPrimitive(gltf_model, primitive);
+
+                    const std::pair<PBRMaterial, TransparencyMode>& materialModePair = materials_list[primitive.material];
+
+                    if (materialModePair.second == TransparencyMode::BLENDED) {
+                        output_model.transparentMeshes.meshes.push_back(newMesh);
+                        output_model.transparentMeshes.materials.push_back(materialModePair.first);
+                        output_model.transparentMeshes.transforms.push_back(transform);
+                    } else if (materialModePair.second == TransparencyMode::MASKED) {
+                        output_model.maskedMeshes.meshes.push_back(newMesh);
+                        output_model.maskedMeshes.materials.push_back(materialModePair.first);
+                        output_model.maskedMeshes.transforms.push_back(transform);
+                    } else {
+                        output_model.opaqueMeshes.meshes.push_back(newMesh);
+                        output_model.opaqueMeshes.materials.push_back(materialModePair.first);
+                        output_model.opaqueMeshes.transforms.push_back(transform);
+                    }
+                }
+            }
+        }
+
+        for (int child_idx : node.children) {
+            // Process the children (using the Transform) recursively
+            loadModelNode(output_model, gltf_model, gltf_model.nodes[child_idx], transform, materials_list);
+        }
+    }
+
+
     Model loadGltfModel(const std::string& assetPath, const std::string& fileName)
     {
         Model output_model{};
 
         tinygltf::TinyGLTF loader;
+        loader.SetImageLoader(loadImageDataCallback, nullptr);
         std::string err, warn;
         tinygltf::Model gltf_model;
-        bool res = loader.LoadASCIIFromFile(&gltf_model, &err, &warn, fileName);
+        bool res = loader.LoadASCIIFromFile(&gltf_model, &err, &warn, assetPath + fileName);
         TransparencyMode transparency_mode = TransparencyMode::OPAQUE_;
 
         if (!warn.empty()) {
@@ -89,13 +247,13 @@ namespace bae
 
         // The plus 3 is due to our dummy textures
         output_model.textures.reserve(gltf_model.textures.size() + DUMMY_TEXTURE_COUNT);
-        for (const auto& fileName : dummyFiles) {
-            bgfx::TextureHandle handle = loadTexture(fileName.c_str());
+        for (const auto& dummyFile : dummyFiles) {
+            bgfx::TextureHandle handle = loadTexture(dummyFile.c_str());
             output_model.textures.push_back(handle);
         }
         // TEXTURES
         for (const tinygltf::Texture& texture : gltf_model.textures) {
-            std::string& uri = gltf_model.images[texture.source].uri;
+            std::string& uri = assetPath + gltf_model.images[texture.source].uri;
 
             // Ignore the sampling options for filter -- always use mag: LINEAR and min: LINEAR_MIPMAP_LINEAR
             uint64_t flags = BGFX_TEXTURE_NONE | BGFX_SAMPLER_MIN_ANISOTROPIC;
@@ -165,7 +323,7 @@ namespace bae
 
             p_keyValue = material.values.find("baseColorFactor");
             if (p_keyValue != valuesEnd) {
-                auto& data = p_keyValue->second.ColorFactor();
+                const auto& data = p_keyValue->second.ColorFactor();
                 materialData.baseColorFactor = glm::vec4{
                     static_cast<float>(data[0]),
                     static_cast<float>(data[1]),
@@ -192,12 +350,12 @@ namespace bae
                 materialData.normalTexture = output_model.textures[p_keyValue->second.TextureIndex() + DUMMY_TEXTURE_COUNT];
             }
 
-            auto p_keyValue = material.additionalValues.find("emissiveTexture");
+            p_keyValue = material.additionalValues.find("emissiveTexture");
             if (p_keyValue != valuesEnd) {
                 materialData.emissiveTexture = output_model.textures[p_keyValue->second.TextureIndex() + DUMMY_TEXTURE_COUNT];
 
                 if (material.additionalValues.find("emissiveFactor") != valuesEnd) {
-                    auto& data = material.additionalValues.at("emissiveFactor").ColorFactor();
+                    const auto& data = material.additionalValues.at("emissiveFactor").ColorFactor();
                     materialData.emissiveFactor = glm::vec4(
                         static_cast<float>(data[0]),
                         static_cast<float>(data[1]),
@@ -239,151 +397,6 @@ namespace bae
             loadModelNode(output_model, gltf_model, gltf_model.nodes[node_idx], glm::identity<glm::mat4>(), materials_list);
         }
 
-        //loadMeshes(assetPath, aScene);
-
+        return output_model;
     }
-
-    void loadModelNode(Model& output_model, const tinygltf::Model& gltf_model, const tinygltf::Node& node, glm::mat4 parentTransform, const MaterialsList& materials_list)
-    {
-        // Process the transform
-        glm::mat4 transform = processTransform(node, parentTransform);
-
-        // Process the mesh (resulting in a Mesh, Material, RenderState and Transform?)
-        if (node.mesh != -1) {
-            const tinygltf::Mesh& mesh = gltf_model.meshes[node.mesh];
-
-            for (const tinygltf::Primitive& primitive : mesh.primitives) {
-                if (primitive.material != -1) {
-                    Mesh newMesh = processPrimitive(gltf_model, primitive);
-
-                    const std::pair<PBRMaterial, TransparencyMode>& materialModePair = materials_list[primitive.material];
-
-                    if (materialModePair.second == TransparencyMode::BLENDED) {
-                        output_model.transparentMeshes.meshes.push_back(newMesh);
-                        output_model.transparentMeshes.materials.push_back(materialModePair.first);
-                        output_model.transparentMeshes.transforms.push_back(transform);
-                    } else if (materialModePair.second == TransparencyMode::MASKED) {
-                        output_model.maskedMeshes.meshes.push_back(newMesh);
-                        output_model.maskedMeshes.materials.push_back(materialModePair.first);
-                        output_model.maskedMeshes.transforms.push_back(transform);
-                    } else {
-                        output_model.opaqueMeshes.meshes.push_back(newMesh);
-                        output_model.opaqueMeshes.materials.push_back(materialModePair.first);
-                        output_model.opaqueMeshes.transforms.push_back(transform);
-                    }
-                }
-            }
-        }
-
-        for (int child_idx : node.children) {
-            // Process the children (using the Transform) recursively
-            loadModelNode(output_model, gltf_model, gltf_model.nodes[child_idx], transform, materials_list);
-        }
-    }
-
-
-    // Given a GLTF primitive, return a mesh
-    // TODO: Targets and weights
-    Mesh processPrimitive(const tinygltf::Model& gltf_model, const tinygltf::Primitive& primitive)
-    {
-        Mesh mesh{};
-
-        // Get indices
-        {
-            const tinygltf::Accessor& indexAccessor = gltf_model.accessors[primitive.indices];
-            if (indexAccessor.type != TINYGLTF_TYPE_SCALAR || indexAccessor.componentType != TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT) {
-                throw std::runtime_error("Don't know how to handle non uint16_t indices");
-            }
-
-            const tinygltf::BufferView& bufferView = gltf_model.bufferViews[indexAccessor.bufferView];
-            const tinygltf::Buffer& buffer = gltf_model.buffers[bufferView.buffer];
-            const bgfx::Memory* indexMemory = bgfx::copy(&buffer.data.at(0) + bufferView.byteOffset, bufferView.byteLength);
-            mesh.indexHandle = bgfx::createIndexBuffer(indexMemory);
-        }
-
-        const std::string ATTRIBUTE_NAMES[] = {
-            "POSITION",
-            "NORMAL",
-            "TANGENT",
-            "TEXCOORD_0"
-        };
-
-        for (size_t i; i < BX_COUNTOF(ATTRIBUTE_NAMES); ++i) {
-            const std::string& attrName = ATTRIBUTE_NAMES[i];
-
-            int accessorIndex = primitive.attributes.at(attrName);
-            const tinygltf::Accessor& accessor{ gltf_model.accessors[accessorIndex] };
-
-            // Copy Associated Memory
-            const tinygltf::BufferView& bufferView{ gltf_model.bufferViews[accessor.bufferView] };
-            const tinygltf::Buffer& buffer{ gltf_model.buffers[bufferView.buffer] };
-
-            const bgfx::Memory* vertMemory = bgfx::copy(&(buffer.data.at(bufferView.byteOffset)), bufferView.byteLength);
-
-            // Define vertex specification/declaration for bgfx
-            bgfx::VertexDecl decl;
-            decl.begin()
-                .add(
-                    GLTF_TO_BGFX_ATTRIBUTE_MAPS.attributes.at(attrName),
-                    GLTF_TO_BGFX_ATTRIBUTE_MAPS.sizes.at(accessor.type),
-                    GLTF_TO_BGFX_ATTRIBUTE_MAPS.componentType.at(accessor.componentType),
-                    accessor.normalized
-                )
-                .end();
-
-            // Create the buffer and store the handles in our geometry object
-            mesh.vertexHandles[i] = bgfx::createVertexBuffer(vertMemory, decl);
-        }
-
-        return mesh;
-    }
-
-    // Returns a transformation matrix for a given GLTF node
-    // Order of operations (right to left) in glTF: parentTransform * (T * R * S)
-    glm::mat4 processTransform(const tinygltf::Node& node, const glm::mat4& parentTransform)
-    {
-        glm::mat4 localTransform = glm::identity<glm::mat4>();
-        if (node.scale.size() == 3) {
-            localTransform = glm::scale(localTransform, glm::vec3{ node.scale[0], node.scale[0], node.scale[0] });
-        }
-
-        if (node.rotation.size() == 4) {
-            // Quaternion
-            glm::quat rotation{
-                    node.rotation[0],
-                    node.rotation[1],
-                    node.rotation[2],
-                    node.rotation[3]
-            };
-            localTransform = glm::toMat4(rotation) * localTransform;
-        }
-
-        if (node.translation.size() == 3) {
-            localTransform = glm::translate(
-                localTransform,
-                glm::vec3{
-                    node.translation[0],
-                    node.translation[1],
-                    node.translation[2]
-                });
-        }
-
-        return parentTransform * localTransform;
-    }
-
-    //tinygltf::LoadImageDataFunction loadImageData(
-    //	tinygltf::Image* image,
-    //	const int image_idx,
-    //	std::string* err,
-    //	std::string* warn,
-    //	int req_width,
-    //	int req_height,
-    //	const unsigned char* bytes,
-    //	int size,
-    //	void* user_data
-    //) {
-    //	bgfx::TextureInfo textureInfo{};
-
-    //	bgfx::
-    //}
 }

@@ -82,7 +82,6 @@ function exampleProjectDefaults()
         path.join(BAE_DIR, "include"),
         -- path.join(TINYOBJ_DIR, "include"),
         -- path.join(TINYGLTF_DIR, "include"),
-        ASSIMP_DIR
     }
 
     flags {
@@ -94,10 +93,7 @@ function exampleProjectDefaults()
         "_SECURE_SCL=0"
     }
 
-    libdirs {ASSIMP_DIR}
-
     links {
-        "assimp-vc140-mt",
         "example-common",
         "example-glue",
         "bgfx",
