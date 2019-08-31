@@ -16,9 +16,17 @@ uniform vec4 pointLight_pos[MAX_LIGHT_COUNT];
 SAMPLER2D(s_baseColor, 0);
 SAMPLER2D(s_normal, 1);
 SAMPLER2D(s_metallicRoughness, 2);
+SAMPLER2D(s_emissive, 3);
+SAMPLER2D(s_occlusion, 4);
+uniform vec4 u_factors[3];
+#define u_baseColorFactor u_factors[0]
+#define u_emissiveFactor u_factors[1]
+#define u_alphaCutoff u_factors[2].x
+#define u_metallicFactor u_factors[2].y
+#define u_roughnessFactor u_factors[2].z
 
 
-vec3 specular(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 baseColor, vec3 OccRoughMetal) {
+vec3 specular(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 baseColor, float roughness, float metallic) {
     vec3 h = normalize(lightDir + viewDir);
     float NoV = clamp(dot(normal, viewDir), 1e-5, 1.0);
     float NoL = clampDot(normal, lightDir);
@@ -27,8 +35,6 @@ vec3 specular(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 baseColor, vec3 Occ
 
     // Needs to be a uniform
 
-    float metallic = OccRoughMetal.z;
-    float roughness = OccRoughMetal.y;
     float D = D_GGX(NoH, roughness);
     vec3  F = F_Schlick(VoH, metallic, baseColor);
     float V = V_SmithGGXCorrelated(NoV, NoL, roughness);
@@ -41,22 +47,21 @@ float karisFalloff(float dist, float lightRadius) {
 
 void main()
 {
-    mat3 tbn = mat3FromCols(
-        normalize(v_tangent),
-        normalize(v_bitangent),
-        normalize(v_normal)
-    );
     vec3 normal = texture2D(s_normal, v_texcoord).xyz * 2.0 - 1.0;
-    normal = normalize(mul(tbn, normal));
+    // From the MikkTSpace docs!
+    normal = normalize( normal.x * v_tangent + normal.y * v_bitangent + normal.z * v_normal );
 
     vec3 viewDir = normalize(u_cameraPos.xyz - v_position);
 
+    vec4 baseColor = toLinear(texture2D(s_baseColor, v_texcoord)) * u_baseColorFactor;
+    vec2 roughnessMetal = texture2D(s_metallicRoughness, v_texcoord).yz;
+    float roughness = max(roughnessMetal.x * u_roughnessFactor, MIN_ROUGHNESS);
+    float metallic = roughnessMetal.y * u_metallicFactor;
+    float occlusion = texture2D(s_occlusion, v_texcoord).x;
+    vec3 emissive = toLinear(texture2D(s_emissive, v_texcoord)).xyz * u_emissiveFactor;
+
     vec3 color = vec3(0.0, 0.0, 0.0);
-    vec4 baseColor = toLinear(texture2D(s_baseColor, v_texcoord));
-    vec3 OccRoughMetal = texture2D(s_metallicRoughness, v_texcoord).xyz;
-
     uint numLights = min(floatBitsToUint(pointLight_params.x), MAX_LIGHT_COUNT);
-
     for (uint i = 0; i < numLights; i++) {
         vec3 lightPos = pointLight_pos[i].xyz;
         float lightRadius = pointLight_pos[i].w;
@@ -73,9 +78,9 @@ void main()
         vec3 light = attenuation * colorIntensity.xyz * clampDot(normal, lightDir);
 
         color += (
-            diffuseColor(baseColor.xyz, OccRoughMetal.z) +
-            PI * specular(lightDir, viewDir, normal, baseColor.xyz, OccRoughMetal)
+            diffuseColor(baseColor.xyz, metallic) +
+            PI * specular(lightDir, viewDir, normal, baseColor.xyz, roughness, metallic)
         ) * light;
     }
-    gl_FragColor = vec4(color, 1.0);
+    gl_FragColor = vec4(color * occlusion + emissive, 1.0);
 }

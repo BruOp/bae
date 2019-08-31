@@ -183,7 +183,7 @@ namespace example
             m_lightSet.numActiveLights = 8;
 
             for (size_t i = 0; i < m_lightSet.maxNumLights; i++) {
-                m_lightSet.colorIntensityData[i] = glm::vec4{ LIGHT_COLORS[i % numColors], m_totalBrightness / 500.0f };
+                m_lightSet.colorIntensityData[i] = glm::vec4{ LIGHT_COLORS[i % numColors], m_totalBrightness / m_lightSet.maxNumLights };
             }
 
             m_toneMapParams.width = m_width;
@@ -348,12 +348,12 @@ namespace example
             // This dummy draw call is here to make sure that view 0 is cleared
             // if no other draw calls are submitted to view 0.
             if (m_zPrepassEnabled) {
-                bgfx::setViewClear(zPrepass, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x000000ff, 1.0f, 0);
+                bgfx::setViewClear(zPrepass, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x030303ff, 1.0f, 0);
                 bgfx::setViewClear(meshPass, 0);
                 bgfx::touch(zPrepass);
             }
             else {
-                bgfx::setViewClear(meshPass, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x000000ff, 1.0f, 0);
+                bgfx::setViewClear(meshPass, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x030303ff, 1.0f, 0);
                 bgfx::touch(meshPass);
             }
 
