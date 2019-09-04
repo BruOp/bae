@@ -144,7 +144,8 @@ namespace bae
             if (primitive.attributes.count(attrName) == 0) {
                 if (attrName != "TANGENT") {
                     throw std::runtime_error("Cannot handle meshes without " + attrName + " attribute");
-                } else {
+                }
+                else {
                     // Skip tangents for now, we can calculate later
                     continue;
                 }
@@ -221,11 +222,13 @@ namespace bae
                         output_model.transparentMeshes.meshes.push_back(newMesh);
                         output_model.transparentMeshes.materials.push_back(materialModePair.first);
                         output_model.transparentMeshes.transforms.push_back(transform);
-                    } else if (materialModePair.second == TransparencyMode::MASKED) {
+                    }
+                    else if (materialModePair.second == TransparencyMode::MASKED) {
                         output_model.maskedMeshes.meshes.push_back(newMesh);
                         output_model.maskedMeshes.materials.push_back(materialModePair.first);
                         output_model.maskedMeshes.transforms.push_back(transform);
-                    } else {
+                    }
+                    else {
                         output_model.opaqueMeshes.meshes.push_back(newMesh);
                         output_model.opaqueMeshes.materials.push_back(materialModePair.first);
                         output_model.opaqueMeshes.transforms.push_back(transform);
@@ -408,7 +411,8 @@ namespace bae
             if (p_keyValue != valuesEnd) {
                 if (p_keyValue->second.string_value == "BLEND") {
                     transparency_mode = TransparencyMode::BLENDED;
-                } else if (p_keyValue->second.string_value == "MASK") {
+                }
+                else if (p_keyValue->second.string_value == "MASK") {
                     transparency_mode = TransparencyMode::MASKED;
                 }
             }

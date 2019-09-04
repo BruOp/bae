@@ -47,13 +47,20 @@ float karisFalloff(float dist, float lightRadius) {
 
 void main()
 {
+    vec4 baseColor = toLinear(texture2D(s_baseColor, v_texcoord)) * u_baseColorFactor;
+#ifdef MASKING_ENABLED
+    if (baseColor.w < u_alphaCutoff) {
+        discard;
+        return;
+    }
+#endif // MASKING_ENABLED
+
     vec3 normal = texture2D(s_normal, v_texcoord).xyz * 2.0 - 1.0;
-    // From the MikkTSpace docs!
-    normal = normalize( normal.x * v_tangent + normal.y * v_bitangent + normal.z * v_normal );
+    // From the MikkTSpace docs! (check mikktspace.h)
+    normal = normalize(normal.x * v_tangent + normal.y * v_bitangent + normal.z * v_normal);
 
     vec3 viewDir = normalize(u_cameraPos.xyz - v_position);
 
-    vec4 baseColor = toLinear(texture2D(s_baseColor, v_texcoord)) * u_baseColorFactor;
     vec2 roughnessMetal = texture2D(s_metallicRoughness, v_texcoord).yz;
     float roughness = max(roughnessMetal.x * u_roughnessFactor, MIN_ROUGHNESS);
     float metallic = roughnessMetal.y * u_metallicFactor;
@@ -82,5 +89,5 @@ void main()
             PI * specular(lightDir, viewDir, normal, baseColor.xyz, roughness, metallic)
         ) * light;
     }
-    gl_FragColor = vec4(color * occlusion + emissive, 1.0);
+    gl_FragColor = vec4(color * occlusion + emissive, baseColor.w);
 }

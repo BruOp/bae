@@ -31,7 +31,8 @@ namespace bae
         {
             if (numVertexHandles < maxVertexHandles) {
                 vertexHandles[numVertexHandles++] = vbh;
-            } else {
+            }
+            else {
                 throw std::runtime_error("Cannot add additional vertex handle to this mesh.");
             }
         }
@@ -70,7 +71,7 @@ namespace bae
         std::vector<Mesh> meshes;
         std::vector<glm::mat4> transforms;
     };
-    
+
     struct Model
     {
         std::vector<bgfx::TextureHandle> textures;

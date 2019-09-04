@@ -9,6 +9,7 @@
 #include "bgfx_utils.h"
 #include "common.h"
 #include "imgui/imgui.h"
+#include <random>
 
 #include <glm/glm.hpp>
 #include <glm/matrix.hpp>
@@ -35,11 +36,26 @@ namespace example
             { 0.1f, 1.0f, 1.0f },
     };
 
+    std::vector<glm::vec3> sampleUnitCylinderUniformly(size_t N) {
+        std::default_random_engine generator(10);
+        std::uniform_real_distribution<float> rand(0.0f, 1.0f);
+        std::vector<glm::vec3> output(N);
+        for (size_t i = 0; i < N; ++i) {
+            output[i] = glm::vec3{
+                sqrt(rand(generator)),
+                rand(generator) * 2 * bx::kPi,
+                rand(generator),
+            };
+        }
+        return output;
+    }
+
     class LightSet {
     public:
         uint16_t numActiveLights = 0;
         uint16_t maxNumLights = 255;  // Has to match whatever we have set in the shader...
 
+        std::vector<glm::vec3> initialPositions;
         std::vector<glm::vec4> positionRadiusData;
         std::vector<glm::vec4> colorIntensityData;
 
@@ -57,6 +73,7 @@ namespace example
             uniformName = lightName + "_colorIntensity";
             u_colorIntensity = bgfx::createUniform(uniformName.c_str(), bgfx::UniformType::Vec4, maxNumLights);
 
+            initialPositions = sampleUnitCylinderUniformly(maxNumLights);
             positionRadiusData.resize(maxNumLights);
             colorIntensityData.resize(maxNumLights);
         }
@@ -77,16 +94,16 @@ namespace example
         }
     };
 
-	struct PBRShaderUniforms {
-        bgfx::UniformHandle s_baseColor         = BGFX_INVALID_HANDLE;
-		bgfx::UniformHandle s_normal            = BGFX_INVALID_HANDLE;
+    struct PBRShaderUniforms {
+        bgfx::UniformHandle s_baseColor = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_normal = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_metallicRoughness = BGFX_INVALID_HANDLE;
-        bgfx::UniformHandle s_emissive          = BGFX_INVALID_HANDLE;
-        bgfx::UniformHandle s_occlusion         = BGFX_INVALID_HANDLE;
-        bgfx::UniformHandle u_factors           = BGFX_INVALID_HANDLE;
-        bgfx::UniformHandle u_cameraPos         = BGFX_INVALID_HANDLE;
-        bgfx::UniformHandle u_normalTransform   = BGFX_INVALID_HANDLE;
-	};
+        bgfx::UniformHandle s_emissive = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_occlusion = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_factors = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_cameraPos = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_normalTransform = BGFX_INVALID_HANDLE;
+    };
 
     void init(PBRShaderUniforms& uniforms)
     {
@@ -114,7 +131,7 @@ namespace example
         bgfx::destroy(uniforms.u_normalTransform);
     }
 
-	void bindMaterialUniforms(const PBRShaderUniforms& uniforms, const bae::PBRMaterial& material, const glm::mat4& transform) {
+    void bindMaterialUniforms(const PBRShaderUniforms& uniforms, const bae::PBRMaterial& material, const glm::mat4& transform) {
         bgfx::setTexture(0, uniforms.s_baseColor, material.baseColorTexture);
         bgfx::setTexture(1, uniforms.s_normal, material.normalTexture);
         bgfx::setTexture(2, uniforms.s_metallicRoughness, material.metallicRoughnessTexture);
@@ -128,7 +145,7 @@ namespace example
         bgfx::setTransform(glm::value_ptr(transform));
         glm::mat4 normalTransform{ glm::transpose(glm::inverse(transform)) };
         bgfx::setUniform(uniforms.u_normalTransform, glm::value_ptr(normalTransform));
-	}
+    }
 
     void bindSceneUniforms(const PBRShaderUniforms& uniforms, const bx::Vec3 cameraPos)
     {
@@ -173,11 +190,11 @@ namespace example
 
             // Lets load all the meshes
             m_model = bae::loadGltfModel("meshes/Sponza/", "Sponza.gltf");
-            
+
             example::init(m_uniforms);
 
             m_lightSet.init("pointLight");
-            m_totalBrightness = 500.0f;
+            m_totalBrightness = 100.0f;
 
             size_t numColors = LIGHT_COLORS.size();
             m_lightSet.numActiveLights = 8;
@@ -198,8 +215,8 @@ namespace example
 
             // Init camera
             cameraCreate();
-            cameraSetPosition({ 0.0f, 0.0f, 2.0f });
-            cameraSetHorizontalAngle(bx::kPi);
+            cameraSetPosition({ 0.0f, 2.0f, 0.0f });
+            cameraSetHorizontalAngle(bx::kPi / 2.0);
             m_oldWidth = 0;
             m_oldHeight = 0;
             m_oldReset = m_reset;
@@ -235,6 +252,30 @@ namespace example
             bgfx::shutdown();
 
             return 0;
+        }
+
+        void renderMeshes(
+            const bae::MeshGroup& meshes,
+            const bx::Vec3& cameraPos,
+            const uint64_t state,
+            const bgfx::ProgramHandle program,
+            const bgfx::ViewId viewId
+        )
+        {
+            // Render all our opaque meshes
+            for (size_t i = 0; i < meshes.meshes.size(); ++i) {
+                const auto& mesh = meshes.meshes[i];
+                const auto& transform = meshes.transforms[i];
+                const auto& material = meshes.materials[i];
+
+                bgfx::setState(state);
+                bindMaterialUniforms(m_uniforms, material, transform);
+                bindSceneUniforms(m_uniforms, cameraPos);
+                m_lightSet.setUniforms();
+                mesh.setBuffers();
+
+                bgfx::submit(viewId, program);
+            }
         }
 
         bool update() override
@@ -328,7 +369,7 @@ namespace example
 
             int lightCount = m_lightSet.numActiveLights;
             ImGui::SliderInt("Num lights", &lightCount, 1, m_lightSet.maxNumLights);
-            ImGui::DragFloat("Total Brightness", &m_totalBrightness, 0.5f, 0.0f, 1000.0f);
+            ImGui::DragFloat("Total Brightness", &m_totalBrightness, 0.5f, 0.0f, 250.0f);
             ImGui::Checkbox("Z-Prepass Enabled", &m_zPrepassEnabled);
 
             ImGui::End();
@@ -367,7 +408,7 @@ namespace example
             m_time += deltaTime;
 
             float proj[16];
-            bx::mtxProj(proj, 60.0f, float(m_width) / float(m_height), 0.1f, 200.0f, bgfx::getCaps()->homogeneousDepth);
+            bx::mtxProj(proj, 60.0f, float(m_width) / float(m_height), 0.1f, 100.0f, bgfx::getCaps()->homogeneousDepth);
 
             // Update camera
             float view[16];
@@ -383,13 +424,15 @@ namespace example
 
             // Set view 0 default viewport.
             bx::Vec3 cameraPos = cameraGetPosition();
-            
+
             {
                 m_lightSet.numActiveLights = uint16_t(lightCount);
-                //Move our lights around in a cylinder the size of our scene
-                constexpr float sceneWidth = 52.0f;
-                constexpr float sceneLength = 24.0f;
-                constexpr float sceneHeight = 45.0f;
+                // Move our lights around in a cylinder the size of our scene
+                // These numbers are adhoc, based on sponza.
+                constexpr float sceneWidth = 12.0f;
+                constexpr float sceneLength = 4.0f;
+                constexpr float sceneHeight = 10.0f;
+                constexpr float timeCoeff = 0.3f;
 
                 float N = float(m_lightSet.numActiveLights);
                 float intensity = m_totalBrightness / N;
@@ -397,17 +440,16 @@ namespace example
                 float radius = bx::sqrt(intensity / EPSILON);
 
                 for (size_t i = 0; i < m_lightSet.numActiveLights; ++i) {
-                    // This is pretty ad-hoc...
-                    float coeff = (float(i % 8) + 1.0f) / 8.0f;
-                    float phaseOffset = bx::kPi2 * i / N;
-                    m_lightSet.positionRadiusData[i].x = coeff * sceneWidth * bx::cos(0.1f * m_time / coeff + phaseOffset);
-                    m_lightSet.positionRadiusData[i].z = coeff * sceneHeight * bx::sin(0.1f * m_time / coeff + phaseOffset);
-                    m_lightSet.positionRadiusData[i].y = sceneHeight * (i + 1) / N;
-
-                    // Set intensity
+                    glm::vec3& initial = m_lightSet.initialPositions[i];
+                    float r = initial.x;
+                    float phaseOffset = initial.y;
+                    float z = initial.z;
+                    // Set positions in Cartesian
+                    m_lightSet.positionRadiusData[i].x = r * sceneWidth * bx::cos(timeCoeff * m_time + phaseOffset);
+                    m_lightSet.positionRadiusData[i].z = r * sceneLength * bx::sin(timeCoeff * m_time + phaseOffset);
+                    m_lightSet.positionRadiusData[i].y = sceneHeight * z;
+                    // Set intensity and radius
                     m_lightSet.colorIntensityData[i].w = intensity;
-
-                    // Set radius
                     m_lightSet.positionRadiusData[i].w = radius;
                 }
             }
@@ -420,19 +462,19 @@ namespace example
                 | BGFX_STATE_MSAA;
 
             if (m_zPrepassEnabled) {
-                stateOpaque |= BGFX_STATE_DEPTH_TEST_EQUAL;
+                stateOpaque |= BGFX_STATE_DEPTH_TEST_LEQUAL;
             }
             else {
                 stateOpaque |= BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS;
             }
 
-            //uint64_t stateTransparent = 0
-            //    | BGFX_STATE_WRITE_RGB
-            //    | BGFX_STATE_WRITE_A
-            //    | BGFX_STATE_DEPTH_TEST_LESS
-            //    | BGFX_STATE_CULL_CCW
-            //    | BGFX_STATE_MSAA
-            //    | BGFX_STATE_BLEND_ALPHA;
+            uint64_t stateTransparent = 0
+                | BGFX_STATE_WRITE_RGB
+                | BGFX_STATE_WRITE_A
+                | BGFX_STATE_DEPTH_TEST_LESS
+                | BGFX_STATE_CULL_CCW
+                | BGFX_STATE_MSAA
+                | BGFX_STATE_BLEND_ALPHA;
 
             if (m_zPrepassEnabled)
             {
@@ -442,49 +484,18 @@ namespace example
                     | BGFX_STATE_CULL_CCW
                     | BGFX_STATE_MSAA;
 
-                for (size_t i = 0; i < m_model.opaqueMeshes.meshes.size(); ++i) {
-                    const auto& mesh = m_model.opaqueMeshes.meshes[i];
-                    const auto& transform = m_model.opaqueMeshes.transforms[i];
-                    
-                    bgfx::setTransform(glm::value_ptr(transform));
-                    // Not sure if this should be part of the material?
-                    bgfx::setState(statePrepass);
-                    mesh.setBuffers();
-                    bgfx::submit(zPrepass, m_prepassProgram);
-                }
+                // Render all our opaque meshes
+                renderMeshes(m_model.opaqueMeshes, cameraPos, statePrepass, m_pbrShader, zPrepass);
             }
-            
+
             // Render all our opaque meshes
-            for (size_t i = 0; i < m_model.opaqueMeshes.meshes.size(); ++i) {
-                const auto& mesh = m_model.opaqueMeshes.meshes[i];
-                const auto& transform = m_model.opaqueMeshes.transforms[i];
-                const auto& material = m_model.opaqueMeshes.materials[i];
+            renderMeshes(m_model.opaqueMeshes, cameraPos, stateOpaque, m_pbrShader, meshPass);
 
-                bgfx::setState(stateOpaque);
-                // Not sure if this should be part of the material?
-                bindMaterialUniforms(m_uniforms, material, transform);
-                bindSceneUniforms(m_uniforms, cameraPos);
-                m_lightSet.setUniforms();
-                mesh.setBuffers();
-                
-                bgfx::submit(meshPass, m_pbrShader);
-            }
+            // Render all our masked meshes
+            renderMeshes(m_model.maskedMeshes, cameraPos, stateOpaque & ~BGFX_STATE_WRITE_Z, m_pbrShaderWithMasking, meshPass);
 
-            //// Render all our transparent meshes
-            //program = m_scene.transparentMatType.program;
-            //for (size_t i = 0; i < m_scene.transparentMeshes.meshes.size(); ++i) {
-            //    bgfx::setTransform(glm::value_ptr(mtx));
-            //    // Not sure if this should be part of the material?
-            //    bgfx::setUniform(normalTransformHandle, glm::value_ptr(glm::transpose(glm::inverse(mtx))));
-
-            //    bgfx::setState(stateTransparent);
-            //    const auto& mesh = m_scene.transparentMeshes.meshes[i];
-            //    bgfx::setIndexBuffer(mesh.indexHandle);
-            //    bgfx::setVertexBuffer(0, mesh.vertexHandle);
-            //    setUniforms(m_scene.transparentMeshes.materials[i], m_scene.transparentMatType);
-
-            //    bgfx::submit(meshPass, program);
-            //}
+            // Render all our transparent meshes
+            renderMeshes(m_model.transparentMeshes, cameraPos, stateTransparent, m_pbrShader, meshPass);
 
             m_toneMapPass.render(m_pbrFbTextures[0], m_toneMapParams, deltaTime, meshPass + 1);
 
