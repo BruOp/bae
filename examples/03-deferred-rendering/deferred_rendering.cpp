@@ -17,7 +17,7 @@
 
 #include "camera.h"
 #include "bae/PhysicallyBasedScene.h"
-#include "bae/gltf_model_loader.h"
+#include "bae/gltf_model_loading.h"
 #include "bae/Tonemapping.h"
 #include "bae/Offscreen.h"
 #include "bae/IcosahedronFactory.h"

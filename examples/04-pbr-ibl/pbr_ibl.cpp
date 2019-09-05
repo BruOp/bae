@@ -11,7 +11,7 @@
 #include "bae/Offscreen.h"
 #include "bae/Tonemapping.h"
 #include "bae/PhysicallyBasedScene.h"
-#include "bae/gltf_model_loader.h"
+#include "bae/gltf_model_loading.h"
 
 namespace example
 {
@@ -561,7 +561,7 @@ namespace example
                 | BGFX_STATE_BLEND_ALPHA;
 
             bgfx::setViewTransform(meshPass, view, proj);
-            
+
             float envParams[] = { bx::log2(float(m_prefilteredEnvMapCreator.width)), float(m_iblMode), 0.0f, 0.0f };
             bgfx::setUniform(m_sceneUniforms.u_envParams, envParams);
             bgfx::setUniform(m_sceneUniforms.u_cameraPos, &cameraPos.x);
