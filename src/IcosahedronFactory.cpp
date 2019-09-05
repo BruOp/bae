@@ -3,25 +3,23 @@
 #include <PhysicallyBasedScene.h>
 
 namespace bae {
-    bgfx::VertexDecl BasicVertex::s_decl;
-
     float t = (1.0f + bx::sqrt(5.0f)) / 2.0f;
 
-    std::vector<BasicVertex> basicIcosahedronPositions = {
-        {{-1.0f,  t,  0.0f}},
-        {{ 1.0,  t,  0.0f}},
-        {{-1.0f, -t,  0.0f}},
-        {{ 1.0, -t,  0.0f}},
+    std::vector<glm::vec3> basicIcosahedronPositions = {
+        {-1.0f,  t,  0.0f},
+        { 1.0,  t,  0.0f},
+        {-1.0f, -t,  0.0f},
+        { 1.0, -t,  0.0f},
 
-        {{ 0.0f, -1.0f,  t}},
-        {{ 0.0f,  1.0,  t}},
-        {{ 0.0f, -1.0f, -t}},
-        {{ 0.0f,  1.0, -t}},
+        { 0.0f, -1.0f,  t},
+        { 0.0f,  1.0,  t},
+        { 0.0f, -1.0f, -t},
+        { 0.0f,  1.0, -t},
 
-        {{ t, 0.0f, -1.0f}},
-        {{ t, 0.0f,  1.0}},
-        {{-t, 0.0f, -1.0f}},
-        {{-t, 0.0f,  1.0}},
+        { t, 0.0f, -1.0f},
+        { t, 0.0f,  1.0},
+        {-t, 0.0f, -1.0f},
+        {-t, 0.0f,  1.0},
     };
 
     std::vector<uint16_t> basicIcosahedronIndices = {
@@ -53,7 +51,7 @@ namespace bae {
         indices{ basicIcosahedronIndices }
     {
         for (auto& v : vertices) {
-            v.position = glm::normalize(v.position);
+            v = glm::normalize(v);
         }
 
         for (uint8_t subdivisionLevel = 0; subdivisionLevel < detail; ++subdivisionLevel) {
@@ -86,10 +84,13 @@ namespace bae {
         const bgfx::Memory* vertMemory = bgfx::copy(vertices.data(), uint32_t(vertices.size()) * sizeof(vertices[0]));
         const bgfx::Memory* indexMemory = bgfx::copy(indices.data(), uint32_t(indices.size()) * sizeof(indices[0]));
 
-        Mesh mesh{
-            bgfx::createVertexBuffer(vertMemory, BasicVertex::s_decl),
-            bgfx::createIndexBuffer(indexMemory),
-        };
+        Mesh mesh{};
+        bgfx::VertexDecl decl;
+        decl.begin()
+            .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
+            .end();
+        mesh.addVertexHandle(bgfx::createVertexBuffer(vertMemory, decl));
+        mesh.indexHandle = bgfx::createIndexBuffer(indexMemory);
 
         return mesh;
     }
@@ -99,16 +100,16 @@ namespace bae {
         uint32_t smaller = bx::min(first, second);
         uint32_t larger = bx::max(first, second);
         uint32_t key = (smaller << 16) | larger;
-        auto& iter = newVertices.find(key);
+        const auto& iter = newVertices.find(key);
 
         if (iter != newVertices.end()) {
             return iter->second;
         }
         // Calculate and store new vertex
-        glm::vec3 firstPos = vertices[first].position;
-        glm::vec3 secondPos = vertices[second].position;
+        glm::vec3 firstPos = vertices[first];
+        glm::vec3 secondPos = vertices[second];
 
-        BasicVertex midPoint{ glm::normalize(glm::vec3{ 0.5f * (secondPos + firstPos) }) };
+        glm::vec3 midPoint{ glm::normalize(glm::vec3{ 0.5f * (secondPos + firstPos) }) };
         uint16_t newIndex = uint16_t(vertices.size());
         vertices.push_back(midPoint);
         newVertices[key] = newIndex;
