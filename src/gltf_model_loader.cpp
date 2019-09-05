@@ -84,12 +84,7 @@ namespace bae
 
         if (node.rotation.size() == 4) {
             // Quaternion
-            glm::quat rotation{
-                    static_cast<float>(node.rotation[3]),
-                    static_cast<float>(node.rotation[0]),
-                    static_cast<float>(node.rotation[1]),
-                    static_cast<float>(node.rotation[2]),
-            };
+            glm::quat rotation = glm::make_quat(node.rotation.data());
             localTransform = glm::toMat4(rotation) * localTransform;
         }
 

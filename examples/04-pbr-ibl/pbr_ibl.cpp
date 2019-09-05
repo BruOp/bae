@@ -11,22 +11,13 @@
 #include "bae/Offscreen.h"
 #include "bae/Tonemapping.h"
 #include "bae/PhysicallyBasedScene.h"
+#include "bae/gltf_model_loader.h"
 
 namespace example
 {
 #define SAMPLER_POINT_CLAMP (BGFX_SAMPLER_POINT | BGFX_SAMPLER_UVW_CLAMP)
 
     static float s_texelHalf = 0.0f;
-
-    std::vector<glm::vec3> LIGHT_COLORS = {
-        { 1.0f, 1.0f, 1.0f },
-        { 1.0f, 0.1f, 0.1f },
-        { 0.1f, 1.0f, 0.1f },
-        { 0.1f, 0.1f, 1.0f },
-        { 1.0f, 0.1f, 1.0f },
-        { 1.0f, 1.0f, 0.1f },
-        { 0.1f, 1.0f, 1.0f },
-    };
 
     class BrdfLutCreator
     {
@@ -59,7 +50,7 @@ namespace example
         void destroy()
         {
             bgfx::destroy(brdfLUTProgram);
-            if (destroyTextureOnClose) {
+            if (destroyTextures) {
                 bgfx::destroy(brdfLUT);
             }
         }
@@ -71,7 +62,7 @@ namespace example
         bgfx::ProgramHandle brdfLUTProgram = BGFX_INVALID_HANDLE;
 
         bool rendered = false;
-        bool destroyTextureOnClose = true;
+        bool destroyTextures = true;
     };
 
     class CubeMapFilterer
@@ -79,10 +70,8 @@ namespace example
     public:
         void init()
         {
-            std::string shader = "cs_prefilter_env_map";
-            preFilteringProgram = loadProgram(shader.c_str(), nullptr);
-            shader = "cs_irradiance";
-            irradianceProgram = loadProgram(shader.c_str(), nullptr);
+            preFilteringProgram = loadProgram("cs_prefilter_env_map", nullptr);
+            irradianceProgram = loadProgram("cs_irradiance", nullptr);
 
             uint64_t flags = BGFX_TEXTURE_COMPUTE_WRITE;
             u_sourceCubeMap = bgfx::createUniform("u_source", bgfx::UniformType::Sampler);
@@ -130,10 +119,10 @@ namespace example
         void destroy()
         {
             bgfx::destroy(preFilteringProgram);
+            bgfx::destroy(irradianceProgram);
             bgfx::destroy(u_sourceCubeMap);
             bgfx::destroy(u_params);
-
-            if (destroyTextureOnClose) {
+            if (destroyTextures) {
                 bgfx::destroy(sourceCubeMap);
                 bgfx::destroy(filteredCubeMap);
                 bgfx::destroy(irradianceMap);
@@ -153,34 +142,99 @@ namespace example
         bgfx::ProgramHandle irradianceProgram = BGFX_INVALID_HANDLE;
 
         bool rendered = false;
-        bool destroyTextureOnClose = true;
+        bool destroyTextures = true;
     };
 
-    class SceneUniforms
+    struct SkyboxUniforms {
+        bgfx::UniformHandle s_envMap = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_invRotationViewProj = BGFX_INVALID_HANDLE;
+    };
+
+    void init(SkyboxUniforms& uniforms) {
+        uniforms.s_envMap = bgfx::createUniform("s_envMap", bgfx::UniformType::Sampler);
+        uniforms.u_invRotationViewProj = bgfx::createUniform("u_invRotationViewProj", bgfx::UniformType::Mat4);
+    }
+
+    void destroy(SkyboxUniforms& uniforms) {
+        bgfx::destroy(uniforms.s_envMap);
+        bgfx::destroy(uniforms.u_invRotationViewProj);
+    }
+
+    struct SceneUniforms
     {
-    public:
-        bgfx::UniformHandle m_cameraPos = BGFX_INVALID_HANDLE;
-        bgfx::UniformHandle m_envParams = BGFX_INVALID_HANDLE;
-        bgfx::UniformHandle m_brdfLUT = BGFX_INVALID_HANDLE;
-        bgfx::UniformHandle m_prefilteredEnv = BGFX_INVALID_HANDLE;
-        bgfx::UniformHandle m_irradiance = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_cameraPos = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_envParams = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_brdfLUT = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_prefilteredEnv = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_irradiance = BGFX_INVALID_HANDLE;
 
-        void init() {
-            m_cameraPos = bgfx::createUniform("u_cameraPos", bgfx::UniformType::Vec4);
-            m_envParams = bgfx::createUniform("u_envParams", bgfx::UniformType::Vec4);
-            m_brdfLUT = bgfx::createUniform("s_brdfLUT", bgfx::UniformType::Sampler);
-            m_prefilteredEnv = bgfx::createUniform("s_prefilteredEnv", bgfx::UniformType::Sampler);
-            m_irradiance = bgfx::createUniform("s_irradiance", bgfx::UniformType::Sampler);
-
-        }
-
-        void destroy() {
-            bgfx::destroy(m_cameraPos);
-            bgfx::destroy(m_brdfLUT);
-            bgfx::destroy(m_prefilteredEnv);
-            bgfx::destroy(m_irradiance);
-        }
     };
+
+    void init(SceneUniforms& uniforms) {
+        uniforms.u_cameraPos = bgfx::createUniform("u_cameraPos", bgfx::UniformType::Vec4);
+        uniforms.u_envParams = bgfx::createUniform("u_envParams", bgfx::UniformType::Vec4);
+        uniforms.s_brdfLUT = bgfx::createUniform("s_brdfLUT", bgfx::UniformType::Sampler);
+        uniforms.s_prefilteredEnv = bgfx::createUniform("s_prefilteredEnv", bgfx::UniformType::Sampler);
+        uniforms.s_irradiance = bgfx::createUniform("s_irradiance", bgfx::UniformType::Sampler);
+
+    }
+
+    void destroy(SceneUniforms& uniforms) {
+        bgfx::destroy(uniforms.u_cameraPos);
+        bgfx::destroy(uniforms.u_envParams);
+        bgfx::destroy(uniforms.s_brdfLUT);
+        bgfx::destroy(uniforms.s_prefilteredEnv);
+        bgfx::destroy(uniforms.s_irradiance);
+    }
+
+    struct PBRShaderUniforms {
+        bgfx::UniformHandle s_baseColor = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_normal = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_metallicRoughness = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_emissive = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_occlusion = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_factors = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_normalTransform = BGFX_INVALID_HANDLE;
+    };
+
+    void init(PBRShaderUniforms& uniforms)
+    {
+        uniforms.s_baseColor = bgfx::createUniform("s_baseColor", bgfx::UniformType::Sampler);
+        uniforms.s_normal = bgfx::createUniform("s_normal", bgfx::UniformType::Sampler);
+        uniforms.s_metallicRoughness = bgfx::createUniform("s_metallicRoughness", bgfx::UniformType::Sampler);
+        uniforms.s_emissive = bgfx::createUniform("s_emissive", bgfx::UniformType::Sampler);
+        uniforms.s_occlusion = bgfx::createUniform("s_occlusion", bgfx::UniformType::Sampler);
+        // We pack our baseColorFactor, emissiveFactor, roughnessFactor and metallicFactor into this uniform
+        uniforms.u_factors = bgfx::createUniform("u_factors", bgfx::UniformType::Vec4, 3);
+        uniforms.u_normalTransform = bgfx::createUniform("u_normalTransform", bgfx::UniformType::Mat4);
+    }
+
+    void destroy(PBRShaderUniforms& uniforms)
+    {
+        bgfx::destroy(uniforms.s_baseColor);
+        bgfx::destroy(uniforms.s_normal);
+        bgfx::destroy(uniforms.s_metallicRoughness);
+        bgfx::destroy(uniforms.s_emissive);
+        bgfx::destroy(uniforms.s_occlusion);
+        bgfx::destroy(uniforms.u_factors);
+        bgfx::destroy(uniforms.u_normalTransform);
+    }
+
+    void bindUniforms(const PBRShaderUniforms& uniforms, const bae::PBRMaterial& material, const glm::mat4& transform) {
+        bgfx::setTexture(0, uniforms.s_baseColor, material.baseColorTexture);
+        bgfx::setTexture(1, uniforms.s_normal, material.normalTexture);
+        bgfx::setTexture(2, uniforms.s_metallicRoughness, material.metallicRoughnessTexture);
+        bgfx::setTexture(3, uniforms.s_emissive, material.emissiveTexture);
+        bgfx::setTexture(4, uniforms.s_occlusion, material.occlusionTexture);
+        // We are going to pack our baseColorFactor, emissiveFactor, roughnessFactor
+        // and metallicFactor into this uniform
+        bgfx::setUniform(uniforms.u_factors, &material.baseColorFactor, 3);
+
+        // Transforms
+        bgfx::setTransform(glm::value_ptr(transform));
+        glm::mat4 normalTransform{ glm::transpose(glm::inverse(transform)) };
+        bgfx::setUniform(uniforms.u_normalTransform, glm::value_ptr(normalTransform));
+    }
 
     class ExampleIbl : public entry::AppI
     {
@@ -222,16 +276,15 @@ namespace example
                 return;
             }
 
-            bae::init(m_skyboxMatType);
-            bae::init(m_pbrIrbMatType);
-            m_sceneUniforms.init();
+            m_skyboxProgram = loadProgram("vs_skybox", "fs_skybox");
+            m_pbrIblProgram = loadProgram("vs_pbr_ibl", "fs_pbr_ibl");
+            m_pbrIblProgramWithMasking = loadProgram("vs_pbr_ibl", "fs_pbr_ibl_with_masking");
 
-            bae::Vertex::init();
-            // Set the matType for both opaque and transparent passes
-            m_scene.opaqueMatType = m_pbrIrbMatType;
-            m_scene.transparentMatType = m_pbrIrbMatType;
-            // Lets load all the meshes
-            m_scene.load("meshes/FlightHelmet/", "FlightHelmet.gltf");
+            example::init(m_pbrUniforms);
+            example::init(m_sceneUniforms);
+            example::init(m_skyboxUniforms);
+
+            m_model = bae::loadGltfModel("meshes/FlightHelmet/", "FlightHelmet.gltf");
 
             m_toneMapParams.width = m_width;
             m_toneMapParams.width = m_height;
@@ -274,6 +327,16 @@ namespace example
                 m_prefilteredEnvMapCreator.destroy();
                 m_brdfLutCreator.destroy();
 
+                destroy(m_model);
+
+                destroy(m_pbrUniforms);
+                destroy(m_sceneUniforms);
+                destroy(m_skyboxUniforms);
+
+                bgfx::destroy(m_skyboxProgram);
+                bgfx::destroy(m_pbrIblProgram);
+                bgfx::destroy(m_pbrIblProgramWithMasking);
+
                 cameraDestroy();
                 imguiDestroy();
             }
@@ -297,17 +360,15 @@ namespace example
                 bgfx::destroy(m_hdrFrameBuffer);
             }
 
+            m_toneMapParams.width = m_width;
+            m_toneMapParams.height = m_height;
 
             const uint64_t tsFlags = 0
                 | BGFX_SAMPLER_MIN_POINT
                 | BGFX_SAMPLER_MAG_POINT
                 | BGFX_SAMPLER_MIP_POINT
                 | BGFX_SAMPLER_U_CLAMP
-                | BGFX_SAMPLER_V_CLAMP
-                ;
-
-            m_toneMapParams.width = m_width;
-            m_toneMapParams.height = m_height;
+                | BGFX_SAMPLER_V_CLAMP;
 
             m_hdrFbTextures[0] = bgfx::createTexture2D(
                 uint16_t(m_width)
@@ -319,7 +380,6 @@ namespace example
             );
 
             const uint64_t textureFlags = BGFX_TEXTURE_RT_WRITE_ONLY | (uint64_t(msaa + 1) << BGFX_TEXTURE_RT_MSAA_SHIFT);
-
             bgfx::TextureFormat::Enum depthFormat;
             if (bgfx::isTextureValid(0, false, 1, bgfx::TextureFormat::D24S8, textureFlags)) {
                 depthFormat = bgfx::TextureFormat::D24S8;
@@ -327,7 +387,6 @@ namespace example
             else {
                 depthFormat = bgfx::TextureFormat::D32;
             }
-
             m_hdrFbTextures[1] = bgfx::createTexture2D(
                 uint16_t(m_width)
                 , uint16_t(m_height)
@@ -336,11 +395,34 @@ namespace example
                 , depthFormat
                 , textureFlags
             );
-
             bgfx::setName(m_hdrFbTextures[0], "HDR Buffer");
 
             m_hdrFrameBuffer = bgfx::createFrameBuffer(BX_COUNTOF(m_hdrFbTextures), m_hdrFbTextures, true);
+        }
 
+        void renderMeshes(
+            const bae::MeshGroup& meshes,
+            const uint64_t state,
+            const bgfx::ProgramHandle program,
+            const bgfx::ViewId viewId
+        )
+        {
+            // Render all our opaque meshes
+            for (size_t i = 0; i < meshes.meshes.size(); ++i) {
+                const auto& mesh = meshes.meshes[i];
+                const auto& transform = meshes.transforms[i];
+                const auto& material = meshes.materials[i];
+
+                bgfx::setState(state);
+                bindUniforms(m_pbrUniforms, material, transform);
+                bgfx::setTexture(5, m_sceneUniforms.s_brdfLUT, m_brdfLutCreator.getLUT());
+                bgfx::setTexture(6, m_sceneUniforms.s_prefilteredEnv, m_prefilteredEnvMapCreator.getPrefilteredMap());
+                bgfx::setTexture(7, m_sceneUniforms.s_irradiance, m_prefilteredEnvMapCreator.getIrradianceMap());
+
+                mesh.setBuffers();
+
+                bgfx::submit(viewId, program);
+            }
         }
 
         bool update() override
@@ -454,15 +536,14 @@ namespace example
             bx::mtxInverse(invRotationViewProj, rotationViewProj);
 
             // Render skybox into view hdrSkybox.
-            bgfx::setTexture(0, m_skyboxMatType.getUniformHandle("s_envMap"), m_prefilteredEnvMapCreator.getPrefilteredMap());
-            bgfx::setUniform(m_skyboxMatType.getUniformHandle("u_invRotationViewProj"), invRotationViewProj);
+            bgfx::setTexture(0, m_skyboxUniforms.s_envMap, m_prefilteredEnvMapCreator.getPrefilteredMap());
+            bgfx::setUniform(m_skyboxUniforms.u_invRotationViewProj, invRotationViewProj);
             bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A);
             bgfx::setViewTransform(skyboxPass, nullptr, orthoProjection);
             bae::setScreenSpaceQuad((float)m_width, (float)m_height, true);
-            bgfx::submit(skyboxPass, m_skyboxMatType.program);
+            bgfx::submit(skyboxPass, m_skyboxProgram);
 
             // Set view and projection matrix
-
             uint64_t stateOpaque = 0
                 | BGFX_STATE_WRITE_RGB
                 | BGFX_STATE_WRITE_A
@@ -480,78 +561,14 @@ namespace example
                 | BGFX_STATE_BLEND_ALPHA;
 
             bgfx::setViewTransform(meshPass, view, proj);
+            
+            float envParams[] = { bx::log2(float(m_prefilteredEnvMapCreator.width)), float(m_iblMode), 0.0f, 0.0f };
+            bgfx::setUniform(m_sceneUniforms.u_envParams, envParams);
+            bgfx::setUniform(m_sceneUniforms.u_cameraPos, &cameraPos.x);
 
-            // Not moving our models at all
-            glm::mat4 mtx = glm::identity<glm::mat4>();
-            mtx = glm::rotate(mtx, bx::kPi, glm::vec3(0.0f, 1.0f, 0.0f));
-
-            // Opaque Meshes
-            bgfx::ProgramHandle program = m_scene.opaqueMatType.program;
-            bae::MaterialType& matType = m_scene.opaqueMatType;
-            bgfx::UniformHandle normalTransformHandle = matType.getUniformHandle("u_normalTransform");
-            bgfx::UniformHandle diffuseMapHandle = matType.getUniformHandle("s_diffuseMap");
-            bgfx::UniformHandle normalMapHandle = matType.getUniformHandle("s_normalMap");
-            bgfx::UniformHandle metallicRoughnessMapHandle = matType.getUniformHandle("s_metallicRoughnessMap");
-
-            // Render all our opaque meshes
-            for (size_t i = 0; i < m_scene.opaqueMeshes.meshes.size(); ++i) {
-                const auto& mesh = m_scene.opaqueMeshes.meshes[i];
-
-                bgfx::setTransform(glm::value_ptr(mtx));
-                // Not sure if this should be part of the material?
-                bgfx::setUniform(normalTransformHandle, glm::value_ptr(glm::transpose(glm::inverse(mtx))));
-                bgfx::setUniform(m_sceneUniforms.m_cameraPos, &cameraPos.x);
-
-                float envParams[] = { bx::log2(float(m_prefilteredEnvMapCreator.width)), float(m_iblMode), 0.0f, 0.0f };
-                bgfx::setUniform(m_sceneUniforms.m_envParams, envParams);
-
-                bgfx::setTexture(3, m_sceneUniforms.m_brdfLUT, m_brdfLutCreator.getLUT());
-                bgfx::setTexture(4, m_sceneUniforms.m_prefilteredEnv, m_prefilteredEnvMapCreator.getPrefilteredMap());
-                bgfx::setTexture(5, m_sceneUniforms.m_irradiance, m_prefilteredEnvMapCreator.getIrradianceMap());
-
-                bgfx::setState(stateOpaque);
-                bgfx::setIndexBuffer(mesh.indexHandle);
-                bgfx::setVertexBuffer(0, mesh.vertexHandle);
-                bae::Material& material = m_scene.opaqueMeshes.materials[i];
-                bgfx::setTexture(0, diffuseMapHandle, material.diffuse);
-                bgfx::setTexture(1, normalMapHandle, material.normal);
-                bgfx::setTexture(2, metallicRoughnessMapHandle, material.metallicRoughness);
-                bgfx::submit(meshPass, program);
-            }
-
-            // Transparent Meshes
-            matType = m_scene.transparentMatType;
-            program = m_scene.transparentMatType.program;
-            normalTransformHandle = matType.getUniformHandle("u_normalTransform");
-            diffuseMapHandle = matType.getUniformHandle("s_diffuseMap");
-            normalMapHandle = matType.getUniformHandle("s_normalMap");
-            metallicRoughnessMapHandle = matType.getUniformHandle("s_metallicRoughnessMap");
-
-            // Render all our transparent meshes
-            for (size_t i = 0; i < m_scene.transparentMeshes.meshes.size(); ++i) {
-                bgfx::setTransform(glm::value_ptr(mtx));
-                // Not sure if this should be part of the material?
-                bgfx::setUniform(normalTransformHandle, glm::value_ptr(glm::transpose(glm::inverse(mtx))));
-                bgfx::setUniform(m_sceneUniforms.m_cameraPos, &cameraPos.x);
-
-                float envParams[] = { bx::log2(float(m_prefilteredEnvMapCreator.width)), float(m_iblMode), 0.0f, 0.0f };
-                bgfx::setUniform(m_sceneUniforms.m_envParams, envParams);
-
-                bgfx::setTexture(3, m_sceneUniforms.m_brdfLUT, m_brdfLutCreator.getLUT());
-                bgfx::setTexture(4, m_sceneUniforms.m_prefilteredEnv, m_prefilteredEnvMapCreator.getPrefilteredMap());
-                bgfx::setTexture(5, m_sceneUniforms.m_irradiance, m_prefilteredEnvMapCreator.getIrradianceMap());
-
-                bgfx::setState(stateTransparent);
-                const auto& mesh = m_scene.transparentMeshes.meshes[i];
-                bgfx::setIndexBuffer(mesh.indexHandle);
-                bgfx::setVertexBuffer(0, mesh.vertexHandle);
-
-                bae::Material& material = m_scene.transparentMeshes.materials[i];
-                bgfx::setTexture(0, diffuseMapHandle, material.diffuse);
-                bgfx::setTexture(1, normalMapHandle, material.normal);
-                bgfx::setTexture(2, metallicRoughnessMapHandle, material.metallicRoughness);
-                bgfx::submit(meshPass, program);
-            }
+            renderMeshes(m_model.opaqueMeshes, stateOpaque, m_pbrIblProgram, meshPass);
+            renderMeshes(m_model.maskedMeshes, stateOpaque, m_pbrIblProgramWithMasking, meshPass);
+            renderMeshes(m_model.transparentMeshes, stateTransparent, m_pbrIblProgram, meshPass);
 
             m_toneMapPass.render(m_hdrFbTextures[0], m_toneMapParams, deltaTime, viewId);
 
@@ -573,25 +590,9 @@ namespace example
 
         float m_totalBrightness = 1.0f;
 
-        bae::MaterialType m_skyboxMatType = {
-            "skybox",
-            BGFX_INVALID_HANDLE,
-            {
-                {"s_envMap", {bgfx::UniformType::Sampler}},
-                {"u_invRotationViewProj", {bgfx::UniformType::Mat4}}
-            },
-        };
-
-        bae::MaterialType m_pbrIrbMatType = {
-            "pbr_ibl",
-            BGFX_INVALID_HANDLE,
-            {
-                {"s_diffuseMap", {bgfx::UniformType::Sampler}},
-                {"s_normalMap", {bgfx::UniformType::Sampler}},
-                {"s_metallicRoughnessMap", {bgfx::UniformType::Sampler}},
-                {"u_normalTransform", {bgfx::UniformType::Mat4}},
-            },
-        };
+        bgfx::ProgramHandle m_skyboxProgram = BGFX_INVALID_HANDLE;
+        bgfx::ProgramHandle m_pbrIblProgram = BGFX_INVALID_HANDLE;
+        bgfx::ProgramHandle m_pbrIblProgramWithMasking = BGFX_INVALID_HANDLE;
 
         // PBR IRB Textures and LUT
         bgfx::TextureHandle m_envMap = BGFX_INVALID_HANDLE;
@@ -605,8 +606,10 @@ namespace example
         BrdfLutCreator m_brdfLutCreator;
         CubeMapFilterer m_prefilteredEnvMapCreator;
 
-        bae::Scene m_scene;
+        bae::Model m_model;
+        PBRShaderUniforms m_pbrUniforms;
         SceneUniforms m_sceneUniforms;
+        SkyboxUniforms m_skyboxUniforms;
 
         const bgfx::Caps* m_caps;
         float m_time;

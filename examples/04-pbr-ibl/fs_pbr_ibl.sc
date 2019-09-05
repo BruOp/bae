@@ -11,24 +11,37 @@ uniform vec4 u_envParams;
 uniform vec4 u_cameraPos;
 
 // Material
-SAMPLER2D(s_diffuseMap, 0);
-SAMPLER2D(s_normalMap, 1);
-SAMPLER2D(s_metallicRoughnessMap, 2);
+SAMPLER2D(s_baseColor, 0);
+SAMPLER2D(s_normal, 1);
+SAMPLER2D(s_metallicRoughness, 2);
+SAMPLER2D(s_emissive, 3);
+SAMPLER2D(s_occlusion, 4);
+uniform vec4 u_factors[3];
+#define u_baseColorFactor u_factors[0]
+#define u_emissiveFactor u_factors[1]
+#define u_alphaCutoff u_factors[2].x
+#define u_metallicFactor u_factors[2].y
+#define u_roughnessFactor u_factors[2].z
 
 // IBL Stuff
-SAMPLER2D(s_brdfLUT, 3);
-SAMPLERCUBE(s_prefilteredEnv, 4);
-SAMPLERCUBE(s_irradiance, 5);
+SAMPLER2D(s_brdfLUT, 5);
+SAMPLERCUBE(s_prefilteredEnv, 6);
+SAMPLERCUBE(s_irradiance, 7);
+
 
 void main()
 {
-    mat3 tbn = mat3FromCols(
-        normalize(v_tangent),
-        normalize(v_bitangent),
-        normalize(v_normal)
-    );
-    vec3 normal = texture2D(s_normalMap, v_texcoord).xyz * 2.0 - 1.0;
-    normal = normalize(mul(tbn, normal));
+    vec4 baseColor = toLinear(texture2D(s_baseColor, v_texcoord)) * u_baseColorFactor;
+#ifdef MASKING_ENABLED
+    if (baseColor.w < u_alphaCutoff) {
+        discard;
+        return;
+    }
+#endif // MASKING_ENABLED
+
+    vec3 normal = texture2D(s_normal, v_texcoord).xyz * 2.0 - 1.0;
+    // From the MikkTSpace docs! (check mikktspace.h)
+    normal = normalize(normal.x * v_tangent + normal.y * v_bitangent + normal.z * v_normal);
 
     vec3 viewDir = normalize(u_cameraPos.xyz - v_position);
     vec3 lightDir = reflect(-viewDir, normal);
@@ -36,14 +49,16 @@ void main()
     float VoH = clampDot(viewDir, H);
     float NoV = clamp(dot(normal, viewDir), 1e-5, 1.0);
 
-    vec4 baseColor = texture2D(s_diffuseMap, v_texcoord);
-    vec3 OccRoughMetal = texture2D(s_metallicRoughnessMap, v_texcoord).xyz;
-    float roughness = max(OccRoughMetal.y, MIN_ROUGHNESS);
-    float metalness = OccRoughMetal.z;
+
+    vec2 roughnessMetal = texture2D(s_metallicRoughness, v_texcoord).yz;
+    float roughness = max(roughnessMetal.x * u_roughnessFactor, MIN_ROUGHNESS);
+    float metallic = roughnessMetal.y * u_metallicFactor;
+    float occlusion = texture2D(s_occlusion, v_texcoord).x;
+    vec3 emissive = toLinear(texture2D(s_emissive, v_texcoord)).xyz * u_emissiveFactor;
 
     // From GLTF spec
-    vec3 diffuseColor = baseColor.rgb * (1.0 - DIELECTRIC_SPECULAR) * (1.0 - metalness);
-    vec3 F0 = mix(vec3_splat(DIELECTRIC_SPECULAR), baseColor.xyz, metalness);
+    vec3 c_diff = diffuseColor(baseColor.rgb, metallic);
+    vec3 F0 = mix(vec3_splat(DIELECTRIC_SPECULAR), baseColor.xyz, metallic);
 
     // Load env textures
     vec2 f_ab = texture2D(s_brdfLUT, vec2(NoV, roughness)).xy;
@@ -66,12 +81,12 @@ void main()
         float Ems = (1.0 - (f_ab.x + f_ab.y));
         vec3 F_avg = F0 + (1.0 - F0) / 21.0;
         vec3 FmsEms = Ems * FssEss * F_avg / (1.0 - F_avg * Ems);
-        vec3 k_D = diffuseColor * (1.0 - FssEss - FmsEms);
+        vec3 k_D = c_diff * (1.0 - FssEss - FmsEms);
         color = FssEss * radiance + (FmsEms + k_D) * irradiance;
     } else {
         // Single scattering, from Karis
-        color = FssEss * radiance + diffuseColor * irradiance;
+        color = FssEss * radiance + c_diff * irradiance;
     }
 
-    gl_FragColor = vec4(color, baseColor.w);
+    gl_FragColor = vec4(color * occlusion + emissive, baseColor.w);
 }
