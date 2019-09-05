@@ -8,6 +8,5 @@ vec4 v_screenPos : TEXCOORD3  = vec4(0.0, 0.0, 0.0, 0.0);
 vec3 a_position  : POSITION;
 vec2 a_texcoord0 : TEXCOORD0;
 vec3 a_normal    : NORMAL;
-vec3 a_tangent   : TANGENT;
-vec3 a_bitangent : BITANGENT;
+vec4 a_tangent   : TANGENT;
 

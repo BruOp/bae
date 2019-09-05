@@ -8,20 +8,7 @@ namespace bae {
 
     struct Mesh;
 
-    struct BasicVertex
-    {
-        glm::vec3 position;
-
-        static bgfx::VertexDecl s_decl;
-        static void init()
-        {
-            s_decl.begin()
-                .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
-                .end();
-        }
-    };
-
-    extern std::vector<BasicVertex> basicIcosahedronPositions;
+    extern std::vector<glm::vec3> basicIcosahedronPositions;
 
     class IcosahedronFactory
     {
@@ -30,7 +17,7 @@ namespace bae {
 
         Mesh getMesh();
 
-        std::vector<BasicVertex> vertices;
+        std::vector<glm::vec3> vertices;
         std::vector<uint16_t> indices;
 
 
