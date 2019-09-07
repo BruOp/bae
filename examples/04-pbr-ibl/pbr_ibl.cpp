@@ -587,9 +587,7 @@ namespace example
         uint32_t m_oldWidth;
         uint32_t m_oldHeight;
         uint32_t m_oldReset;
-
-        float m_totalBrightness = 1.0f;
-
+        
         bgfx::ProgramHandle m_skyboxProgram = BGFX_INVALID_HANDLE;
         bgfx::ProgramHandle m_pbrIblProgram = BGFX_INVALID_HANDLE;
         bgfx::ProgramHandle m_pbrIblProgramWithMasking = BGFX_INVALID_HANDLE;
