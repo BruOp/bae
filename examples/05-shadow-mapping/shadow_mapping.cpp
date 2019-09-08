@@ -57,7 +57,7 @@ namespace example
     void bindUniforms(const DirectionalLight& light, const bgfx::TextureHandle shadowMapTexture) {
         bgfx::setUniform(light.u_directionalLightParams, &light, 2);
         bgfx::setUniform(light.u_lightViewProj, light.viewProjection);
-        bgfx::setTexture(5, light.s_shadowMap, shadowMapTexture, BGFX_SAMPLER_UVW_CLAMP);
+        bgfx::setTexture(5, light.s_shadowMap, shadowMapTexture, SAMPLER_POINT_CLAMP);
     }
 
     struct PBRShaderUniforms
@@ -118,20 +118,29 @@ namespace example
 
     struct SceneUniforms
     {
+        float manualBias = 0.000;
+        float slopeScaleBias = 0.020;
+        float normalOffsetFactor = 0.020;
+        float texelSize = 0.0;
+
+        bgfx::UniformHandle u_shadowMapParams = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_cameraPos = BGFX_INVALID_HANDLE;
     };
 
     void init(SceneUniforms& uniforms)
     {
+        uniforms.u_shadowMapParams = bgfx::createUniform("u_shadowMapParams", bgfx::UniformType::Vec4);
         uniforms.u_cameraPos = bgfx::createUniform("u_cameraPos", bgfx::UniformType::Vec4);
     }
 
     void destroy(SceneUniforms& uniforms) {
+        bgfx::destroy(uniforms.u_shadowMapParams);
         bgfx::destroy(uniforms.u_cameraPos);
     }
 
     void bindUniforms(const SceneUniforms& uniforms, const bx::Vec3 cameraPos)
     {
+        bgfx::setUniform(uniforms.u_shadowMapParams, &uniforms.manualBias);
         bgfx::setUniform(uniforms.u_cameraPos, &cameraPos);
     }
 
@@ -170,12 +179,12 @@ namespace example
 
             m_directionalShadowMapProgram = loadProgram("vs_directional_shadowmap", "fs_directional_shadowmap");
             m_prepassProgram = loadProgram("vs_z_prepass", "fs_z_prepass");
-            m_pbrShader = loadProgram("vs_shadow_maped_pbr", "fs_shadow_maped_pbr");
-            m_pbrShaderWithMasking = loadProgram("vs_shadow_maped_pbr", "fs_shadow_maped_pbr_masked");
+            m_pbrShader = loadProgram("vs_shadow_mapped_pbr", "fs_shadow_mapped_pbr");
+            m_pbrShaderWithMasking = loadProgram("vs_shadow_mapped_pbr", "fs_shadow_mapped_pbr_masked");
 
             // Lets load all the meshes
             m_model = bae::loadGltfModel("meshes/Sponza/", "Sponza.gltf");
-            
+
             example::init(m_pbrUniforms);
             example::init(m_sceneUniforms);
             example::init(m_directionalLight);
@@ -334,7 +343,13 @@ namespace example
             ImGui::Begin("Settings", NULL, 0);
 
             ImGui::DragFloat("Total Brightness", &m_directionalLight.m_intensity, 0.5f, 0.0f, 250.0f);
+            ImGui::SliderFloat3("Light Direction", glm::value_ptr(m_directionalLight.m_direction), -1.0f, 1.0f);
+            m_directionalLight.m_direction = glm::normalize(m_directionalLight.m_direction);
             ImGui::Checkbox("Z-Prepass Enabled", &m_zPrepassEnabled);
+
+            ImGui::SliderFloat("Manual Bias", &m_sceneUniforms.manualBias, 0.0f, 0.01f);
+            ImGui::SliderFloat("Slope Scale Bias Factor", &m_sceneUniforms.slopeScaleBias, 0.0f, 0.05f);
+            ImGui::SliderFloat("Normal Offset Bias", &m_sceneUniforms.normalOffsetFactor, 0.0f, 0.05f);
 
             ImGui::End();
 
@@ -386,6 +401,9 @@ namespace example
             constexpr float sceneWidth = 12.0f;
             constexpr float sceneLength = 4.0f;
             constexpr float sceneHeight = 10.0f;
+
+            m_sceneUniforms.texelSize = bx::max(4.0f * sceneWidth, 4.0f * sceneHeight) / m_shadowMapWidth;
+
             float orthoProjection[16];
             bx::mtxOrtho(orthoProjection, -2.0f * sceneWidth, 2.0f * sceneWidth, -2.0f * sceneHeight, 2.0f * sceneHeight, -100.0f, 100.0f, 0.0, m_caps->homogeneousDepth);
             float shadowView[16]{};
@@ -401,11 +419,10 @@ namespace example
             else {
                 bx::mtxLookAt(shadowView, bx::Vec3{ 0.0f, 0.0f, 0.0f }, shadowDir, up);
             }
-            
+
             bgfx::setViewTransform(shadowPass, shadowView, orthoProjection);
             // Apparently this is actually equivalent to result = proj * view
             bx::mtxMul(m_directionalLight.viewProjection, shadowView, orthoProjection);
-
 
             // Render all our opaque meshes into the shadow map
             for (size_t i = 0; i < m_model.opaqueMeshes.meshes.size(); ++i)

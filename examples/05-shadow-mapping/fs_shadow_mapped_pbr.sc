@@ -1,14 +1,23 @@
-$input v_position, v_normal, v_tangent, v_bitangent, v_texcoord, v_lightUVDepth
+$input v_position, v_normal, v_tangent, v_bitangent, v_texcoord
 
 #include "../common/common.sh"
 #include "../common/pbr_helpers.sh"
 
+#define MAX_SLOPE_OFFSET 2.0
+
 // Scene
+uniform vec4 u_shadowMapParams;
+#define u_shadowBias u_shadowMapParams.x
+#define u_slopeScaleBias u_shadowMapParams.y
+#define u_normalOffsetFactor u_shadowMapParams.z
+#define u_shadowMapTexelSize u_shadowMapParams.w
+
 uniform vec4 u_cameraPos;
 uniform vec4 u_directionalLightParams[2];
 #define u_lightColor u_directionalLightParams[0].xyz
 #define u_lightIntesity u_directionalLightParams[0].w
 #define u_lightDir u_directionalLightParams[1].xyz
+uniform mat4 u_lightViewProj;
 
 SAMPLER2D(s_shadowMap, 5);
 
@@ -42,9 +51,15 @@ vec3 specular(vec3 lightDir, vec3 viewDir, vec3 normal, vec3 baseColor, float ro
     return vec3(D * V * F);
 }
 
-float karisFalloff(float dist, float lightRadius) {
-    return pow(clamp(1.0 - pow(dist/lightRadius, 4), 0.0, 1.0), 2) / (dist * dist + 1);
+
+// Taken from http://the-witness.net/news/2013/09/shadow-mapping-summary-part-1/
+vec2 get_shadow_offsets(vec3 normal, vec3 lightDir) {
+    float NoL = clampDot(normal, lightDir);
+    float N_offset_scale = sqrt(1.0 - NoL * NoL); // sin(acos(L·N))
+    float L_offset_scale = N_offset_scale / NoL;    // tan(acos(L·N))
+    return vec2(N_offset_scale, min(MAX_SLOPE_OFFSET, L_offset_scale));
 }
+
 
 void main()
 {
@@ -56,12 +71,24 @@ void main()
     }
 #endif // MASKING_ENABLED
 
-    float depth = v_lightUVDepth.z;
-    float shadowMapDepth = texture2D(s_shadowMap, v_lightUVDepth.xy).r;
-
     vec3 normal = texture2D(s_normal, v_texcoord).xyz * 2.0 - 1.0;
     // From the MikkTSpace docs! (check mikktspace.h)
     normal = normalize(normal.x * v_tangent + normal.y * v_bitangent + normal.z * v_normal);
+
+    // SHADOWING
+    vec2 offsets = u_shadowMapParams.zy * get_shadow_offsets(normal, u_lightDir);
+    vec3 samplePosition = v_position + normal * offsets.x - u_lightDir * offsets.y;
+    vec4 lightClip = mul(u_lightViewProj, vec4(samplePosition, 1.0));
+    vec3 lightUVDepth = lightClip.xyz / lightClip.w;
+#if BGFX_SHADER_LANGUAGE_GLSL
+    lightUVDepth = 0.5 * lightClip + 0.5;
+#else
+    lightUVDepth.xy = 0.5 * lightUVDepth.xy + 0.5;
+    lightUVDepth.y = 1.0 - lightUVDepth.y;
+#endif
+    float depth = lightUVDepth.z - u_shadowBias / lightClip.w;
+    float shadowMapDepth = texture2D(s_shadowMap, lightUVDepth.xy).r;
+    float visibility = step(depth, shadowMapDepth);
 
     vec3 viewDir = normalize(u_cameraPos.xyz - v_position);
 
@@ -70,8 +97,6 @@ void main()
     float metallic = roughnessMetal.y * u_metallicFactor;
     float occlusion = texture2D(s_occlusion, v_texcoord).x;
     vec3 emissive = toLinear(texture2D(s_emissive, v_texcoord)).xyz * u_emissiveFactor;
-
-    float visibility = (depth - shadowMapDepth) > 0.001 ? 0.0 : 1.0;
     vec3 light = visibility * u_lightIntesity * u_lightColor * clampDot(normal, -u_lightDir);
 
     vec3 color = 0.1 * diffuseColor(baseColor.xyz, metallic) + (
