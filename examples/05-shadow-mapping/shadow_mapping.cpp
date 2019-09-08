@@ -30,22 +30,34 @@ namespace example
     {
         glm::vec3 m_color = glm::vec3{ 1.0f, 1.0f, 1.0f };
         float m_intensity = 10.0f;
-        glm::vec4 m_direction = glm::normalize(glm::vec4{ 1.0, 1.0f, -1.0f, 0.0 });
+        glm::vec4 m_direction = glm::normalize(glm::vec4{ 1.0, -3.0f, 1.0f, 0.0 });
 
-        bgfx::UniformHandle u_directionalLightParams;
+        float viewProjection[16] = {};
+
+        bgfx::UniformHandle u_directionalLightParams = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_lightViewProj = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_shadowMap = BGFX_INVALID_HANDLE;
+
     };
 
     void init(DirectionalLight& light)
     {
         light.u_directionalLightParams = bgfx::createUniform("u_directionalLightParams", bgfx::UniformType::Vec4, 2);
+        light.u_lightViewProj = bgfx::createUniform("u_lightViewProj", bgfx::UniformType::Mat4);
+        light.s_shadowMap = bgfx::createUniform("s_shadowMap", bgfx::UniformType::Sampler);
+
     }
 
     void destroy(DirectionalLight& light) {
         bgfx::destroy(light.u_directionalLightParams);
+        bgfx::destroy(light.u_lightViewProj);
+        bgfx::destroy(light.s_shadowMap);
     }
 
-    void bindUniforms(const DirectionalLight& light) {
+    void bindUniforms(const DirectionalLight& light, const bgfx::TextureHandle shadowMapTexture) {
         bgfx::setUniform(light.u_directionalLightParams, &light, 2);
+        bgfx::setUniform(light.u_lightViewProj, light.viewProjection);
+        bgfx::setTexture(5, light.s_shadowMap, shadowMapTexture, BGFX_SAMPLER_UVW_CLAMP);
     }
 
     struct PBRShaderUniforms
@@ -83,7 +95,11 @@ namespace example
         bgfx::destroy(uniforms.u_normalTransform);
     }
 
-    void bindUniforms(const PBRShaderUniforms& uniforms, const bae::PBRMaterial& material, const glm::mat4& transform)
+    void bindUniforms(
+        const PBRShaderUniforms& uniforms,
+        const bae::PBRMaterial& material,
+        const glm::mat4& transform
+    )
     {
         bgfx::setTexture(0, uniforms.s_baseColor, material.baseColorTexture);
         bgfx::setTexture(1, uniforms.s_normal, material.normalTexture);
@@ -131,7 +147,7 @@ namespace example
             m_width = _width;
             m_height = _height;
             m_debug = BGFX_DEBUG_TEXT;
-            m_reset = BGFX_RESET_VSYNC;
+            m_reset = BGFX_RESET_VSYNC | BGFX_RESET_MAXANISOTROPY;
 
             bgfx::Init initInfo;
             initInfo.type = args.m_type;
@@ -154,21 +170,21 @@ namespace example
 
             m_directionalShadowMapProgram = loadProgram("vs_directional_shadowmap", "fs_directional_shadowmap");
             m_prepassProgram = loadProgram("vs_z_prepass", "fs_z_prepass");
-            m_pbrShader = loadProgram("vs_pbr", "fs_pbr");
-            m_pbrShaderWithMasking = loadProgram("vs_pbr", "fs_pbr_masked");
+            m_pbrShader = loadProgram("vs_shadow_maped_pbr", "fs_shadow_maped_pbr");
+            m_pbrShaderWithMasking = loadProgram("vs_shadow_maped_pbr", "fs_shadow_maped_pbr_masked");
 
             // Lets load all the meshes
             m_model = bae::loadGltfModel("meshes/Sponza/", "Sponza.gltf");
-
+            
             example::init(m_pbrUniforms);
             example::init(m_sceneUniforms);
             example::init(m_directionalLight);
 
-            m_totalBrightness = 100.0f;
-
             m_toneMapParams.width = m_width;
             m_toneMapParams.width = m_height;
             m_toneMapParams.originBottomLeft = m_caps->originBottomLeft;
+            m_toneMapParams.minLogLuminance = -5.0f;
+            m_toneMapParams.maxLogLuminance = 10.0f;
             m_toneMapPass.init(m_caps);
 
             // Imgui.
@@ -242,7 +258,7 @@ namespace example
                 bgfx::setState(state);
                 bindUniforms(m_pbrUniforms, material, transform);
                 bindUniforms(m_sceneUniforms, cameraPos);
-                bindUniforms(m_directionalLight);
+                bindUniforms(m_directionalLight, m_shadowMap);
                 mesh.setBuffers();
 
                 bgfx::submit(viewId, program);
@@ -302,6 +318,11 @@ namespace example
                 m_pbrFramebuffer = bgfx::createFrameBuffer(BX_COUNTOF(m_pbrFbTextures), m_pbrFbTextures, true);
             }
 
+            if (!bgfx::isValid(m_shadowMapFramebuffer)) {
+                m_shadowMap = bgfx::createTexture2D(m_shadowMapWidth, m_shadowMapWidth, false, 1, bgfx::TextureFormat::D32);
+                m_shadowMapFramebuffer = bgfx::createFrameBuffer(1, &m_shadowMap, true);
+            }
+
             imguiBeginFrame(m_mouseState.m_mx, m_mouseState.m_my, (m_mouseState.m_buttons[entry::MouseButton::Left] ? IMGUI_MBUT_LEFT : 0) | (m_mouseState.m_buttons[entry::MouseButton::Right] ? IMGUI_MBUT_RIGHT : 0) | (m_mouseState.m_buttons[entry::MouseButton::Middle] ? IMGUI_MBUT_MIDDLE : 0), m_mouseState.m_mz, uint16_t(m_width), uint16_t(m_height));
 
             showExampleDialog(this);
@@ -312,34 +333,38 @@ namespace example
                 ImVec2(m_width / 5.0f, m_height / 3.0f), ImGuiCond_FirstUseEver);
             ImGui::Begin("Settings", NULL, 0);
 
-            ImGui::DragFloat("Total Brightness", &m_totalBrightness, 0.5f, 0.0f, 250.0f);
+            ImGui::DragFloat("Total Brightness", &m_directionalLight.m_intensity, 0.5f, 0.0f, 250.0f);
             ImGui::Checkbox("Z-Prepass Enabled", &m_zPrepassEnabled);
 
             ImGui::End();
 
             imguiEndFrame();
 
-            bgfx::ViewId zPrepass = 0;
+            bgfx::ViewId shadowPass = 0;
+            bgfx::setViewFrameBuffer(shadowPass, m_shadowMapFramebuffer);
+            bgfx::setViewName(shadowPass, "Shadow Map");
+            bgfx::setViewRect(shadowPass, 0, 0, m_shadowMapWidth, m_shadowMapWidth);
+            bgfx::setViewClear(shadowPass, BGFX_CLEAR_DEPTH, 0x000000ff, 1.0f, 0);
+
+            bgfx::ViewId zPrepass = 1;
             bgfx::setViewFrameBuffer(zPrepass, m_pbrFramebuffer);
             bgfx::setViewName(zPrepass, "Z Prepass");
             bgfx::setViewRect(zPrepass, 0, 0, uint16_t(m_width), uint16_t(m_height));
 
-            bgfx::ViewId meshPass = 1;
+            bgfx::ViewId meshPass = 2;
             bgfx::setViewFrameBuffer(meshPass, m_pbrFramebuffer);
             bgfx::setViewName(meshPass, "Draw Meshes");
             bgfx::setViewRect(meshPass, 0, 0, uint16_t(m_width), uint16_t(m_height));
 
-            // This dummy draw call is here to make sure that view 0 is cleared
-            // if no other draw calls are submitted to view 0.
-            if (m_zPrepassEnabled)
-            {
-                bgfx::setViewClear(zPrepass, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x030303ff, 1.0f, 0);
+
+            if (m_zPrepassEnabled) {
+                bgfx::setViewClear(zPrepass, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x000000ff, 1.0f, 0);
                 bgfx::setViewClear(meshPass, 0);
                 bgfx::touch(zPrepass);
             }
             else
             {
-                bgfx::setViewClear(meshPass, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x030303ff, 1.0f, 0);
+                bgfx::setViewClear(meshPass, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x000000ff, 1.0f, 0);
                 bgfx::touch(meshPass);
             }
 
@@ -350,6 +375,49 @@ namespace example
             const double freq = double(bx::getHPFrequency());
             const float deltaTime = (float)(frameTime / freq);
             m_time += deltaTime;
+
+            uint64_t stateShadowMapping = 0
+                | BGFX_STATE_WRITE_Z
+                | BGFX_STATE_CULL_CCW
+                | BGFX_STATE_DEPTH_TEST_LESS;
+
+            // Need to set the ortoprojection
+            // Ortho projection will be a guess
+            constexpr float sceneWidth = 12.0f;
+            constexpr float sceneLength = 4.0f;
+            constexpr float sceneHeight = 10.0f;
+            float orthoProjection[16];
+            bx::mtxOrtho(orthoProjection, -2.0f * sceneWidth, 2.0f * sceneWidth, -2.0f * sceneHeight, 2.0f * sceneHeight, -100.0f, 100.0f, 0.0, m_caps->homogeneousDepth);
+            float shadowView[16]{};
+            bx::Vec3 shadowDir{
+                m_directionalLight.m_direction.x,
+                m_directionalLight.m_direction.y,
+                m_directionalLight.m_direction.z,
+            };
+            bx::Vec3 up = { 0.0f, 1.0f, 0.0f };
+            if (bx::abs(shadowDir).y == up.y) {
+                bx::mtxLookAt(shadowView, bx::Vec3{ 0.0f, 0.0f, 0.0f }, shadowDir, bx::Vec3{ 1.0f, 0.0f, 0.0f });
+            }
+            else {
+                bx::mtxLookAt(shadowView, bx::Vec3{ 0.0f, 0.0f, 0.0f }, shadowDir, up);
+            }
+            
+            bgfx::setViewTransform(shadowPass, shadowView, orthoProjection);
+            // Apparently this is actually equivalent to result = proj * view
+            bx::mtxMul(m_directionalLight.viewProjection, shadowView, orthoProjection);
+
+
+            // Render all our opaque meshes into the shadow map
+            for (size_t i = 0; i < m_model.opaqueMeshes.meshes.size(); ++i)
+            {
+                const auto& mesh = m_model.opaqueMeshes.meshes[i];
+                const auto& transform = m_model.opaqueMeshes.transforms[i];
+
+                bgfx::setState(stateShadowMapping);
+                bgfx::setTransform(glm::value_ptr(transform));
+                mesh.setBuffers();
+                bgfx::submit(shadowPass, m_directionalShadowMapProgram);
+            }
 
             float proj[16];
             bx::mtxProj(proj, 60.0f, float(m_width) / float(m_height), 0.1f, 100.0f, bgfx::getCaps()->homogeneousDepth);
@@ -363,16 +431,16 @@ namespace example
             bgfx::setViewTransform(zPrepass, view, proj);
             bgfx::setViewTransform(meshPass, view, proj);
 
-            // Not scaling or translating our scene
-            glm::mat4 mtx = glm::identity<glm::mat4>();
-
             // Set view 0 default viewport.
             bx::Vec3 cameraPos = cameraGetPosition();
 
-            uint64_t stateOpaque = 0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_CULL_CCW | BGFX_STATE_MSAA;
+            uint64_t stateOpaque = 0
+                | BGFX_STATE_WRITE_RGB
+                | BGFX_STATE_WRITE_A
+                | BGFX_STATE_CULL_CCW
+                | BGFX_STATE_MSAA;
 
-            if (m_zPrepassEnabled)
-            {
+            if (m_zPrepassEnabled) {
                 stateOpaque |= BGFX_STATE_DEPTH_TEST_LEQUAL;
             }
             else
@@ -380,11 +448,20 @@ namespace example
                 stateOpaque |= BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS;
             }
 
-            uint64_t stateTransparent = 0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CCW | BGFX_STATE_MSAA | BGFX_STATE_BLEND_ALPHA;
+            uint64_t stateTransparent = 0
+                | BGFX_STATE_WRITE_RGB
+                | BGFX_STATE_WRITE_A
+                | BGFX_STATE_DEPTH_TEST_LESS
+                | BGFX_STATE_CULL_CCW
+                | BGFX_STATE_MSAA
+                | BGFX_STATE_BLEND_ALPHA;
 
-            if (m_zPrepassEnabled)
-            {
-                uint64_t statePrepass = 0 | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CCW | BGFX_STATE_MSAA;
+            if (m_zPrepassEnabled) {
+                uint64_t statePrepass = 0
+                    | BGFX_STATE_WRITE_Z
+                    | BGFX_STATE_DEPTH_TEST_LESS
+                    | BGFX_STATE_CULL_CCW
+                    | BGFX_STATE_MSAA;
 
                 // Render all our opaque meshes
                 renderMeshes(m_model.opaqueMeshes, cameraPos, statePrepass, m_pbrShader, zPrepass);
@@ -419,7 +496,7 @@ namespace example
         uint32_t m_oldHeight;
         uint32_t m_oldReset;
 
-        float m_totalBrightness = 1.0f;
+        uint16_t m_shadowMapWidth = 2048u;
         float m_time;
 
         bgfx::ProgramHandle m_directionalShadowMapProgram;
@@ -428,7 +505,7 @@ namespace example
         bgfx::ProgramHandle m_pbrShaderWithMasking;
 
 
-        bgfx::TextureHandle m_shadowMapTextures[2];
+        bgfx::TextureHandle m_shadowMap;
         bgfx::FrameBufferHandle m_shadowMapFramebuffer = BGFX_INVALID_HANDLE;
 
         bgfx::TextureHandle m_pbrFbTextures[2];
@@ -436,7 +513,7 @@ namespace example
 
         PBRShaderUniforms m_pbrUniforms = {};
         SceneUniforms m_sceneUniforms = {};
-        
+
         bae::Model m_model;
 
         DirectionalLight m_directionalLight = {};
