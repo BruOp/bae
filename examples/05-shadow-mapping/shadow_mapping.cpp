@@ -26,6 +26,10 @@ namespace example
 
     static float s_texelHalf = 0.0f;
 
+    constexpr uint16_t THREAD_COUNT_PER_DIM = 8u;
+    constexpr float NEAR_PLANE = 0.2f;
+    constexpr float FAR_PLANE = 1000.f;
+
     struct DirectionalLight
     {
         glm::vec3 m_color = glm::vec3{ 1.0f, 1.0f, 1.0f };
@@ -144,10 +148,38 @@ namespace example
         bgfx::setUniform(uniforms.u_cameraPos, &cameraPos);
     }
 
-    class ExampleForward : public entry::AppI
+    struct DepthReductionUniforms
+    {
+        bgfx::UniformHandle u_params = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_projection = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_depthSampler = BGFX_INVALID_HANDLE;
+    };
+
+    void init(DepthReductionUniforms& uniforms)
+    {
+        uniforms.u_params = bgfx::createUniform("u_params", bgfx::UniformType::Vec4);
+        uniforms.u_projection = bgfx::createUniform("u_projection", bgfx::UniformType::Mat4);
+        uniforms.u_depthSampler = bgfx::createUniform("u_depthSampler", bgfx::UniformType::Sampler);
+    }
+
+    void destroy(DepthReductionUniforms& uniforms)
+    {
+        bgfx::destroy(uniforms.u_depthSampler);
+        bgfx::destroy(uniforms.u_projection);
+        bgfx::destroy(uniforms.u_params);
+    }
+
+    void bindUniforms(const DepthReductionUniforms& uniforms, const uint16_t width, const uint16_t height, const float projection[16])
+    {
+        float params[4]{ float(width), float(height), NEAR_PLANE, FAR_PLANE };
+        bgfx::setUniform(uniforms.u_params, params);
+        bgfx::setUniform(uniforms.u_projection, projection);
+    }
+
+    class ExampleShadow : public entry::AppI
     {
     public:
-        ExampleForward(const char* _name, const char* _description) : entry::AppI(_name, _description) {}
+        ExampleShadow(const char* _name, const char* _description) : entry::AppI(_name, _description) {}
 
         void init(int32_t _argc, const char* const* _argv, uint32_t _width, uint32_t _height) override
         {
@@ -181,13 +213,15 @@ namespace example
             m_prepassProgram = loadProgram("vs_z_prepass", "fs_z_prepass");
             m_pbrShader = loadProgram("vs_shadow_mapped_pbr", "fs_shadow_mapped_pbr");
             m_pbrShaderWithMasking = loadProgram("vs_shadow_mapped_pbr", "fs_shadow_mapped_pbr_masked");
-
+            m_depthReductionInitial = loadProgram("cs_depth_reduction_initial", nullptr);
+            m_depthReductionGeneral = loadProgram("cs_depth_reduction_general", nullptr);
             // Lets load all the meshes
             m_model = bae::loadGltfModel("meshes/Sponza/", "Sponza.gltf");
 
             example::init(m_pbrUniforms);
             example::init(m_sceneUniforms);
             example::init(m_directionalLight);
+            example::init(m_depthReductionUniforms);
 
             m_toneMapParams.width = m_width;
             m_toneMapParams.width = m_height;
@@ -222,6 +256,9 @@ namespace example
             if (bgfx::isValid(m_pbrFramebuffer))
             {
                 bgfx::destroy(m_pbrFramebuffer);
+                for (auto texture : m_depthReductionTargets) {
+                    bgfx::destroy(texture);
+                }
             }
 
             if (bgfx::isValid(m_shadowMapFramebuffer))
@@ -233,9 +270,12 @@ namespace example
 
             // Cleanup.
             destroy(m_directionalLight);
+            destroy(m_depthReductionUniforms);
             destroy(m_pbrUniforms);
             destroy(m_sceneUniforms);
             bae::destroy(m_model);
+            bgfx::destroy(m_depthReductionGeneral);
+            bgfx::destroy(m_depthReductionInitial);
             bgfx::destroy(m_directionalShadowMapProgram);
             bgfx::destroy(m_prepassProgram);
             bgfx::destroy(m_pbrShader);
@@ -274,6 +314,29 @@ namespace example
             }
         }
 
+        // Taken from MJP's Shadow Code: https://github.com/TheRealMJP/Shadows
+        uint16_t getDispatchSize(uint16_t dim, uint16_t threadCount) const
+        {
+            uint16_t dispatchSize = dim / threadCount;
+            dispatchSize += dim % threadCount > 0 ? 1 : 0;
+            return dispatchSize;
+        }
+
+        void setupDepthReductionTargets(uint16_t width, uint16_t height)
+        {
+            for (bgfx::TextureHandle texture : m_depthReductionTargets) {
+                bgfx::destroy(texture);
+            }
+            m_depthReductionTargets.clear();
+
+            while (width > 1 || height > 1) {
+                width = getDispatchSize(width, THREAD_COUNT_PER_DIM);
+                height = getDispatchSize(height, THREAD_COUNT_PER_DIM);
+                bgfx::TextureHandle texture = bgfx::createTexture2D(width, height, false, 0, bgfx::TextureFormat::RG16F, BGFX_TEXTURE_COMPUTE_WRITE);
+                m_depthReductionTargets.push_back(texture);
+            }
+        }
+
         bool update() override
         {
             if (entry::processEvents(m_width, m_height, m_debug, m_reset, &m_mouseState))
@@ -305,26 +368,24 @@ namespace example
                 m_toneMapParams.height = m_height;
 
                 m_pbrFbTextures[0] = bgfx::createTexture2D(
-                    uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA16F, (uint64_t(msaa + 1) << BGFX_TEXTURE_RT_MSAA_SHIFT) | BGFX_SAMPLER_UVW_CLAMP | BGFX_SAMPLER_POINT);
+                    uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA16F, (uint64_t(msaa + 1) << BGFX_TEXTURE_RT_MSAA_SHIFT) | SAMPLER_POINT_CLAMP);
 
-                const uint64_t textureFlags = BGFX_TEXTURE_RT_WRITE_ONLY | (uint64_t(msaa + 1) << BGFX_TEXTURE_RT_MSAA_SHIFT);
+                const uint64_t textureFlags = BGFX_TEXTURE_RT
+                    | (uint64_t(msaa + 1) << BGFX_TEXTURE_RT_MSAA_SHIFT)
+                    | SAMPLER_POINT_CLAMP;
 
-                bgfx::TextureFormat::Enum depthFormat;
-                if (bgfx::isTextureValid(0, false, 1, bgfx::TextureFormat::D24S8, textureFlags))
-                {
-                    depthFormat = bgfx::TextureFormat::D24S8;
-                }
-                else
-                {
-                    depthFormat = bgfx::TextureFormat::D32;
-                }
 
+                bgfx::TextureFormat::Enum depthFormat = bgfx::TextureFormat::D32;
                 m_pbrFbTextures[1] = bgfx::createTexture2D(
                     uint16_t(m_width), uint16_t(m_height), false, 1, depthFormat, textureFlags);
 
                 bgfx::setName(m_pbrFbTextures[0], "HDR Buffer");
+                bgfx::setName(m_pbrFbTextures[1], "HDR Depth Buffer");
 
                 m_pbrFramebuffer = bgfx::createFrameBuffer(BX_COUNTOF(m_pbrFbTextures), m_pbrFbTextures, true);
+
+                // Create new depth reduction targets for our new framebuffer
+                setupDepthReductionTargets(uint16_t(m_width), uint16_t(m_height));
             }
 
             if (!bgfx::isValid(m_shadowMapFramebuffer)) {
@@ -345,7 +406,6 @@ namespace example
             ImGui::DragFloat("Total Brightness", &m_directionalLight.m_intensity, 0.5f, 0.0f, 250.0f);
             ImGui::SliderFloat3("Light Direction", glm::value_ptr(m_directionalLight.m_direction), -1.0f, 1.0f);
             m_directionalLight.m_direction = glm::normalize(m_directionalLight.m_direction);
-            ImGui::Checkbox("Z-Prepass Enabled", &m_zPrepassEnabled);
 
             ImGui::SliderFloat("Manual Bias", &m_sceneUniforms.manualBias, 0.0f, 0.01f);
             ImGui::SliderFloat("Slope Scale Bias Factor", &m_sceneUniforms.slopeScaleBias, 0.0f, 0.05f);
@@ -355,33 +415,28 @@ namespace example
 
             imguiEndFrame();
 
-            bgfx::ViewId shadowPass = 0;
+            bgfx::ViewId viewCount = 0;
+            bgfx::ViewId zPrepass = viewCount++;
+            bgfx::setViewFrameBuffer(zPrepass, m_pbrFramebuffer);
+            bgfx::setViewName(zPrepass, "Z Prepass");
+            bgfx::setViewRect(zPrepass, 0, 0, uint16_t(m_width), uint16_t(m_height));
+            bgfx::setViewClear(zPrepass, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x000000ff, 1.0f, 0);
+
+            bgfx::ViewId depthReductionPass = viewCount++;
+            bgfx::setViewName(depthReductionPass, "Depth Reduction");
+
+            bgfx::ViewId shadowPass = viewCount++;
             bgfx::setViewFrameBuffer(shadowPass, m_shadowMapFramebuffer);
             bgfx::setViewName(shadowPass, "Shadow Map");
             bgfx::setViewRect(shadowPass, 0, 0, m_shadowMapWidth, m_shadowMapWidth);
             bgfx::setViewClear(shadowPass, BGFX_CLEAR_DEPTH, 0x000000ff, 1.0f, 0);
 
-            bgfx::ViewId zPrepass = 1;
-            bgfx::setViewFrameBuffer(zPrepass, m_pbrFramebuffer);
-            bgfx::setViewName(zPrepass, "Z Prepass");
-            bgfx::setViewRect(zPrepass, 0, 0, uint16_t(m_width), uint16_t(m_height));
-
-            bgfx::ViewId meshPass = 2;
+            bgfx::ViewId meshPass = viewCount++;
             bgfx::setViewFrameBuffer(meshPass, m_pbrFramebuffer);
             bgfx::setViewName(meshPass, "Draw Meshes");
             bgfx::setViewRect(meshPass, 0, 0, uint16_t(m_width), uint16_t(m_height));
 
-
-            if (m_zPrepassEnabled) {
-                bgfx::setViewClear(zPrepass, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x000000ff, 1.0f, 0);
-                bgfx::setViewClear(meshPass, 0);
-                bgfx::touch(zPrepass);
-            }
-            else
-            {
-                bgfx::setViewClear(meshPass, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x000000ff, 1.0f, 0);
-                bgfx::touch(meshPass);
-            }
+            bgfx::touch(zPrepass);
 
             int64_t now = bx::getHPCounter();
             static int64_t last = now;
@@ -390,6 +445,52 @@ namespace example
             const double freq = double(bx::getHPFrequency());
             const float deltaTime = (float)(frameTime / freq);
             m_time += deltaTime;
+
+            float proj[16];
+            bx::mtxProj(proj, 60.0f, float(m_width) / float(m_height), NEAR_PLANE, FAR_PLANE, bgfx::getCaps()->homogeneousDepth);
+
+            // Update camera
+            float view[16];
+
+            cameraUpdate(0.5f * deltaTime, m_mouseState);
+            cameraGetViewMtx(view);
+            // Set view and projection matrix
+            bgfx::setViewTransform(zPrepass, view, proj);
+            bgfx::setViewTransform(meshPass, view, proj);
+
+            // Set view 0 default viewport.
+            bx::Vec3 cameraPos = cameraGetPosition();
+
+            uint64_t statePrepass = 0
+                | BGFX_STATE_WRITE_Z
+                | BGFX_STATE_DEPTH_TEST_LESS
+                | BGFX_STATE_CULL_CCW
+                | BGFX_STATE_MSAA;
+
+            // Render all our opaque meshes
+            renderMeshes(m_model.opaqueMeshes, cameraPos, statePrepass, m_prepassProgram, zPrepass);
+
+            // Dispatch initial
+            uint16_t dispatchSizeX = getDispatchSize(uint16_t(m_width), THREAD_COUNT_PER_DIM);
+            uint16_t dispatchSizeY = getDispatchSize(uint16_t(m_height), THREAD_COUNT_PER_DIM);
+
+            bindUniforms(m_depthReductionUniforms, uint16_t(m_width), uint16_t(m_height), proj);
+            bgfx::setTexture(0, m_depthReductionUniforms.u_depthSampler, m_pbrFbTextures[1], SAMPLER_POINT_CLAMP);
+            bgfx::setImage(1, m_depthReductionTargets[0], 0, bgfx::Access::Write, bgfx::TextureFormat::RG16F);
+            bgfx::dispatch(depthReductionPass, m_depthReductionInitial, dispatchSizeX, dispatchSizeY, 1);
+
+            for (size_t i = 1; i < m_depthReductionTargets.size(); i++) {
+                // Size of source reduction map
+                bindUniforms(m_depthReductionUniforms, dispatchSizeX, dispatchSizeY, proj);
+                // Set dispatch to be size of output reduction map
+                dispatchSizeX = getDispatchSize(dispatchSizeX, THREAD_COUNT_PER_DIM);
+                dispatchSizeY = getDispatchSize(dispatchSizeY, THREAD_COUNT_PER_DIM);
+                // Dispatch secondary
+                bgfx::setImage(0, m_depthReductionTargets[i - 1], 0, bgfx::Access::Read, bgfx::TextureFormat::RG16F);
+                bgfx::setImage(1, m_depthReductionTargets[i], 0, bgfx::Access::Write, bgfx::TextureFormat::RG16F);
+                bgfx::dispatch(depthReductionPass, m_depthReductionGeneral, dispatchSizeX, dispatchSizeY, 1);
+            }
+
 
             uint64_t stateShadowMapping = 0
                 | BGFX_STATE_WRITE_Z
@@ -436,34 +537,13 @@ namespace example
                 bgfx::submit(shadowPass, m_directionalShadowMapProgram);
             }
 
-            float proj[16];
-            bx::mtxProj(proj, 60.0f, float(m_width) / float(m_height), 0.1f, 100.0f, bgfx::getCaps()->homogeneousDepth);
-
-            // Update camera
-            float view[16];
-
-            cameraUpdate(0.5f * deltaTime, m_mouseState);
-            cameraGetViewMtx(view);
-            // Set view and projection matrix
-            bgfx::setViewTransform(zPrepass, view, proj);
-            bgfx::setViewTransform(meshPass, view, proj);
-
-            // Set view 0 default viewport.
-            bx::Vec3 cameraPos = cameraGetPosition();
 
             uint64_t stateOpaque = 0
                 | BGFX_STATE_WRITE_RGB
                 | BGFX_STATE_WRITE_A
                 | BGFX_STATE_CULL_CCW
-                | BGFX_STATE_MSAA;
-
-            if (m_zPrepassEnabled) {
-                stateOpaque |= BGFX_STATE_DEPTH_TEST_LEQUAL;
-            }
-            else
-            {
-                stateOpaque |= BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS;
-            }
+                | BGFX_STATE_MSAA
+                | BGFX_STATE_DEPTH_TEST_LEQUAL;
 
             uint64_t stateTransparent = 0
                 | BGFX_STATE_WRITE_RGB
@@ -473,22 +553,11 @@ namespace example
                 | BGFX_STATE_MSAA
                 | BGFX_STATE_BLEND_ALPHA;
 
-            if (m_zPrepassEnabled) {
-                uint64_t statePrepass = 0
-                    | BGFX_STATE_WRITE_Z
-                    | BGFX_STATE_DEPTH_TEST_LESS
-                    | BGFX_STATE_CULL_CCW
-                    | BGFX_STATE_MSAA;
-
-                // Render all our opaque meshes
-                renderMeshes(m_model.opaqueMeshes, cameraPos, statePrepass, m_pbrShader, zPrepass);
-            }
-
             // Render all our opaque meshes
             renderMeshes(m_model.opaqueMeshes, cameraPos, stateOpaque, m_pbrShader, meshPass);
 
             // Render all our masked meshes
-            renderMeshes(m_model.maskedMeshes, cameraPos, stateOpaque & ~BGFX_STATE_WRITE_Z, m_pbrShaderWithMasking, meshPass);
+            renderMeshes(m_model.maskedMeshes, cameraPos, stateOpaque, m_pbrShaderWithMasking, meshPass);
 
             // Render all our transparent meshes
             renderMeshes(m_model.transparentMeshes, cameraPos, stateTransparent, m_pbrShader, meshPass);
@@ -520,6 +589,8 @@ namespace example
         bgfx::ProgramHandle m_prepassProgram;
         bgfx::ProgramHandle m_pbrShader;
         bgfx::ProgramHandle m_pbrShaderWithMasking;
+        bgfx::ProgramHandle m_depthReductionInitial;
+        bgfx::ProgramHandle m_depthReductionGeneral;
 
 
         bgfx::TextureHandle m_shadowMap;
@@ -528,8 +599,11 @@ namespace example
         bgfx::TextureHandle m_pbrFbTextures[2];
         bgfx::FrameBufferHandle m_pbrFramebuffer = BGFX_INVALID_HANDLE;
 
+        std::vector<bgfx::TextureHandle> m_depthReductionTargets;
+
         PBRShaderUniforms m_pbrUniforms = {};
         SceneUniforms m_sceneUniforms = {};
+        DepthReductionUniforms m_depthReductionUniforms = {};
 
         bae::Model m_model;
 
@@ -541,12 +615,11 @@ namespace example
         const bgfx::Caps* m_caps;
 
         bool m_computeSupported = true;
-        bool m_zPrepassEnabled = false;
     };
 
 } // namespace example
 
 ENTRY_IMPLEMENT_MAIN(
-    example::ExampleForward,
+    example::ExampleShadow,
     "05-shadow-mapping",
     "Rendering sponza with directional lighting and cascaded shadow maps.");
