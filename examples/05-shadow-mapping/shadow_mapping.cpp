@@ -374,7 +374,7 @@ namespace example
                 m_toneMapParams.height = m_height;
 
                 m_pbrFbTextures[0] = bgfx::createTexture2D(
-                    uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA16F, (uint64_t(msaa + 1) << BGFX_TEXTURE_RT_MSAA_SHIFT) | SAMPLER_POINT_CLAMP);
+                    uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA16F, (uint64_t(msaa + 1) << BGFX_TEXTURE_RT_MSAA_SHIFT));
 
                 const uint64_t textureFlags = BGFX_TEXTURE_RT
                     | (uint64_t(msaa + 1) << BGFX_TEXTURE_RT_MSAA_SHIFT)
@@ -506,7 +506,7 @@ namespace example
 
             glm::mat4 viewProj = glm::make_mat4(proj) * glm::make_mat4(view);
             glm::mat4 invViewProj = glm::inverse(viewProj);
-            
+
             // In clip space:
             float clipNear = m_caps->homogeneousDepth ? -1.0f : 0.0f;
             glm::vec4 frustumCorners[] =
@@ -532,26 +532,55 @@ namespace example
             for (size_t i = 0; i < 4; ++i) {
                 glm::vec4 cornerRay = frustumCorners[i + 4] - frustumCorners[i];
                 frustumCorners[i] = minDepth * cornerRay + frustumCorners[i];
-                frustumCorners[i+4] = maxDepth * cornerRay + frustumCorners[i];
+                frustumCorners[i + 4] = maxDepth * cornerRay + frustumCorners[i];
                 center += frustumCorners[i] + frustumCorners[i + 4];
             }
             center /= 8.0f;
 
-            // Transform corners to Light's view space:
+            // Transform view frustum's corners to Light's view space:
             glm::vec3 up = bx::abs(m_directionalLight.m_direction.y) != 1.0f ? glm::vec3{ 0.0f, 1.0f, 0.0f } : glm::vec3{ 1.0f, 0.0f, 0.0f };
-            glm::mat4 shadowView = glm::lookAt(glm::vec3(center - m_directionalLight.m_direction), glm::vec3(center), up);
+            glm::mat4 lightView = glm::lookAt(glm::vec3(center - m_directionalLight.m_direction), glm::vec3(center), up);
             for (size_t i = 0; i < BX_COUNTOF(frustumCorners); ++i) {
-                frustumCorners[i] = shadowView * frustumCorners[i];
+                frustumCorners[i] = lightView * frustumCorners[i];
             }
 
-            // Find AABB bounding box
+            // Find AABB bounding box around view frustum
             glm::vec4 min = frustumCorners[0];
             glm::vec4 max = frustumCorners[0];
             for (size_t i = 1; i < BX_COUNTOF(frustumCorners); ++i) {
                 min = glm::min(min, frustumCorners[i]);
                 max = glm::max(max, frustumCorners[i]);
             }
-            
+
+            // Ensure z-bounds include the scene
+            glm::vec4 bbMin = glm::vec4{ m_model.boundingBox.min, 1.0f };
+            glm::vec4 bbMax = glm::vec4{ m_model.boundingBox.max, 1.0f };
+            glm::vec4 bbCorners[8] = {
+                {bbMin.x, bbMax.y, bbMax.z, 1.0f },
+                {bbMax.x, bbMax.y, bbMax.z, 1.0f },
+                {bbMax.x, bbMin.y, bbMax.z, 1.0f },
+                {bbMin.x, bbMin.y, bbMax.z, 1.0f },
+                {bbMin.x, bbMax.y, bbMin.z, 1.0f },
+                {bbMax.x, bbMax.y, bbMin.z, 1.0f },
+                {bbMax.x, bbMin.y, bbMin.z, 1.0f },
+                {bbMin.x, bbMin.y, bbMin.z, 1.0f },
+            };
+            bbMin = lightView * bbCorners[0];
+            bbMax = lightView * bbCorners[0];
+            for (size_t i = 1; i < BX_COUNTOF(bbCorners); ++i) {
+                glm::vec4 bbCornerLightSpace = lightView * bbCorners[i];
+                bbMin = glm::min(bbCornerLightSpace, bbMin);
+                bbMax = glm::max(bbCornerLightSpace, bbMax);
+            }
+            // Aggressively bound X and Y, since we don't want any wasted space
+            min.x = bx::max(bbMin.x, min.x);
+            max.x = bx::min(bbMax.x, max.x);
+            min.y = bx::max(bbMin.y, min.y);
+            max.y = bx::min(bbMax.y, max.y);
+            // Conservatively bound Z, since we need to make sure all occluders are included, even if they are behind the view frustum
+            max.z = bx::max(bbMax.z, max.z);
+            max.z = bx::max(bbMax.z, max.z);
+
             uint64_t stateShadowMapping = 0
                 | BGFX_STATE_WRITE_Z
                 | BGFX_STATE_CULL_CCW
@@ -565,18 +594,16 @@ namespace example
                 max.x, // right
                 min.y, // bottom
                 max.y, // top,
-                0, // near
+                max.z, // near
                 min.z - max.z, // far
                 0.0, m_caps->homogeneousDepth);
             glm::mat4 orthoProjection = glm::make_mat4(orthoProjectionRaw);
 
-            shadowView = glm::lookAt(glm::vec3(center + m_directionalLight.m_direction * min.z), glm::vec3(center), up);
+            lightView = glm::lookAt(glm::vec3(center - m_directionalLight.m_direction), glm::vec3(center), up);
 
-            
-            bgfx::setViewTransform(shadowPass, glm::value_ptr(shadowView), glm::value_ptr(orthoProjection));
-            // Apparently this is actually equivalent to result = proj * view
-            glm::mat4 shadowViewProj = orthoProjection * shadowView;
-            bx::memCopy(m_directionalLight.viewProjection, glm::value_ptr(shadowViewProj), sizeof(float) * 16);
+            bgfx::setViewTransform(shadowPass, glm::value_ptr(lightView), glm::value_ptr(orthoProjection));
+            glm::mat4 lightViewProj = orthoProjection * lightView;
+            bx::memCopy(m_directionalLight.viewProjection, glm::value_ptr(lightViewProj), sizeof(float) * 16);
 
             // Render all our opaque meshes into the shadow map
             for (size_t i = 0; i < m_model.opaqueMeshes.meshes.size(); ++i)
@@ -623,7 +650,7 @@ namespace example
             float debugProjection[16];
             bx::mtxOrtho(debugProjection, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, m_caps->homogeneousDepth);
             bgfx::setViewTransform(debugShadowPass, nullptr, debugProjection);
-            bgfx::setTexture(0, m_shadowMapDebugSampler, m_shadowMap);
+            bgfx::setTexture(0, m_shadowMapDebugSampler, m_shadowMap, BGFX_SAMPLER_UVW_CLAMP);
             bgfx::setState(BGFX_STATE_WRITE_RGB);
             bae::setScreenSpaceQuad(m_shadowMapWidth, m_shadowMapWidth, m_caps->originBottomLeft);
             bgfx::submit(debugShadowPass, m_drawDepthDebugProgram);
