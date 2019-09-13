@@ -36,7 +36,11 @@ void main() {
   float sampledDepth = texture2DLod(s_inputDepthMap, sampleUV, 0).r;
   if (sampledDepth < 1.0) {
     // Transform to linear depth, taken from MJP
+#if BGFX_SHADER_LANGUAGE_GLSL
+    sampledDepth = u_projection[3][2] / (sampledDepth - u_projection[2][2]);
+#else
     sampledDepth = u_projection[2][3] / (sampledDepth - u_projection[2][2]);
+#endif
     sampledDepth = saturate((sampledDepth - nearZ) / (farZ - nearZ));
     depthShared[gl_LocalInvocationIndex] = vec2_splat(sampledDepth);
   } else {

@@ -18,6 +18,7 @@
 #include "camera.h"
 #include "bae/PhysicallyBasedScene.h"
 #include "bae/Tonemapping.h"
+#include "bae/Offscreen.h"
 #include "bae/gltf_model_loading.h"
 
 namespace example
@@ -215,6 +216,8 @@ namespace example
             m_pbrShaderWithMasking = loadProgram("vs_shadow_mapped_pbr", "fs_shadow_mapped_pbr_masked");
             m_depthReductionInitial = loadProgram("cs_depth_reduction_initial", nullptr);
             m_depthReductionGeneral = loadProgram("cs_depth_reduction_general", nullptr);
+            m_drawDepthDebugProgram = loadProgram("vs_texture_pass_through", "fs_texture_pass_through");
+
             // Lets load all the meshes
             m_model = bae::loadGltfModel("meshes/Sponza/", "Sponza.gltf");
 
@@ -222,6 +225,7 @@ namespace example
             example::init(m_sceneUniforms);
             example::init(m_directionalLight);
             example::init(m_depthReductionUniforms);
+            m_shadowMapDebugSampler = bgfx::createUniform("s_input", bgfx::UniformType::Sampler);
 
             m_toneMapParams.width = m_width;
             m_toneMapParams.width = m_height;
@@ -238,7 +242,7 @@ namespace example
             // Init camera
             cameraCreate();
             cameraSetPosition({ 0.0f, 2.0f, 0.0f });
-            cameraSetHorizontalAngle(bx::kPi / 2.0);
+            //cameraSetHorizontalAngle(bx::kPi / 2.0);
             m_oldWidth = 0;
             m_oldHeight = 0;
             m_oldReset = m_reset;
@@ -264,16 +268,18 @@ namespace example
             if (bgfx::isValid(m_shadowMapFramebuffer))
             {
                 bgfx::destroy(m_shadowMapFramebuffer);
+                bgfx::destroy(m_cpuReadableDepth);
             }
 
             m_toneMapPass.destroy();
-
             // Cleanup.
             destroy(m_directionalLight);
             destroy(m_depthReductionUniforms);
             destroy(m_pbrUniforms);
             destroy(m_sceneUniforms);
+            bgfx::destroy(m_shadowMapDebugSampler);
             bae::destroy(m_model);
+            bgfx::destroy(m_drawDepthDebugProgram);
             bgfx::destroy(m_depthReductionGeneral);
             bgfx::destroy(m_depthReductionInitial);
             bgfx::destroy(m_directionalShadowMapProgram);
@@ -386,6 +392,7 @@ namespace example
 
                 // Create new depth reduction targets for our new framebuffer
                 setupDepthReductionTargets(uint16_t(m_width), uint16_t(m_height));
+                m_cpuReadableDepth = bgfx::createTexture2D(1, 1, false, 1, bgfx::TextureFormat::RG16F, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK);
             }
 
             if (!bgfx::isValid(m_shadowMapFramebuffer)) {
@@ -415,6 +422,8 @@ namespace example
 
             imguiEndFrame();
 
+            bgfx::touch(0);
+
             bgfx::ViewId viewCount = 0;
             bgfx::ViewId zPrepass = viewCount++;
             bgfx::setViewFrameBuffer(zPrepass, m_pbrFramebuffer);
@@ -436,8 +445,6 @@ namespace example
             bgfx::setViewName(meshPass, "Draw Meshes");
             bgfx::setViewRect(meshPass, 0, 0, uint16_t(m_width), uint16_t(m_height));
 
-            bgfx::touch(zPrepass);
-
             int64_t now = bx::getHPCounter();
             static int64_t last = now;
             const int64_t frameTime = now - last;
@@ -446,13 +453,14 @@ namespace example
             const float deltaTime = (float)(frameTime / freq);
             m_time += deltaTime;
 
+            float fov = 60.0f;
             float proj[16];
-            bx::mtxProj(proj, 60.0f, float(m_width) / float(m_height), NEAR_PLANE, FAR_PLANE, bgfx::getCaps()->homogeneousDepth);
+            bx::mtxProj(proj, fov, float(m_width) / float(m_height), NEAR_PLANE, FAR_PLANE, bgfx::getCaps()->homogeneousDepth);
 
             // Update camera
             float view[16];
 
-            cameraUpdate(0.5f * deltaTime, m_mouseState);
+            cameraUpdate(0.1f * deltaTime, m_mouseState);
             cameraGetViewMtx(view);
             // Set view and projection matrix
             bgfx::setViewTransform(zPrepass, view, proj);
@@ -491,39 +499,84 @@ namespace example
                 bgfx::dispatch(depthReductionPass, m_depthReductionGeneral, dispatchSizeX, dispatchSizeY, 1);
             }
 
+            bgfx::blit(shadowPass, m_cpuReadableDepth, 0, 0, m_depthReductionTargets[m_depthReductionTargets.size() - 1], 0, 0);
+            bgfx::readTexture(m_cpuReadableDepth, m_depthData, 0);
+            float minDepth = bx::halfToFloat(m_depthData[0]);
+            float maxDepth = bx::halfToFloat(m_depthData[1]);
 
+            glm::mat4 viewProj = glm::make_mat4(proj) * glm::make_mat4(view);
+            glm::mat4 invViewProj = glm::inverse(viewProj);
+            
+            // In clip space:
+            float clipNear = m_caps->homogeneousDepth ? -1.0f : 0.0f;
+            glm::vec4 frustumCorners[] =
+            {
+                glm::vec4(-1.0f,  1.0f, clipNear, 1.0f), // top left near
+                glm::vec4(1.0f,  1.0f, clipNear, 1.0f), // top right near
+                glm::vec4(1.0f, -1.0f, clipNear, 1.0f), // bottom right near
+                glm::vec4(-1.0f, -1.0f, clipNear, 1.0f), // bottom left near
+                glm::vec4(-1.0f,  1.0f, 1.0f, 1.0f), // top left far
+                glm::vec4(1.0f,  1.0f, 1.0f, 1.0f), // top right far
+                glm::vec4(1.0f, -1.0f, 1.0f, 1.0f), // bottom right far
+                glm::vec4(-1.0f, -1.0f, 1.0f, 1.0f), // botom left far
+            };
+
+            // Convert to world space
+            for (size_t i = 0; i < BX_COUNTOF(frustumCorners); ++i) {
+                frustumCorners[i] = invViewProj * frustumCorners[i];
+                frustumCorners[i] /= frustumCorners[i].w;
+            }
+
+            // Use min and max bounds to get slice of frustum
+            glm::vec4 center{ 0.0 };
+            for (size_t i = 0; i < 4; ++i) {
+                glm::vec4 cornerRay = frustumCorners[i + 4] - frustumCorners[i];
+                frustumCorners[i] = minDepth * cornerRay + frustumCorners[i];
+                frustumCorners[i+4] = maxDepth * cornerRay + frustumCorners[i];
+                center += frustumCorners[i] + frustumCorners[i + 4];
+            }
+            center /= 8.0f;
+
+            // Transform corners to Light's view space:
+            glm::vec3 up = bx::abs(m_directionalLight.m_direction.y) != 1.0f ? glm::vec3{ 0.0f, 1.0f, 0.0f } : glm::vec3{ 1.0f, 0.0f, 0.0f };
+            glm::mat4 shadowView = glm::lookAt(glm::vec3(center - m_directionalLight.m_direction), glm::vec3(center), up);
+            for (size_t i = 0; i < BX_COUNTOF(frustumCorners); ++i) {
+                frustumCorners[i] = shadowView * frustumCorners[i];
+            }
+
+            // Find AABB bounding box
+            glm::vec4 min = frustumCorners[0];
+            glm::vec4 max = frustumCorners[0];
+            for (size_t i = 1; i < BX_COUNTOF(frustumCorners); ++i) {
+                min = glm::min(min, frustumCorners[i]);
+                max = glm::max(max, frustumCorners[i]);
+            }
+            
             uint64_t stateShadowMapping = 0
                 | BGFX_STATE_WRITE_Z
                 | BGFX_STATE_CULL_CCW
                 | BGFX_STATE_DEPTH_TEST_LESS;
 
-            // Need to set the ortoprojection
-            // Ortho projection will be a guess
-            constexpr float sceneWidth = 12.0f;
-            constexpr float sceneLength = 4.0f;
-            constexpr float sceneHeight = 10.0f;
+            //m_sceneUniforms.texelSize = bx::max(2.0f * (right - left), 2.0f * (top - bottom)) / m_shadowMapWidth;
+            float orthoProjectionRaw[16];
+            bx::mtxOrtho(
+                orthoProjectionRaw,
+                min.x, // left
+                max.x, // right
+                min.y, // bottom
+                max.y, // top,
+                0, // near
+                min.z - max.z, // far
+                0.0, m_caps->homogeneousDepth);
+            glm::mat4 orthoProjection = glm::make_mat4(orthoProjectionRaw);
 
-            m_sceneUniforms.texelSize = bx::max(4.0f * sceneWidth, 4.0f * sceneHeight) / m_shadowMapWidth;
+            shadowView = glm::lookAt(glm::vec3(center + m_directionalLight.m_direction * min.z), glm::vec3(center), up);
 
-            float orthoProjection[16];
-            bx::mtxOrtho(orthoProjection, -2.0f * sceneWidth, 2.0f * sceneWidth, -2.0f * sceneHeight, 2.0f * sceneHeight, -100.0f, 100.0f, 0.0, m_caps->homogeneousDepth);
-            float shadowView[16]{};
-            bx::Vec3 shadowDir{
-                m_directionalLight.m_direction.x,
-                m_directionalLight.m_direction.y,
-                m_directionalLight.m_direction.z,
-            };
-            bx::Vec3 up = { 0.0f, 1.0f, 0.0f };
-            if (bx::abs(shadowDir).y == up.y) {
-                bx::mtxLookAt(shadowView, bx::Vec3{ 0.0f, 0.0f, 0.0f }, shadowDir, bx::Vec3{ 1.0f, 0.0f, 0.0f });
-            }
-            else {
-                bx::mtxLookAt(shadowView, bx::Vec3{ 0.0f, 0.0f, 0.0f }, shadowDir, up);
-            }
-
-            bgfx::setViewTransform(shadowPass, shadowView, orthoProjection);
+            
+            bgfx::setViewTransform(shadowPass, glm::value_ptr(shadowView), glm::value_ptr(orthoProjection));
             // Apparently this is actually equivalent to result = proj * view
-            bx::mtxMul(m_directionalLight.viewProjection, shadowView, orthoProjection);
+            glm::mat4 shadowViewProj = orthoProjection * shadowView;
+            bx::memCopy(m_directionalLight.viewProjection, glm::value_ptr(shadowViewProj), sizeof(float) * 16);
 
             // Render all our opaque meshes into the shadow map
             for (size_t i = 0; i < m_model.opaqueMeshes.meshes.size(); ++i)
@@ -562,7 +615,18 @@ namespace example
             // Render all our transparent meshes
             renderMeshes(m_model.transparentMeshes, cameraPos, stateTransparent, m_pbrShader, meshPass);
 
-            m_toneMapPass.render(m_pbrFbTextures[0], m_toneMapParams, deltaTime, meshPass + 1);
+            m_toneMapPass.render(m_pbrFbTextures[0], m_toneMapParams, deltaTime, ++viewCount);
+
+            bgfx::ViewId debugShadowPass = viewCount + 3;
+            bgfx::setViewRect(debugShadowPass, 0, 0, 256, 256);
+
+            float debugProjection[16];
+            bx::mtxOrtho(debugProjection, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, m_caps->homogeneousDepth);
+            bgfx::setViewTransform(debugShadowPass, nullptr, debugProjection);
+            bgfx::setTexture(0, m_shadowMapDebugSampler, m_shadowMap);
+            bgfx::setState(BGFX_STATE_WRITE_RGB);
+            bae::setScreenSpaceQuad(m_shadowMapWidth, m_shadowMapWidth, m_caps->originBottomLeft);
+            bgfx::submit(debugShadowPass, m_drawDepthDebugProgram);
 
             bgfx::frame();
 
@@ -591,7 +655,7 @@ namespace example
         bgfx::ProgramHandle m_pbrShaderWithMasking;
         bgfx::ProgramHandle m_depthReductionInitial;
         bgfx::ProgramHandle m_depthReductionGeneral;
-
+        bgfx::ProgramHandle m_drawDepthDebugProgram;
 
         bgfx::TextureHandle m_shadowMap;
         bgfx::FrameBufferHandle m_shadowMapFramebuffer = BGFX_INVALID_HANDLE;
@@ -600,11 +664,12 @@ namespace example
         bgfx::FrameBufferHandle m_pbrFramebuffer = BGFX_INVALID_HANDLE;
 
         std::vector<bgfx::TextureHandle> m_depthReductionTargets;
+        bgfx::TextureHandle m_cpuReadableDepth;
 
         PBRShaderUniforms m_pbrUniforms = {};
         SceneUniforms m_sceneUniforms = {};
         DepthReductionUniforms m_depthReductionUniforms = {};
-
+        bgfx::UniformHandle m_shadowMapDebugSampler;
         bae::Model m_model;
 
         DirectionalLight m_directionalLight = {};
@@ -615,6 +680,7 @@ namespace example
         const bgfx::Caps* m_caps;
 
         bool m_computeSupported = true;
+        uint16_t m_depthData[2] = { 0, bx::kHalfFloatOne };
     };
 
 } // namespace example
