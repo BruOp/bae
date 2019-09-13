@@ -4,6 +4,7 @@ $input v_position, v_normal, v_tangent, v_bitangent, v_texcoord
 #include "../common/pbr_helpers.sh"
 
 #define MAX_SLOPE_OFFSET 2.0
+#define NUM_CASCADES 4
 
 // Scene
 uniform vec4 u_shadowMapParams;
@@ -17,9 +18,13 @@ uniform vec4 u_directionalLightParams[2];
 #define u_lightColor u_directionalLightParams[0].xyz
 #define u_lightIntesity u_directionalLightParams[0].w
 #define u_lightDir u_directionalLightParams[1].xyz
-uniform mat4 u_lightViewProj;
+uniform mat4 u_lightViewProj[NUM_CASCADES];
+uniform vec4 depthBoundaries[NUM_CASCADES / 2];
 
-SAMPLER2D(s_shadowMap, 5);
+SAMPLER2D(s_shadowMap_1, 5);
+SAMPLER2D(s_shadowMap_2, 6);
+SAMPLER2D(s_shadowMap_3, 7);
+SAMPLER2D(s_shadowMap_4, 8);
 
 
 // Material
@@ -78,7 +83,7 @@ void main()
     // SHADOWING
     vec2 offsets = u_shadowMapParams.zy * get_shadow_offsets(normal, u_lightDir);
     vec3 samplePosition = v_position + normal * offsets.x - u_lightDir * offsets.y;
-    vec4 lightClip = mul(u_lightViewProj, vec4(samplePosition, 1.0));
+    vec4 lightClip = mul(u_lightViewProj[0], vec4(samplePosition, 1.0));
     vec3 lightUVDepth = lightClip.xyz / lightClip.w;
 #if BGFX_SHADER_LANGUAGE_GLSL
     lightUVDepth = 0.5 * lightClip + 0.5;
@@ -87,7 +92,7 @@ void main()
     lightUVDepth.y = 1.0 - lightUVDepth.y;
 #endif
     float depth = lightUVDepth.z - u_shadowBias / lightClip.w;
-    float shadowMapDepth = texture2D(s_shadowMap, lightUVDepth.xy).r;
+    float shadowMapDepth = texture2D(s_shadowMap_1, lightUVDepth.xy).r;
     float visibility = step(depth, shadowMapDepth);
 
     vec3 viewDir = normalize(u_cameraPos.xyz - v_position);

@@ -4,6 +4,7 @@
  */
 
 #include <iostream>
+#include <sstream>
 #include <array>
 #include <bx/rng.h>
 #include "bgfx_utils.h"
@@ -30,6 +31,7 @@ namespace example
     constexpr uint16_t THREAD_COUNT_PER_DIM = 8u;
     constexpr float NEAR_PLANE = 0.2f;
     constexpr float FAR_PLANE = 1000.f;
+    constexpr size_t NUM_CASCADES = 4;
 
     struct DirectionalLight
     {
@@ -37,32 +39,44 @@ namespace example
         float m_intensity = 10.0f;
         glm::vec4 m_direction = glm::normalize(glm::vec4{ 1.0, -3.0f, 1.0f, 0.0 });
 
-        float viewProjection[16] = {};
+        glm::mat4 m_cascadeTransforms[NUM_CASCADES];
 
         bgfx::UniformHandle u_directionalLightParams = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_lightViewProj = BGFX_INVALID_HANDLE;
-        bgfx::UniformHandle s_shadowMap = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_shadowMaps[NUM_CASCADES] = { BGFX_INVALID_HANDLE };
 
     };
 
     void init(DirectionalLight& light)
     {
         light.u_directionalLightParams = bgfx::createUniform("u_directionalLightParams", bgfx::UniformType::Vec4, 2);
-        light.u_lightViewProj = bgfx::createUniform("u_lightViewProj", bgfx::UniformType::Mat4);
-        light.s_shadowMap = bgfx::createUniform("s_shadowMap", bgfx::UniformType::Sampler);
+        light.u_lightViewProj = bgfx::createUniform("u_lightViewProj", bgfx::UniformType::Mat4, NUM_CASCADES);
+        for (size_t i = 0; i < NUM_CASCADES; i++)
+        {
+            char name[] = "s_shadowMap_x";
+            bx::toString(&name[12], 2, i);
+            light.s_shadowMaps[i] = bgfx::createUniform(name, bgfx::UniformType::Sampler);
+
+        }
 
     }
 
     void destroy(DirectionalLight& light) {
         bgfx::destroy(light.u_directionalLightParams);
         bgfx::destroy(light.u_lightViewProj);
-        bgfx::destroy(light.s_shadowMap);
+        for (bgfx::UniformHandle shadowMap : light.s_shadowMaps)
+        {
+            bgfx::destroy(shadowMap);
+        }
     }
 
-    void bindUniforms(const DirectionalLight& light, const bgfx::TextureHandle shadowMapTexture) {
+    void bindUniforms(const DirectionalLight& light, const bgfx::TextureHandle shadowMapTextures[NUM_CASCADES]) {
         bgfx::setUniform(light.u_directionalLightParams, &light, 2);
-        bgfx::setUniform(light.u_lightViewProj, light.viewProjection);
-        bgfx::setTexture(5, light.s_shadowMap, shadowMapTexture, SAMPLER_POINT_CLAMP);
+        bgfx::setUniform(light.u_lightViewProj, glm::value_ptr(light.m_cascadeTransforms[0]));
+        for (uint8_t i = 0; i < NUM_CASCADES; i++)
+        {
+            bgfx::setTexture(i + 5, light.s_shadowMaps[i], shadowMapTextures[i], BGFX_SAMPLER_UVW_CLAMP);
+        }
     }
 
     struct PBRShaderUniforms
@@ -234,6 +248,16 @@ namespace example
             m_toneMapParams.maxLogLuminance = 10.0f;
             m_toneMapPass.init(m_caps);
 
+
+            for (size_t i = 0; i < NUM_CASCADES; i++)
+            {
+                bgfx::Attachment attachment;
+                m_shadowMaps[i] = bgfx::createTexture2D(m_shadowMapWidth, m_shadowMapWidth, false, 1, bgfx::TextureFormat::D32);
+                attachment.init(m_shadowMaps[i], bgfx::Access::Write);
+                m_shadowMapFramebuffers[i] = bgfx::createFrameBuffer(1, &attachment, true);
+            }
+
+            m_cpuReadableDepth = bgfx::createTexture2D(1, 1, false, 1, bgfx::TextureFormat::RG16F, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK);
             // Imgui.
             imguiCreate();
 
@@ -260,14 +284,16 @@ namespace example
             if (bgfx::isValid(m_pbrFramebuffer))
             {
                 bgfx::destroy(m_pbrFramebuffer);
+            }
+
+            if (bgfx::isValid(m_shadowMapFramebuffers[0]))
+            {
+                for (size_t i = 0; i < NUM_CASCADES; ++i) {
+                    bgfx::destroy(m_shadowMapFramebuffers[i]);
+                }
                 for (auto texture : m_depthReductionTargets) {
                     bgfx::destroy(texture);
                 }
-            }
-
-            if (bgfx::isValid(m_shadowMapFramebuffer))
-            {
-                bgfx::destroy(m_shadowMapFramebuffer);
                 bgfx::destroy(m_cpuReadableDepth);
             }
 
@@ -313,7 +339,7 @@ namespace example
                 bgfx::setState(state);
                 bindUniforms(m_pbrUniforms, material, transform);
                 bindUniforms(m_sceneUniforms, cameraPos);
-                bindUniforms(m_directionalLight, m_shadowMap);
+                bindUniforms(m_directionalLight, m_shadowMaps);
                 mesh.setBuffers();
 
                 bgfx::submit(viewId, program);
@@ -392,12 +418,6 @@ namespace example
 
                 // Create new depth reduction targets for our new framebuffer
                 setupDepthReductionTargets(uint16_t(m_width), uint16_t(m_height));
-                m_cpuReadableDepth = bgfx::createTexture2D(1, 1, false, 1, bgfx::TextureFormat::RG16F, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK);
-            }
-
-            if (!bgfx::isValid(m_shadowMapFramebuffer)) {
-                m_shadowMap = bgfx::createTexture2D(m_shadowMapWidth, m_shadowMapWidth, false, 1, bgfx::TextureFormat::D32);
-                m_shadowMapFramebuffer = bgfx::createFrameBuffer(1, &m_shadowMap, true);
             }
 
             imguiBeginFrame(m_mouseState.m_mx, m_mouseState.m_my, (m_mouseState.m_buttons[entry::MouseButton::Left] ? IMGUI_MBUT_LEFT : 0) | (m_mouseState.m_buttons[entry::MouseButton::Right] ? IMGUI_MBUT_RIGHT : 0) | (m_mouseState.m_buttons[entry::MouseButton::Middle] ? IMGUI_MBUT_MIDDLE : 0), m_mouseState.m_mz, uint16_t(m_width), uint16_t(m_height));
@@ -434,11 +454,14 @@ namespace example
             bgfx::ViewId depthReductionPass = viewCount++;
             bgfx::setViewName(depthReductionPass, "Depth Reduction");
 
-            bgfx::ViewId shadowPass = viewCount++;
-            bgfx::setViewFrameBuffer(shadowPass, m_shadowMapFramebuffer);
-            bgfx::setViewName(shadowPass, "Shadow Map");
-            bgfx::setViewRect(shadowPass, 0, 0, m_shadowMapWidth, m_shadowMapWidth);
-            bgfx::setViewClear(shadowPass, BGFX_CLEAR_DEPTH, 0x000000ff, 1.0f, 0);
+            bgfx::ViewId shadowPasses[NUM_CASCADES];
+            for (size_t i = 0; i < NUM_CASCADES; ++i) {
+                shadowPasses[i] = viewCount++;
+                bgfx::setViewFrameBuffer(shadowPasses[i], m_shadowMapFramebuffers[i]);
+                bgfx::setViewName(shadowPasses[i], "Shadow Map");
+                bgfx::setViewRect(shadowPasses[i], 0, 0, m_shadowMapWidth, m_shadowMapWidth);
+                bgfx::setViewClear(shadowPasses[i], BGFX_CLEAR_DEPTH, 0x000000ff, 1.0f, 0);
+            }
 
             bgfx::ViewId meshPass = viewCount++;
             bgfx::setViewFrameBuffer(meshPass, m_pbrFramebuffer);
@@ -499,7 +522,7 @@ namespace example
                 bgfx::dispatch(depthReductionPass, m_depthReductionGeneral, dispatchSizeX, dispatchSizeY, 1);
             }
 
-            bgfx::blit(shadowPass, m_cpuReadableDepth, 0, 0, m_depthReductionTargets[m_depthReductionTargets.size() - 1], 0, 0);
+            bgfx::blit(shadowPasses[0], m_cpuReadableDepth, 0, 0, m_depthReductionTargets[m_depthReductionTargets.size() - 1], 0, 0);
             bgfx::readTexture(m_cpuReadableDepth, m_depthData, 0);
             float minDepth = bx::halfToFloat(m_depthData[0]);
             float maxDepth = bx::halfToFloat(m_depthData[1]);
@@ -507,9 +530,18 @@ namespace example
             glm::mat4 viewProj = glm::make_mat4(proj) * glm::make_mat4(view);
             glm::mat4 invViewProj = glm::inverse(viewProj);
 
+            float minWorldDepth = minDepth * (FAR_PLANE - NEAR_PLANE) + NEAR_PLANE;
+            float maxWorldDepth = maxDepth * (FAR_PLANE - NEAR_PLANE) + NEAR_PLANE;
+            float depthRatio = bx::pow(maxWorldDepth / minWorldDepth, 1.0f / NUM_CASCADES);
+            glm::vec2 cascadeMinMax[4] = {};
+            cascadeMinMax[0] = { minWorldDepth, minWorldDepth * depthRatio };
+            for (int cascadeIdx = 1; cascadeIdx < 4; ++cascadeIdx) {
+                cascadeMinMax[cascadeIdx] = { cascadeMinMax[cascadeIdx - 1].y, cascadeMinMax[cascadeIdx - 1].y * depthRatio };
+            }
+
             // In clip space:
             float clipNear = m_caps->homogeneousDepth ? -1.0f : 0.0f;
-            glm::vec4 frustumCorners[] =
+            glm::vec4 clipFrustum[] =
             {
                 glm::vec4(-1.0f,  1.0f, clipNear, 1.0f), // top left near
                 glm::vec4(1.0f,  1.0f, clipNear, 1.0f), // top right near
@@ -521,100 +553,106 @@ namespace example
                 glm::vec4(-1.0f, -1.0f, 1.0f, 1.0f), // botom left far
             };
 
-            // Convert to world space
-            for (size_t i = 0; i < BX_COUNTOF(frustumCorners); ++i) {
-                frustumCorners[i] = invViewProj * frustumCorners[i];
-                frustumCorners[i] /= frustumCorners[i].w;
-            }
-
-            // Use min and max bounds to get slice of frustum
-            glm::vec4 center{ 0.0 };
-            for (size_t i = 0; i < 4; ++i) {
-                glm::vec4 cornerRay = frustumCorners[i + 4] - frustumCorners[i];
-                frustumCorners[i] = minDepth * cornerRay + frustumCorners[i];
-                frustumCorners[i + 4] = maxDepth * cornerRay + frustumCorners[i];
-                center += frustumCorners[i] + frustumCorners[i + 4];
-            }
-            center /= 8.0f;
-
-            // Transform view frustum's corners to Light's view space:
-            glm::vec3 up = bx::abs(m_directionalLight.m_direction.y) != 1.0f ? glm::vec3{ 0.0f, 1.0f, 0.0f } : glm::vec3{ 1.0f, 0.0f, 0.0f };
-            glm::mat4 lightView = glm::lookAt(glm::vec3(center - m_directionalLight.m_direction), glm::vec3(center), up);
-            for (size_t i = 0; i < BX_COUNTOF(frustumCorners); ++i) {
-                frustumCorners[i] = lightView * frustumCorners[i];
-            }
-
-            // Find AABB bounding box around view frustum
-            glm::vec4 min = frustumCorners[0];
-            glm::vec4 max = frustumCorners[0];
-            for (size_t i = 1; i < BX_COUNTOF(frustumCorners); ++i) {
-                min = glm::min(min, frustumCorners[i]);
-                max = glm::max(max, frustumCorners[i]);
-            }
-
-            // Ensure z-bounds include the scene
-            glm::vec4 bbMin = glm::vec4{ m_model.boundingBox.min, 1.0f };
-            glm::vec4 bbMax = glm::vec4{ m_model.boundingBox.max, 1.0f };
-            glm::vec4 bbCorners[8] = {
-                {bbMin.x, bbMax.y, bbMax.z, 1.0f },
-                {bbMax.x, bbMax.y, bbMax.z, 1.0f },
-                {bbMax.x, bbMin.y, bbMax.z, 1.0f },
-                {bbMin.x, bbMin.y, bbMax.z, 1.0f },
-                {bbMin.x, bbMax.y, bbMin.z, 1.0f },
-                {bbMax.x, bbMax.y, bbMin.z, 1.0f },
-                {bbMax.x, bbMin.y, bbMin.z, 1.0f },
-                {bbMin.x, bbMin.y, bbMin.z, 1.0f },
-            };
-            bbMin = lightView * bbCorners[0];
-            bbMax = lightView * bbCorners[0];
-            for (size_t i = 1; i < BX_COUNTOF(bbCorners); ++i) {
-                glm::vec4 bbCornerLightSpace = lightView * bbCorners[i];
-                bbMin = glm::min(bbCornerLightSpace, bbMin);
-                bbMax = glm::max(bbCornerLightSpace, bbMax);
-            }
-            // Aggressively bound X and Y, since we don't want any wasted space
-            min.x = bx::max(bbMin.x, min.x);
-            max.x = bx::min(bbMax.x, max.x);
-            min.y = bx::max(bbMin.y, min.y);
-            max.y = bx::min(bbMax.y, max.y);
-            // Conservatively bound Z, since we need to make sure all occluders are included, even if they are behind the view frustum
-            max.z = bx::max(bbMax.z, max.z);
-            max.z = bx::max(bbMax.z, max.z);
-
-            uint64_t stateShadowMapping = 0
-                | BGFX_STATE_WRITE_Z
-                | BGFX_STATE_CULL_CCW
-                | BGFX_STATE_DEPTH_TEST_LESS;
-
-            //m_sceneUniforms.texelSize = bx::max(2.0f * (right - left), 2.0f * (top - bottom)) / m_shadowMapWidth;
-            float orthoProjectionRaw[16];
-            bx::mtxOrtho(
-                orthoProjectionRaw,
-                min.x, // left
-                max.x, // right
-                min.y, // bottom
-                max.y, // top,
-                max.z, // near
-                min.z - max.z, // far
-                0.0, m_caps->homogeneousDepth);
-            glm::mat4 orthoProjection = glm::make_mat4(orthoProjectionRaw);
-
-            lightView = glm::lookAt(glm::vec3(center - m_directionalLight.m_direction), glm::vec3(center), up);
-
-            bgfx::setViewTransform(shadowPass, glm::value_ptr(lightView), glm::value_ptr(orthoProjection));
-            glm::mat4 lightViewProj = orthoProjection * lightView;
-            bx::memCopy(m_directionalLight.viewProjection, glm::value_ptr(lightViewProj), sizeof(float) * 16);
-
-            // Render all our opaque meshes into the shadow map
-            for (size_t i = 0; i < m_model.opaqueMeshes.meshes.size(); ++i)
+            for (int cascadeIdx = 0; cascadeIdx < 4; ++cascadeIdx)
             {
-                const auto& mesh = m_model.opaqueMeshes.meshes[i];
-                const auto& transform = m_model.opaqueMeshes.transforms[i];
+                float cascMin = (cascadeMinMax[cascadeIdx].x - NEAR_PLANE) / (FAR_PLANE - NEAR_PLANE);
+                float cascMax = (cascadeMinMax[cascadeIdx].y - NEAR_PLANE) / (FAR_PLANE - NEAR_PLANE);
+                
+                // Convert to world space
+                glm::vec4 frustumCorners[8];
+                for (size_t i = 0; i < 8; ++i) {
+                    frustumCorners[i] = invViewProj * clipFrustum[i];
+                    frustumCorners[i] /= frustumCorners[i].w;
+                }
 
-                bgfx::setState(stateShadowMapping);
-                bgfx::setTransform(glm::value_ptr(transform));
-                mesh.setBuffers();
-                bgfx::submit(shadowPass, m_directionalShadowMapProgram);
+                // Use min and max bounds to get slice of frustum
+                glm::vec4 center{ 0.0 };
+                for (size_t i = 0; i < 4; ++i) {
+                    glm::vec4 cornerRay = frustumCorners[i + 4] - frustumCorners[i];
+                    frustumCorners[i] = cascMin * cornerRay + frustumCorners[i];
+                    frustumCorners[i + 4] = cascMax * cornerRay + frustumCorners[i];
+                    center += frustumCorners[i] + frustumCorners[i + 4];
+                }
+                center /= 8.0f;
+
+                // Transform view frustum's corners to Light's view space:
+                glm::vec3 up = bx::abs(m_directionalLight.m_direction.y) != 1.0f ? glm::vec3{ 0.0f, 1.0f, 0.0f } : glm::vec3{ 1.0f, 0.0f, 0.0f };
+                glm::mat4 lightView = glm::lookAt(glm::vec3(center - m_directionalLight.m_direction), glm::vec3(center), up);
+                for (size_t i = 0; i < BX_COUNTOF(frustumCorners); ++i) {
+                    frustumCorners[i] = lightView * frustumCorners[i];
+                }
+
+                // Find AABB bounding box around view frustum
+                glm::vec4 min = frustumCorners[0];
+                glm::vec4 max = frustumCorners[0];
+                for (size_t i = 1; i < BX_COUNTOF(frustumCorners); ++i) {
+                    min = glm::min(min, frustumCorners[i]);
+                    max = glm::max(max, frustumCorners[i]);
+                }
+
+                // Ensure z-bounds include the scene
+                glm::vec4 bbMin = glm::vec4{ m_model.boundingBox.min, 1.0f };
+                glm::vec4 bbMax = glm::vec4{ m_model.boundingBox.max, 1.0f };
+                glm::vec4 bbCorners[8] = {
+                    {bbMin.x, bbMax.y, bbMax.z, 1.0f },
+                    {bbMax.x, bbMax.y, bbMax.z, 1.0f },
+                    {bbMax.x, bbMin.y, bbMax.z, 1.0f },
+                    {bbMin.x, bbMin.y, bbMax.z, 1.0f },
+                    {bbMin.x, bbMax.y, bbMin.z, 1.0f },
+                    {bbMax.x, bbMax.y, bbMin.z, 1.0f },
+                    {bbMax.x, bbMin.y, bbMin.z, 1.0f },
+                    {bbMin.x, bbMin.y, bbMin.z, 1.0f },
+                };
+                bbMin = lightView * bbCorners[0];
+                bbMax = lightView * bbCorners[0];
+                for (size_t i = 1; i < BX_COUNTOF(bbCorners); ++i) {
+                    glm::vec4 bbCornerLightSpace = lightView * bbCorners[i];
+                    bbMin = glm::min(bbCornerLightSpace, bbMin);
+                    bbMax = glm::max(bbCornerLightSpace, bbMax);
+                }
+                // Aggressively bound X and Y, since we don't want any wasted space
+                min.x = bx::max(bbMin.x, min.x);
+                max.x = bx::min(bbMax.x, max.x);
+                min.y = bx::max(bbMin.y, min.y);
+                max.y = bx::min(bbMax.y, max.y);
+                // Conservatively bound Z, since we need to make sure all occluders are included, even if they are behind the view frustum
+                min.z = bx::min(bbMin.z, min.z);
+                max.z = bx::max(bbMax.z, max.z);
+
+                uint64_t stateShadowMapping = 0
+                    | BGFX_STATE_WRITE_Z
+                    | BGFX_STATE_CULL_CCW
+                    | BGFX_STATE_DEPTH_TEST_LESS;
+
+                //m_sceneUniforms.texelSize = bx::max(2.0f * (right - left), 2.0f * (top - bottom)) / m_shadowMapWidth;
+                float orthoProjectionRaw[16];
+                bx::mtxOrtho(
+                    orthoProjectionRaw,
+                    min.x, // left
+                    max.x, // right
+                    min.y, // bottom
+                    max.y, // top,
+                    max.z, // near
+                    min.z - max.z, // far
+                    0.0, m_caps->homogeneousDepth);
+                glm::mat4 orthoProjection = glm::make_mat4(orthoProjectionRaw);
+
+                lightView = glm::lookAt(glm::vec3(center - m_directionalLight.m_direction), glm::vec3(center), up);
+
+                bgfx::setViewTransform(shadowPasses[cascadeIdx], glm::value_ptr(lightView), glm::value_ptr(orthoProjection));
+                m_directionalLight.m_cascadeTransforms[cascadeIdx] = orthoProjection * lightView;
+                
+                // Render all our opaque meshes into the shadow map
+                for (size_t i = 0; i < m_model.opaqueMeshes.meshes.size(); ++i)
+                {
+                    const auto& mesh = m_model.opaqueMeshes.meshes[i];
+                    const auto& transform = m_model.opaqueMeshes.transforms[i];
+
+                    bgfx::setState(stateShadowMapping);
+                    bgfx::setTransform(glm::value_ptr(transform));
+                    mesh.setBuffers();
+                    bgfx::submit(shadowPasses[cascadeIdx], m_directionalShadowMapProgram);
+                }
             }
 
 
@@ -645,12 +683,12 @@ namespace example
             m_toneMapPass.render(m_pbrFbTextures[0], m_toneMapParams, deltaTime, ++viewCount);
 
             bgfx::ViewId debugShadowPass = viewCount + 3;
-            bgfx::setViewRect(debugShadowPass, 0, 0, 256, 256);
+            bgfx::setViewRect(debugShadowPass, 0, uint16_t(m_height) - 256u, 256, 256);
 
             float debugProjection[16];
             bx::mtxOrtho(debugProjection, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, m_caps->homogeneousDepth);
             bgfx::setViewTransform(debugShadowPass, nullptr, debugProjection);
-            bgfx::setTexture(0, m_shadowMapDebugSampler, m_shadowMap, BGFX_SAMPLER_UVW_CLAMP);
+            bgfx::setTexture(0, m_shadowMapDebugSampler, m_shadowMaps[0], BGFX_SAMPLER_UVW_CLAMP);
             bgfx::setState(BGFX_STATE_WRITE_RGB);
             bae::setScreenSpaceQuad(m_shadowMapWidth, m_shadowMapWidth, m_caps->originBottomLeft);
             bgfx::submit(debugShadowPass, m_drawDepthDebugProgram);
@@ -684,8 +722,8 @@ namespace example
         bgfx::ProgramHandle m_depthReductionGeneral;
         bgfx::ProgramHandle m_drawDepthDebugProgram;
 
-        bgfx::TextureHandle m_shadowMap;
-        bgfx::FrameBufferHandle m_shadowMapFramebuffer = BGFX_INVALID_HANDLE;
+        bgfx::TextureHandle m_shadowMaps[NUM_CASCADES]; // Is a texture array
+        bgfx::FrameBufferHandle m_shadowMapFramebuffers[NUM_CASCADES];
 
         bgfx::TextureHandle m_pbrFbTextures[2];
         bgfx::FrameBufferHandle m_pbrFramebuffer = BGFX_INVALID_HANDLE;
