@@ -18,8 +18,8 @@ uniform vec4 u_directionalLightParams[2];
 #define u_lightColor u_directionalLightParams[0].xyz
 #define u_lightIntesity u_directionalLightParams[0].w
 #define u_lightDir u_directionalLightParams[1].xyz
+uniform vec4 u_cascadeDepths;
 uniform mat4 u_lightViewProj[NUM_CASCADES];
-uniform vec4 depthBoundaries[NUM_CASCADES / 2];
 
 SAMPLER2D(s_shadowMap_1, 5);
 SAMPLER2D(s_shadowMap_2, 6);
@@ -66,6 +66,30 @@ vec2 get_shadow_offsets(vec3 normal, vec3 lightDir) {
 }
 
 
+uint getShadowCascadeIdx(float fragDepth) {
+    UNROLL
+    for (uint i = 0; i < NUM_CASCADES; ++i) {
+        if (fragDepth < u_cascadeDepths[i]) {
+            return i;
+        }
+    }
+    return NUM_CASCADES - 1;
+}
+
+
+float sampleLightDepth(uint cascadeIdx, vec2 texCoords) {
+    if (cascadeIdx == 0) {
+        return texture2D(s_shadowMap_1, texCoords).r;
+    } else if (cascadeIdx == 1) {
+        return texture2D(s_shadowMap_2, texCoords).r;
+    } else if (cascadeIdx == 2) {
+        return texture2D(s_shadowMap_3, texCoords).r;
+    } else {
+        return texture2D(s_shadowMap_4, texCoords).r;
+    }
+}
+
+
 void main()
 {
     vec4 baseColor = toLinear(texture2D(s_baseColor, v_texcoord)) * u_baseColorFactor;
@@ -82,8 +106,12 @@ void main()
 
     // SHADOWING
     vec2 offsets = u_shadowMapParams.zy * get_shadow_offsets(normal, u_lightDir);
-    vec3 samplePosition = v_position + normal * offsets.x - u_lightDir * offsets.y;
-    vec4 lightClip = mul(u_lightViewProj[0], vec4(samplePosition, 1.0));
+    // Move along normal in world space
+    vec3 samplePosition = v_position + v_normal * offsets.x;
+
+    uint cascadeIdx = getShadowCascadeIdx(gl_FragCoord.z);
+    // Transform to light space
+    vec4 lightClip = mul(u_lightViewProj[cascadeIdx], vec4(samplePosition, 1.0));
     vec3 lightUVDepth = lightClip.xyz / lightClip.w;
 #if BGFX_SHADER_LANGUAGE_GLSL
     lightUVDepth = 0.5 * lightClip + 0.5;
@@ -91,9 +119,9 @@ void main()
     lightUVDepth.xy = 0.5 * lightUVDepth.xy + 0.5;
     lightUVDepth.y = 1.0 - lightUVDepth.y;
 #endif
-    float depth = lightUVDepth.z - u_shadowBias / lightClip.w;
-    float shadowMapDepth = texture2D(s_shadowMap_1, lightUVDepth.xy).r;
-    float visibility = step(depth, shadowMapDepth);
+    float lightDepth = lightUVDepth.z - u_shadowBias;
+    float sampledLightDepth = sampleLightDepth(cascadeIdx, lightUVDepth.xy) + offsets.y;
+    float visibility = step(lightDepth, sampledLightDepth);
 
     vec3 viewDir = normalize(u_cameraPos.xyz - v_position);
 

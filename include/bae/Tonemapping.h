@@ -42,6 +42,6 @@ namespace bae
 
         void destroy();
 
-        void render(bgfx::TextureHandle hdrFbTexture, const ToneMapParams& toneMapParams, const float deltaTime, bgfx::ViewId startingPass);
+        bgfx::ViewId render(bgfx::TextureHandle hdrFbTexture, const ToneMapParams& toneMapParams, const float deltaTime, bgfx::ViewId startingPass);
     };
 }

@@ -53,7 +53,7 @@ namespace bae
 
     }
 
-    void ToneMapping::render(bgfx::TextureHandle hdrFbTexture, const ToneMapParams& toneMapParams, const float deltaTime, bgfx::ViewId startingPass)
+    bgfx::ViewId ToneMapping::render(bgfx::TextureHandle hdrFbTexture, const ToneMapParams& toneMapParams, const float deltaTime, bgfx::ViewId startingPass)
     {
         bgfx::ViewId histogramPass = startingPass;
         bgfx::ViewId averagingPass = startingPass + 1;
@@ -99,5 +99,7 @@ namespace bae
         bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A);
         setScreenSpaceQuad(float(toneMapParams.width), float(toneMapParams.height), toneMapParams.originBottomLeft);
         bgfx::submit(toneMapPass, tonemappingProgram);
+
+        return toneMapPass + 1;
     }
 }

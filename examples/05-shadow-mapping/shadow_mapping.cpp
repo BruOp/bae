@@ -32,6 +32,7 @@ namespace example
     constexpr float NEAR_PLANE = 0.2f;
     constexpr float FAR_PLANE = 1000.f;
     constexpr size_t NUM_CASCADES = 4;
+    constexpr uint16_t numDepthUniforms = NUM_CASCADES / 4u + (NUM_CASCADES % 4u > 0u ? 1u : 0u);
 
     struct DirectionalLight
     {
@@ -40,17 +41,20 @@ namespace example
         glm::vec4 m_direction = glm::normalize(glm::vec4{ 1.0, -3.0f, 1.0f, 0.0 });
 
         glm::mat4 m_cascadeTransforms[NUM_CASCADES];
+        float m_cascadeBoundaries[NUM_CASCADES];
 
         bgfx::UniformHandle u_directionalLightParams = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_lightViewProj = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_cascadeDepths = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_shadowMaps[NUM_CASCADES] = { BGFX_INVALID_HANDLE };
-
     };
 
     void init(DirectionalLight& light)
     {
         light.u_directionalLightParams = bgfx::createUniform("u_directionalLightParams", bgfx::UniformType::Vec4, 2);
         light.u_lightViewProj = bgfx::createUniform("u_lightViewProj", bgfx::UniformType::Mat4, NUM_CASCADES);
+        // Uniform will be vec4, but we're storing a min and max for each cascade
+        light.u_cascadeDepths = bgfx::createUniform("u_cascadeDepths", bgfx::UniformType::Vec4, numDepthUniforms);
         for (size_t i = 0; i < NUM_CASCADES; i++)
         {
             char name[] = "s_shadowMap_x";
@@ -64,6 +68,7 @@ namespace example
     void destroy(DirectionalLight& light) {
         bgfx::destroy(light.u_directionalLightParams);
         bgfx::destroy(light.u_lightViewProj);
+        bgfx::destroy(light.u_cascadeDepths);
         for (bgfx::UniformHandle shadowMap : light.s_shadowMaps)
         {
             bgfx::destroy(shadowMap);
@@ -72,7 +77,8 @@ namespace example
 
     void bindUniforms(const DirectionalLight& light, const bgfx::TextureHandle shadowMapTextures[NUM_CASCADES]) {
         bgfx::setUniform(light.u_directionalLightParams, &light, 2);
-        bgfx::setUniform(light.u_lightViewProj, glm::value_ptr(light.m_cascadeTransforms[0]));
+        bgfx::setUniform(light.u_lightViewProj, glm::value_ptr(light.m_cascadeTransforms[0]), NUM_CASCADES);
+        bgfx::setUniform(light.u_cascadeDepths, light.m_cascadeBoundaries, numDepthUniforms);
         for (uint8_t i = 0; i < NUM_CASCADES; i++)
         {
             bgfx::setTexture(i + 5, light.s_shadowMaps[i], shadowMapTextures[i], BGFX_SAMPLER_UVW_CLAMP);
@@ -138,7 +144,7 @@ namespace example
     struct SceneUniforms
     {
         float manualBias = 0.000;
-        float slopeScaleBias = 0.020;
+        float slopeScaleBias = 0.000;
         float normalOffsetFactor = 0.020;
         float texelSize = 0.0;
 
@@ -435,7 +441,7 @@ namespace example
             m_directionalLight.m_direction = glm::normalize(m_directionalLight.m_direction);
 
             ImGui::SliderFloat("Manual Bias", &m_sceneUniforms.manualBias, 0.0f, 0.01f);
-            ImGui::SliderFloat("Slope Scale Bias Factor", &m_sceneUniforms.slopeScaleBias, 0.0f, 0.05f);
+            ImGui::SliderFloat("Slope Scale Bias Factor", &m_sceneUniforms.slopeScaleBias, 0.0f, 0.01f);
             ImGui::SliderFloat("Normal Offset Bias", &m_sceneUniforms.normalOffsetFactor, 0.0f, 0.05f);
 
             ImGui::End();
@@ -522,6 +528,7 @@ namespace example
                 bgfx::dispatch(depthReductionPass, m_depthReductionGeneral, dispatchSizeX, dispatchSizeY, 1);
             }
 
+            // Get a normalized min and max depth, where 0 maps to NEAR and 1 maps to FAR
             bgfx::blit(shadowPasses[0], m_cpuReadableDepth, 0, 0, m_depthReductionTargets[m_depthReductionTargets.size() - 1], 0, 0);
             bgfx::readTexture(m_cpuReadableDepth, m_depthData, 0);
             float minDepth = bx::halfToFloat(m_depthData[0]);
@@ -530,13 +537,19 @@ namespace example
             glm::mat4 viewProj = glm::make_mat4(proj) * glm::make_mat4(view);
             glm::mat4 invViewProj = glm::inverse(viewProj);
 
+            // Get the depths in View space instead of the normalized coords we've read back
             float minWorldDepth = minDepth * (FAR_PLANE - NEAR_PLANE) + NEAR_PLANE;
             float maxWorldDepth = maxDepth * (FAR_PLANE - NEAR_PLANE) + NEAR_PLANE;
             float depthRatio = bx::pow(maxWorldDepth / minWorldDepth, 1.0f / NUM_CASCADES);
-            glm::vec2 cascadeMinMax[4] = {};
+            glm::vec2 cascadeMinMax[NUM_CASCADES] = {};
             cascadeMinMax[0] = { minWorldDepth, minWorldDepth * depthRatio };
-            for (int cascadeIdx = 1; cascadeIdx < 4; ++cascadeIdx) {
+            for (int cascadeIdx = 1; cascadeIdx < NUM_CASCADES; ++cascadeIdx) {
                 cascadeMinMax[cascadeIdx] = { cascadeMinMax[cascadeIdx - 1].y, cascadeMinMax[cascadeIdx - 1].y * depthRatio };
+            }
+
+            for (int cascadeIdx = 0; cascadeIdx < NUM_CASCADES; ++cascadeIdx) {
+                // Store NDC depths of near and far corners for use in our shader
+                m_directionalLight.m_cascadeBoundaries[cascadeIdx] = (proj[10] * cascadeMinMax[cascadeIdx].y + proj[14]) / (proj[11] * cascadeMinMax[cascadeIdx].y);
             }
 
             // In clip space:
@@ -557,7 +570,7 @@ namespace example
             {
                 float cascMin = (cascadeMinMax[cascadeIdx].x - NEAR_PLANE) / (FAR_PLANE - NEAR_PLANE);
                 float cascMax = (cascadeMinMax[cascadeIdx].y - NEAR_PLANE) / (FAR_PLANE - NEAR_PLANE);
-                
+
                 // Convert to world space
                 glm::vec4 frustumCorners[8];
                 for (size_t i = 0; i < 8; ++i) {
@@ -641,7 +654,7 @@ namespace example
 
                 bgfx::setViewTransform(shadowPasses[cascadeIdx], glm::value_ptr(lightView), glm::value_ptr(orthoProjection));
                 m_directionalLight.m_cascadeTransforms[cascadeIdx] = orthoProjection * lightView;
-                
+
                 // Render all our opaque meshes into the shadow map
                 for (size_t i = 0; i < m_model.opaqueMeshes.meshes.size(); ++i)
                 {
@@ -680,9 +693,9 @@ namespace example
             // Render all our transparent meshes
             renderMeshes(m_model.transparentMeshes, cameraPos, stateTransparent, m_pbrShader, meshPass);
 
-            m_toneMapPass.render(m_pbrFbTextures[0], m_toneMapParams, deltaTime, ++viewCount);
+            viewCount = m_toneMapPass.render(m_pbrFbTextures[0], m_toneMapParams, deltaTime, viewCount);
 
-            bgfx::ViewId debugShadowPass = viewCount + 3;
+            bgfx::ViewId debugShadowPass = viewCount++;
             bgfx::setViewRect(debugShadowPass, 0, uint16_t(m_height) - 256u, 256, 256);
 
             float debugProjection[16];
