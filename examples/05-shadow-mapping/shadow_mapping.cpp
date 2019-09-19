@@ -232,8 +232,8 @@ namespace example
 
             m_directionalShadowMapProgram = loadProgram("vs_directional_shadowmap", "fs_directional_shadowmap");
             m_prepassProgram = loadProgram("vs_z_prepass", "fs_z_prepass");
-            m_pbrShader = loadProgram("vs_shadow_mapped_pbr", "fs_shadow_mapped_pbr");
-            m_pbrShaderWithMasking = loadProgram("vs_shadow_mapped_pbr", "fs_shadow_mapped_pbr_masked");
+            m_pbrShader = loadProgram("vs_shadowed_mesh", "fs_shadowed_mesh");
+            m_pbrShaderWithMasking = loadProgram("vs_shadowed_mesh", "fs_shadowed_mesh_masked");
             m_depthReductionInitial = loadProgram("cs_depth_reduction_initial", nullptr);
             m_depthReductionGeneral = loadProgram("cs_depth_reduction_general", nullptr);
             m_drawDepthDebugProgram = loadProgram("vs_texture_pass_through", "fs_texture_pass_through");
@@ -498,177 +498,187 @@ namespace example
             // Set view 0 default viewport.
             bx::Vec3 cameraPos = cameraGetPosition();
 
-            uint64_t statePrepass = 0
-                | BGFX_STATE_WRITE_Z
-                | BGFX_STATE_DEPTH_TEST_LESS
-                | BGFX_STATE_CULL_CCW
-                | BGFX_STATE_MSAA;
-
-            // Render all our opaque meshes
-            renderMeshes(m_model.opaqueMeshes, cameraPos, statePrepass, m_prepassProgram, zPrepass);
-
-            // Dispatch initial
-            uint16_t dispatchSizeX = getDispatchSize(uint16_t(m_width), THREAD_COUNT_PER_DIM);
-            uint16_t dispatchSizeY = getDispatchSize(uint16_t(m_height), THREAD_COUNT_PER_DIM);
-
-            bindUniforms(m_depthReductionUniforms, uint16_t(m_width), uint16_t(m_height), proj);
-            bgfx::setTexture(0, m_depthReductionUniforms.u_depthSampler, m_pbrFbTextures[1], SAMPLER_POINT_CLAMP);
-            bgfx::setImage(1, m_depthReductionTargets[0], 0, bgfx::Access::Write, bgfx::TextureFormat::RG16F);
-            bgfx::dispatch(depthReductionPass, m_depthReductionInitial, dispatchSizeX, dispatchSizeY, 1);
-
-            for (size_t i = 1; i < m_depthReductionTargets.size(); i++) {
-                // Size of source reduction map
-                bindUniforms(m_depthReductionUniforms, dispatchSizeX, dispatchSizeY, proj);
-                // Set dispatch to be size of output reduction map
-                dispatchSizeX = getDispatchSize(dispatchSizeX, THREAD_COUNT_PER_DIM);
-                dispatchSizeY = getDispatchSize(dispatchSizeY, THREAD_COUNT_PER_DIM);
-                // Dispatch secondary
-                bgfx::setImage(0, m_depthReductionTargets[i - 1], 0, bgfx::Access::Read, bgfx::TextureFormat::RG16F);
-                bgfx::setImage(1, m_depthReductionTargets[i], 0, bgfx::Access::Write, bgfx::TextureFormat::RG16F);
-                bgfx::dispatch(depthReductionPass, m_depthReductionGeneral, dispatchSizeX, dispatchSizeY, 1);
-            }
-
-            // Get a normalized min and max depth, where 0 maps to NEAR and 1 maps to FAR
-            bgfx::blit(shadowPasses[0], m_cpuReadableDepth, 0, 0, m_depthReductionTargets[m_depthReductionTargets.size() - 1], 0, 0);
-            bgfx::readTexture(m_cpuReadableDepth, m_depthData, 0);
-            float minDepth = bx::halfToFloat(m_depthData[0]);
-            float maxDepth = bx::halfToFloat(m_depthData[1]);
-
-            glm::mat4 viewProj = glm::make_mat4(proj) * glm::make_mat4(view);
-            glm::mat4 invViewProj = glm::inverse(viewProj);
-
-            // Get the depths in View space instead of the normalized coords we've read back
-            float minWorldDepth = minDepth * (FAR_PLANE - NEAR_PLANE) + NEAR_PLANE;
-            float maxWorldDepth = maxDepth * (FAR_PLANE - NEAR_PLANE) + NEAR_PLANE;
-            float depthRatio = bx::pow(maxWorldDepth / minWorldDepth, 1.0f / NUM_CASCADES);
-            glm::vec2 cascadeMinMax[NUM_CASCADES] = {};
-            cascadeMinMax[0] = { minWorldDepth, minWorldDepth * depthRatio };
-            for (int cascadeIdx = 1; cascadeIdx < NUM_CASCADES; ++cascadeIdx) {
-                cascadeMinMax[cascadeIdx] = { cascadeMinMax[cascadeIdx - 1].y, cascadeMinMax[cascadeIdx - 1].y * depthRatio };
-            }
-
-            for (int cascadeIdx = 0; cascadeIdx < NUM_CASCADES; ++cascadeIdx) {
-                // Store NDC depths of near and far corners for use in our shader
-                m_directionalLight.m_cascadeBoundaries[cascadeIdx] = (proj[10] * cascadeMinMax[cascadeIdx].y + proj[14]) / (proj[11] * cascadeMinMax[cascadeIdx].y);
-            }
-
-            // In clip space:
-            float clipNear = m_caps->homogeneousDepth ? -1.0f : 0.0f;
-            glm::vec4 clipFrustum[] =
+            // DEPTH PREPASS
             {
-                glm::vec4(-1.0f,  1.0f, clipNear, 1.0f), // top left near
-                glm::vec4(1.0f,  1.0f, clipNear, 1.0f), // top right near
-                glm::vec4(1.0f, -1.0f, clipNear, 1.0f), // bottom right near
-                glm::vec4(-1.0f, -1.0f, clipNear, 1.0f), // bottom left near
-                glm::vec4(-1.0f,  1.0f, 1.0f, 1.0f), // top left far
-                glm::vec4(1.0f,  1.0f, 1.0f, 1.0f), // top right far
-                glm::vec4(1.0f, -1.0f, 1.0f, 1.0f), // bottom right far
-                glm::vec4(-1.0f, -1.0f, 1.0f, 1.0f), // botom left far
-            };
-
-            for (int cascadeIdx = 0; cascadeIdx < 4; ++cascadeIdx)
-            {
-                float cascMin = (cascadeMinMax[cascadeIdx].x - NEAR_PLANE) / (FAR_PLANE - NEAR_PLANE);
-                float cascMax = (cascadeMinMax[cascadeIdx].y - NEAR_PLANE) / (FAR_PLANE - NEAR_PLANE);
-
-                // Convert to world space
-                glm::vec4 frustumCorners[8];
-                for (size_t i = 0; i < 8; ++i) {
-                    frustumCorners[i] = invViewProj * clipFrustum[i];
-                    frustumCorners[i] /= frustumCorners[i].w;
-                }
-
-                // Use min and max bounds to get slice of frustum
-                glm::vec4 center{ 0.0 };
-                for (size_t i = 0; i < 4; ++i) {
-                    glm::vec4 cornerRay = frustumCorners[i + 4] - frustumCorners[i];
-                    frustumCorners[i] = cascMin * cornerRay + frustumCorners[i];
-                    frustumCorners[i + 4] = cascMax * cornerRay + frustumCorners[i];
-                    center += frustumCorners[i] + frustumCorners[i + 4];
-                }
-                center /= 8.0f;
-
-                // Transform view frustum's corners to Light's view space:
-                glm::vec3 up = bx::abs(m_directionalLight.m_direction.y) != 1.0f ? glm::vec3{ 0.0f, 1.0f, 0.0f } : glm::vec3{ 1.0f, 0.0f, 0.0f };
-                glm::mat4 lightView = glm::lookAt(glm::vec3(center - m_directionalLight.m_direction), glm::vec3(center), up);
-                for (size_t i = 0; i < BX_COUNTOF(frustumCorners); ++i) {
-                    frustumCorners[i] = lightView * frustumCorners[i];
-                }
-
-                // Find AABB bounding box around view frustum
-                glm::vec4 min = frustumCorners[0];
-                glm::vec4 max = frustumCorners[0];
-                for (size_t i = 1; i < BX_COUNTOF(frustumCorners); ++i) {
-                    min = glm::min(min, frustumCorners[i]);
-                    max = glm::max(max, frustumCorners[i]);
-                }
-
-                // Ensure z-bounds include the scene
-                glm::vec4 bbMin = glm::vec4{ m_model.boundingBox.min, 1.0f };
-                glm::vec4 bbMax = glm::vec4{ m_model.boundingBox.max, 1.0f };
-                glm::vec4 bbCorners[8] = {
-                    {bbMin.x, bbMax.y, bbMax.z, 1.0f },
-                    {bbMax.x, bbMax.y, bbMax.z, 1.0f },
-                    {bbMax.x, bbMin.y, bbMax.z, 1.0f },
-                    {bbMin.x, bbMin.y, bbMax.z, 1.0f },
-                    {bbMin.x, bbMax.y, bbMin.z, 1.0f },
-                    {bbMax.x, bbMax.y, bbMin.z, 1.0f },
-                    {bbMax.x, bbMin.y, bbMin.z, 1.0f },
-                    {bbMin.x, bbMin.y, bbMin.z, 1.0f },
-                };
-                bbMin = lightView * bbCorners[0];
-                bbMax = lightView * bbCorners[0];
-                for (size_t i = 1; i < BX_COUNTOF(bbCorners); ++i) {
-                    glm::vec4 bbCornerLightSpace = lightView * bbCorners[i];
-                    bbMin = glm::min(bbCornerLightSpace, bbMin);
-                    bbMax = glm::max(bbCornerLightSpace, bbMax);
-                }
-                // Aggressively bound X and Y, since we don't want any wasted space
-                min.x = bx::max(bbMin.x, min.x);
-                max.x = bx::min(bbMax.x, max.x);
-                min.y = bx::max(bbMin.y, min.y);
-                max.y = bx::min(bbMax.y, max.y);
-                // Conservatively bound Z, since we need to make sure all occluders are included, even if they are behind the view frustum
-                min.z = bx::min(bbMin.z, min.z);
-                max.z = bx::max(bbMax.z, max.z);
-
-                uint64_t stateShadowMapping = 0
+                uint64_t statePrepass = 0
                     | BGFX_STATE_WRITE_Z
+                    | BGFX_STATE_DEPTH_TEST_LESS
                     | BGFX_STATE_CULL_CCW
-                    | BGFX_STATE_DEPTH_TEST_LESS;
+                    | BGFX_STATE_MSAA;
 
-                //m_sceneUniforms.texelSize = bx::max(2.0f * (right - left), 2.0f * (top - bottom)) / m_shadowMapWidth;
-                float orthoProjectionRaw[16];
-                bx::mtxOrtho(
-                    orthoProjectionRaw,
-                    min.x, // left
-                    max.x, // right
-                    min.y, // bottom
-                    max.y, // top,
-                    max.z, // near
-                    min.z - max.z, // far
-                    0.0, m_caps->homogeneousDepth);
-                glm::mat4 orthoProjection = glm::make_mat4(orthoProjectionRaw);
+                renderMeshes(m_model.opaqueMeshes, cameraPos, statePrepass, m_prepassProgram, zPrepass);
+            }
 
-                lightView = glm::lookAt(glm::vec3(center - m_directionalLight.m_direction), glm::vec3(center), up);
+            // DEPTH REDUCTION
+            {
+                // Dispatch initial
+                uint16_t dispatchSizeX = getDispatchSize(uint16_t(m_width), THREAD_COUNT_PER_DIM);
+                uint16_t dispatchSizeY = getDispatchSize(uint16_t(m_height), THREAD_COUNT_PER_DIM);
 
-                bgfx::setViewTransform(shadowPasses[cascadeIdx], glm::value_ptr(lightView), glm::value_ptr(orthoProjection));
-                m_directionalLight.m_cascadeTransforms[cascadeIdx] = orthoProjection * lightView;
+                bindUniforms(m_depthReductionUniforms, uint16_t(m_width), uint16_t(m_height), proj);
+                bgfx::setTexture(0, m_depthReductionUniforms.u_depthSampler, m_pbrFbTextures[1], SAMPLER_POINT_CLAMP);
+                bgfx::setImage(1, m_depthReductionTargets[0], 0, bgfx::Access::Write, bgfx::TextureFormat::RG16F);
+                bgfx::dispatch(depthReductionPass, m_depthReductionInitial, dispatchSizeX, dispatchSizeY, 1);
 
-                // Render all our opaque meshes into the shadow map
-                for (size_t i = 0; i < m_model.opaqueMeshes.meshes.size(); ++i)
+                for (size_t i = 1; i < m_depthReductionTargets.size(); i++) {
+                    // Size of source reduction map
+                    bindUniforms(m_depthReductionUniforms, dispatchSizeX, dispatchSizeY, proj);
+                    // Set dispatch to be size of output reduction map
+                    dispatchSizeX = getDispatchSize(dispatchSizeX, THREAD_COUNT_PER_DIM);
+                    dispatchSizeY = getDispatchSize(dispatchSizeY, THREAD_COUNT_PER_DIM);
+                    // Dispatch secondary
+                    bgfx::setImage(0, m_depthReductionTargets[i - 1], 0, bgfx::Access::Read, bgfx::TextureFormat::RG16F);
+                    bgfx::setImage(1, m_depthReductionTargets[i], 0, bgfx::Access::Write, bgfx::TextureFormat::RG16F);
+                    bgfx::dispatch(depthReductionPass, m_depthReductionGeneral, dispatchSizeX, dispatchSizeY, 1);
+                }
+
+            }
+
+            // SHADOW MAP PASSES
+            {
+
+                // Get a normalized min and max depth, where 0 maps to NEAR and 1 maps to FAR
+                bgfx::blit(shadowPasses[0], m_cpuReadableDepth, 0, 0, m_depthReductionTargets[m_depthReductionTargets.size() - 1], 0, 0);
+                bgfx::readTexture(m_cpuReadableDepth, m_depthData, 0);
+                float minDepth = bx::halfToFloat(m_depthData[0]);
+                float maxDepth = bx::halfToFloat(m_depthData[1]);
+
+                glm::mat4 viewProj = glm::make_mat4(proj) * glm::make_mat4(view);
+                glm::mat4 invViewProj = glm::inverse(viewProj);
+
+                // Get the depths in View space instead of the normalized coords we've read back
+                float minWorldDepth = minDepth * (FAR_PLANE - NEAR_PLANE) + NEAR_PLANE;
+                float maxWorldDepth = maxDepth * (FAR_PLANE - NEAR_PLANE) + NEAR_PLANE;
+                float depthRatio = bx::pow(maxWorldDepth / minWorldDepth, 1.0f / NUM_CASCADES);
+                glm::vec2 cascadeMinMax[NUM_CASCADES] = {};
+                cascadeMinMax[0] = { minWorldDepth, minWorldDepth * depthRatio };
+                for (int cascadeIdx = 1; cascadeIdx < NUM_CASCADES; ++cascadeIdx) {
+                    cascadeMinMax[cascadeIdx] = { cascadeMinMax[cascadeIdx - 1].y, cascadeMinMax[cascadeIdx - 1].y * depthRatio };
+                }
+
+                for (int cascadeIdx = 0; cascadeIdx < NUM_CASCADES; ++cascadeIdx) {
+                    // Store NDC depths of near and far corners for use in our shader
+                    m_directionalLight.m_cascadeBoundaries[cascadeIdx] = (proj[10] * cascadeMinMax[cascadeIdx].y + proj[14]) / (proj[11] * cascadeMinMax[cascadeIdx].y);
+                }
+
+                // In clip space:
+                float clipNear = m_caps->homogeneousDepth ? -1.0f : 0.0f;
+                glm::vec4 clipFrustum[] =
                 {
-                    const auto& mesh = m_model.opaqueMeshes.meshes[i];
-                    const auto& transform = m_model.opaqueMeshes.transforms[i];
+                    glm::vec4(-1.0f,  1.0f, clipNear, 1.0f), // top left near
+                    glm::vec4(1.0f,  1.0f, clipNear, 1.0f), // top right near
+                    glm::vec4(1.0f, -1.0f, clipNear, 1.0f), // bottom right near
+                    glm::vec4(-1.0f, -1.0f, clipNear, 1.0f), // bottom left near
+                    glm::vec4(-1.0f,  1.0f, 1.0f, 1.0f), // top left far
+                    glm::vec4(1.0f,  1.0f, 1.0f, 1.0f), // top right far
+                    glm::vec4(1.0f, -1.0f, 1.0f, 1.0f), // bottom right far
+                    glm::vec4(-1.0f, -1.0f, 1.0f, 1.0f), // botom left far
+                };
 
-                    bgfx::setState(stateShadowMapping);
-                    bgfx::setTransform(glm::value_ptr(transform));
-                    mesh.setBuffers();
-                    bgfx::submit(shadowPasses[cascadeIdx], m_directionalShadowMapProgram);
+                for (int cascadeIdx = 0; cascadeIdx < 4; ++cascadeIdx)
+                {
+                    float cascMin = (cascadeMinMax[cascadeIdx].x - NEAR_PLANE) / (FAR_PLANE - NEAR_PLANE);
+                    float cascMax = (cascadeMinMax[cascadeIdx].y - NEAR_PLANE) / (FAR_PLANE - NEAR_PLANE);
+
+                    // Convert to world space
+                    glm::vec4 frustumCorners[8];
+                    for (size_t i = 0; i < 8; ++i) {
+                        frustumCorners[i] = invViewProj * clipFrustum[i];
+                        frustumCorners[i] /= frustumCorners[i].w;
+                    }
+
+                    // Use min and max bounds to get slice of frustum
+                    glm::vec4 center{ 0.0 };
+                    for (size_t i = 0; i < 4; ++i) {
+                        glm::vec4 cornerRay = frustumCorners[i + 4] - frustumCorners[i];
+                        frustumCorners[i] = cascMin * cornerRay + frustumCorners[i];
+                        frustumCorners[i + 4] = cascMax * cornerRay + frustumCorners[i];
+                        center += frustumCorners[i] + frustumCorners[i + 4];
+                    }
+                    center /= 8.0f;
+
+                    // Transform view frustum's corners to Light's view space:
+                    glm::vec3 up = bx::abs(m_directionalLight.m_direction.y) != 1.0f ? glm::vec3{ 0.0f, 1.0f, 0.0f } : glm::vec3{ 1.0f, 0.0f, 0.0f };
+                    glm::mat4 lightView = glm::lookAt(glm::vec3(center - m_directionalLight.m_direction), glm::vec3(center), up);
+                    for (size_t i = 0; i < BX_COUNTOF(frustumCorners); ++i) {
+                        frustumCorners[i] = lightView * frustumCorners[i];
+                    }
+
+                    // Find AABB bounding box around view frustum
+                    glm::vec4 min = frustumCorners[0];
+                    glm::vec4 max = frustumCorners[0];
+                    for (size_t i = 1; i < BX_COUNTOF(frustumCorners); ++i) {
+                        min = glm::min(min, frustumCorners[i]);
+                        max = glm::max(max, frustumCorners[i]);
+                    }
+
+                    // Ensure z-bounds include the scene
+                    glm::vec4 bbMin = glm::vec4{ m_model.boundingBox.min, 1.0f };
+                    glm::vec4 bbMax = glm::vec4{ m_model.boundingBox.max, 1.0f };
+                    glm::vec4 bbCorners[8] = {
+                        {bbMin.x, bbMax.y, bbMax.z, 1.0f },
+                        {bbMax.x, bbMax.y, bbMax.z, 1.0f },
+                        {bbMax.x, bbMin.y, bbMax.z, 1.0f },
+                        {bbMin.x, bbMin.y, bbMax.z, 1.0f },
+                        {bbMin.x, bbMax.y, bbMin.z, 1.0f },
+                        {bbMax.x, bbMax.y, bbMin.z, 1.0f },
+                        {bbMax.x, bbMin.y, bbMin.z, 1.0f },
+                        {bbMin.x, bbMin.y, bbMin.z, 1.0f },
+                    };
+                    bbMin = lightView * bbCorners[0];
+                    bbMax = lightView * bbCorners[0];
+                    for (size_t i = 1; i < BX_COUNTOF(bbCorners); ++i) {
+                        glm::vec4 bbCornerLightSpace = lightView * bbCorners[i];
+                        bbMin = glm::min(bbCornerLightSpace, bbMin);
+                        bbMax = glm::max(bbCornerLightSpace, bbMax);
+                    }
+                    // Aggressively bound X and Y, since we don't want any wasted space
+                    min.x = bx::max(bbMin.x, min.x);
+                    max.x = bx::min(bbMax.x, max.x);
+                    min.y = bx::max(bbMin.y, min.y);
+                    max.y = bx::min(bbMax.y, max.y);
+                    // Conservatively bound Z, since we need to make sure all occluders are included, even if they are behind the view frustum
+                    min.z = bx::min(bbMin.z, min.z);
+                    max.z = bx::max(bbMax.z, max.z);
+
+                    uint64_t stateShadowMapping = 0
+                        | BGFX_STATE_WRITE_Z
+                        | BGFX_STATE_CULL_CCW
+                        | BGFX_STATE_DEPTH_TEST_LESS;
+
+                    //m_sceneUniforms.texelSize = bx::max(2.0f * (right - left), 2.0f * (top - bottom)) / m_shadowMapWidth;
+                    float orthoProjectionRaw[16];
+                    bx::mtxOrtho(
+                        orthoProjectionRaw,
+                        min.x, // left
+                        max.x, // right
+                        min.y, // bottom
+                        max.y, // top,
+                        max.z, // near
+                        min.z - max.z, // far
+                        0.0, m_caps->homogeneousDepth);
+                    glm::mat4 orthoProjection = glm::make_mat4(orthoProjectionRaw);
+
+                    lightView = glm::lookAt(glm::vec3(center - m_directionalLight.m_direction), glm::vec3(center), up);
+
+                    bgfx::setViewTransform(shadowPasses[cascadeIdx], glm::value_ptr(lightView), glm::value_ptr(orthoProjection));
+                    m_directionalLight.m_cascadeTransforms[cascadeIdx] = orthoProjection * lightView;
+
+                    // Render all our opaque meshes into the shadow map
+                    for (size_t i = 0; i < m_model.opaqueMeshes.meshes.size(); ++i)
+                    {
+                        const auto& mesh = m_model.opaqueMeshes.meshes[i];
+                        const auto& transform = m_model.opaqueMeshes.transforms[i];
+
+                        bgfx::setState(stateShadowMapping);
+                        bgfx::setTransform(glm::value_ptr(transform));
+                        mesh.setBuffers();
+                        bgfx::submit(shadowPasses[cascadeIdx], m_directionalShadowMapProgram);
+                    }
                 }
             }
 
-
+            // SHADED MESH DRAWS
             uint64_t stateOpaque = 0
                 | BGFX_STATE_WRITE_RGB
                 | BGFX_STATE_WRITE_A
