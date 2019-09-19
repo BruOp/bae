@@ -48,6 +48,12 @@ namespace bae
 
     void destroy(const Mesh& mesh);
 
+    struct AABB
+    {
+        glm::vec3 min = { 0.0f, 0.0f, 0.0f };
+        glm::vec3 max = { 0.0f, 0.0f, 0.0f };
+    };
+
     // Struct containing material information according to the GLTF spec
     // Note: Doesn't fully support the spec :)
     struct PBRMaterial
@@ -70,6 +76,7 @@ namespace bae
         std::vector<PBRMaterial> materials;
         std::vector<Mesh> meshes;
         std::vector<glm::mat4> transforms;
+        std::vector<AABB> boundingBoxes;
     };
 
     struct Model
@@ -79,6 +86,8 @@ namespace bae
         MeshGroup opaqueMeshes;
         MeshGroup maskedMeshes;
         MeshGroup transparentMeshes;
+
+        AABB boundingBox = {};
     };
 
     void destroy(Model& model);

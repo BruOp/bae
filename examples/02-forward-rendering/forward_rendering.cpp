@@ -169,7 +169,7 @@ public:
         m_width = _width;
         m_height = _height;
         m_debug = BGFX_DEBUG_TEXT;
-        m_reset = BGFX_RESET_VSYNC;
+        m_reset = BGFX_RESET_VSYNC | BGFX_RESET_MAXANISOTROPY;
 
         bgfx::Init initInfo;
         initInfo.type = args.m_type;
