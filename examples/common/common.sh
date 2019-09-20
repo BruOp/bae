@@ -5,3 +5,4 @@
 
 #include <bgfx_shader.sh>
 #include "shaderlib.sh"
+#include "tone_mapping_operators.sh"

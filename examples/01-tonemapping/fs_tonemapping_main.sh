@@ -19,15 +19,36 @@ void main()
 
   vec3 Yxy = convertRGB2Yxy(rgb);
 
-  float middleGray = u_tonemap.x;
-  // float whiteSqr   = u_tonemap.y;
+  float whiteSqr   = u_tonemap.x;
 
   Yxy.x /= (9.6 * lum + 0.0001);
 
   rgb = convertYxy2RGB(Yxy);
 
+#ifdef USE_REINHARD
+  rgb = reinhard2(rgb, whiteSqr);
+  gl_FragColor = toGammaAccurate(vec4(rgb, 1.0) );
+#endif
+
+#ifdef USE_LOTTES
+  rgb.x = Tonemap_Lottes(rgb.x);
+  rgb.y = Tonemap_Lottes(rgb.y);
+  rgb.z = Tonemap_Lottes(rgb.z);
+  gl_FragColor = toGammaAccurate(vec4(rgb, 1.0) );
+#endif
+
+#ifdef USE_UCHIMURA
   rgb.x = Tonemap_Uchimura(rgb.x);
   rgb.y = Tonemap_Uchimura(rgb.y);
   rgb.z = Tonemap_Uchimura(rgb.z);
   gl_FragColor = toGammaAccurate(vec4(rgb, 1.0) );
+#endif
+
+#ifdef USE_UNREAL
+  // Gamma is baked in
+  rgb.x = Tonemap_Unreal(rgb.x);
+  rgb.y = Tonemap_Unreal(rgb.y);
+  rgb.z = Tonemap_Unreal(rgb.z);
+  gl_FragColor = vec4(rgb, 1.0);
+#endif
 }

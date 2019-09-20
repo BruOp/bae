@@ -11,10 +11,18 @@
 namespace
 {
 
-
 #define SAMPLER_POINT_CLAMP  (BGFX_SAMPLER_POINT|BGFX_SAMPLER_UVW_CLAMP)
 
     static float s_texelHalf = 0.0f;
+
+    static const char* s_operatorNames[]
+    {
+        "Reinhard",
+        "Lottes",
+        "Uchimura",
+        "Unreal"
+    };
+
 
     struct PosColorTexCoord0Vertex
     {
@@ -136,7 +144,7 @@ namespace
             // Create vertex stream declaration.
             PosColorTexCoord0Vertex::init();
 
-            m_envTexture = loadTexture("textures/pisa.ktx"
+            m_envTexture = loadTexture("textures/pisa_with_mips.ktx"
                 , 0
                 | BGFX_SAMPLER_U_CLAMP
                 | BGFX_SAMPLER_V_CLAMP
@@ -154,7 +162,11 @@ namespace
             m_meshProgram = loadProgram("vs_tonemapping_mesh", "fs_tonemapping_mesh");
             m_histogramProgram = loadProgram("cs_lum_hist", NULL);
             m_averagingProgram = loadProgram("cs_lum_avg", NULL);
-            m_tonemapProgram = loadProgram("vs_tonemapping_tonemap", "fs_tonemapping_tonemap");
+            m_tonemapPrograms[0] = loadProgram("vs_tonemapping_tonemap", "fs_reinhard");
+            m_tonemapPrograms[1] = loadProgram("vs_tonemapping_tonemap", "fs_lottes");
+            m_tonemapPrograms[2] = loadProgram("vs_tonemapping_tonemap", "fs_uchimura");
+            m_tonemapPrograms[3] = loadProgram("vs_tonemapping_tonemap", "fs_unreal");
+
             m_mesh = meshLoad("meshes/bunny.bin");
 
             m_fbh.idx = bgfx::kInvalidHandle;
@@ -172,11 +184,8 @@ namespace
             m_oldReset = m_reset;
 
             m_speed = 0.37f;
-            m_middleGray = 0.18f;
             m_white = 3.0f;
             m_threshold = 1.5f;
-
-            m_scrollArea = 0;
 
             m_time = 0.0f;
         }
@@ -199,7 +208,9 @@ namespace
 
             bgfx::destroy(m_meshProgram);
             bgfx::destroy(m_skyProgram);
-            bgfx::destroy(m_tonemapProgram);
+            for (size_t i = 0; i < BX_COUNTOF(m_tonemapPrograms); ++i) {
+                bgfx::destroy(m_tonemapPrograms[i]);
+            }
             bgfx::destroy(m_histogramProgram);
             bgfx::destroy(m_averagingProgram);
 
@@ -308,9 +319,12 @@ namespace
                 ImGui::SliderFloat("Speed", &m_speed, 0.0f, 1.0f);
                 ImGui::Separator();
 
-                ImGui::SliderFloat("Middle gray", &m_middleGray, 0.1f, 1.0f);
-                ImGui::SliderFloat("White point", &m_white, 0.1f, 5.0f);
-                ImGui::SliderFloat("Threshold", &m_threshold, 0.1f, 2.0f);
+                ImGui::Text("Tone Mapping Operator");
+                ImGui::Combo("", (int*)&m_currentOperator, s_operatorNames, BX_COUNTOF(s_operatorNames));
+
+                if (m_currentOperator == 0) {
+                    ImGui::SliderFloat("White Point", &m_white, 0.1f, 5.0f);
+                }
 
                 ImGui::End();
 
@@ -421,13 +435,13 @@ namespace
                 bgfx::setUniform(u_histogramParams, avgParams);
                 bgfx::dispatch(averagingPass, m_averagingProgram, 1, 1, 1);
 
-                float tonemap[4] = { m_middleGray, bx::square(m_white), m_threshold, m_time };
+                float tonemap[4] = { bx::square(m_white), 0.0f, m_threshold, m_time };
                 bgfx::setTexture(0, s_texColor, m_fbtextures[0]);
                 bgfx::setTexture(1, s_texAvgLum, m_lumAvgTarget, SAMPLER_POINT_CLAMP);
                 bgfx::setUniform(u_tonemap, tonemap);
                 bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A);
                 screenSpaceQuad((float)m_width, (float)m_height, m_caps->originBottomLeft);
-                bgfx::submit(toneMapPass, m_tonemapProgram);
+                bgfx::submit(toneMapPass, m_tonemapPrograms[m_currentOperator]);
 
                 bgfx::frame();
 
@@ -443,7 +457,7 @@ namespace
 
         bgfx::ProgramHandle m_skyProgram;
         bgfx::ProgramHandle m_meshProgram;
-        bgfx::ProgramHandle m_tonemapProgram;
+        bgfx::ProgramHandle m_tonemapPrograms[4];
         bgfx::ProgramHandle m_histogramProgram;
         bgfx::ProgramHandle m_averagingProgram;
 
@@ -474,12 +488,11 @@ namespace
         uint32_t m_oldHeight;
         uint32_t m_oldReset;
 
+        int32_t m_currentOperator = 0;
+
         float m_speed;
-        float m_middleGray;
         float m_white;
         float m_threshold;
-
-        int32_t m_scrollArea;
 
         const bgfx::Caps* m_caps;
         float m_time;
