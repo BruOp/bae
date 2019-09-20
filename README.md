@@ -136,6 +136,8 @@ There's also a z-prepass to reduce the amount of overdraw, which has a pretty dr
 
 ### Deferred
 
+![Composite image showing different parts of the Gbuffer and final image](examples/screenshots/03-deferred.png)
+
 Meanwhile, in the deferred case we use **light volumes** to calculate our shaded pixel values. We render each point light using two draw calls: one which only writes the stencil buffer, marking any pixels that we don't want to shade, and then a second draw with the same geometry that tests against those stencil values and perform the shading, writing to the output buffer additively.
 
 The first draw draws both back and front faces and will mark any pixel which either:
