@@ -473,7 +473,7 @@ namespace example
             // Update camera
             float view[16];
 
-            cameraUpdate(0.5f * deltaTime, m_mouseState);
+            cameraUpdate(0.1f * deltaTime, m_mouseState);
             cameraGetViewMtx(view);
             // Set view and projection matrix
             bgfx::setViewTransform(meshPass, view, proj);
