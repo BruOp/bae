@@ -181,7 +181,7 @@ Having never worked with shadow maps I figured it'd be a good idea to try and im
 
 The idea is simple: render many different shadow maps that cover different parts of your view frustum to maximize the shadow map density closer to the camera, allowing for fewer "perspective aliasing" artifacts. However, the exact placement of the cascades can be simple, manual or it can be more involved.
 
-In this example, the cascades are placed by using a logarithmic placement algorithm (look this up) and bounded using a depth reduction step (performed on the GPU using compute shaders). The min and max depth values are stored inside a 1x1 texture and read back on the CPU, which uses the data to determine each cascade's view frustum.
+In this example, the cascades are placed by using a logarithmic placement algorithm (eq 7.5 in [RTR Vol 4](http://www.realtimerendering.com/)) and bounded using a depth reduction step (performed on the GPU using compute shaders). The min and max depth values are stored inside a 1x1 texture and read back on the CPU, which uses the data to determine each cascade's view frustum.
 
 The view frustum is further constrained using the scene axis-aligned bounding box, to ensure that the near and far planes are beyond the scene geometry and that the left, right, top and bottom planes do not exceed the bound of the scene.
 
