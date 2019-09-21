@@ -187,9 +187,8 @@ The view frustum is further constrained using the scene axis-aligned bounding bo
 
 This maximizes our effective shadow map resolution, but it does come with some draw backs. For one, there's no way for us to really "clamp" the movement of our cascades to texel sized increments as the world space size of our texel is constantly change, so we still experience the pixel crawl of unstabilized cascades.
 
-Additionally, biasing is supported but I've found that anything other than normal offset bias produces visible light leaks and "peter-panning" without much improvement to our image. But a manual bias and a slope-scale bias are both supported and you can play around with the settings to see what I mean.
+I've also added percentage close filtering (PCF) using a randomly oriented poisson disk, as explained in [this presentation by Kaysan](https://www.realtimeshadows.com/sites/default/files/Playing%20with%20Real-Time%20Shadows_0.pdf). My implementation is a bit simpler however, and I just perform the 16 taps with the same size in light space for all pixels which don't self occlude.
 
 ### TODOS
 
 - MSAA is not currently supported, and turning it on may cause unexpected results! :D
-- We experience pretty bad aliasing artifacts despite our high effective resolution. The aliasing is bad enough that I'm not entirely convinced it is not a bug, but either way I plan on adding percentage close filtering with a randomly oriented poisson disk, as explained in [this presentation by Kaysan](https://www.realtimeshadows.com/sites/default/files/Playing%20with%20Real-Time%20Shadows_0.pdf)

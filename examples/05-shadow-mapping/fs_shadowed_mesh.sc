@@ -18,13 +18,16 @@ uniform vec4 u_directionalLightParams[2];
 #define u_lightColor u_directionalLightParams[0].xyz
 #define u_lightIntesity u_directionalLightParams[0].w
 #define u_lightDir u_directionalLightParams[1].xyz
-uniform vec4 u_cascadeDepths;
+uniform vec4 u_samplingDisk[8];
+uniform vec4 u_cascadeBounds[NUM_CASCADES];
+#define u_diskSize u_cascadeBounds[0].w
 uniform mat4 u_lightViewProj[NUM_CASCADES];
 
 SAMPLER2D(s_shadowMap_1, 5);
 SAMPLER2D(s_shadowMap_2, 6);
 SAMPLER2D(s_shadowMap_3, 7);
 SAMPLER2D(s_shadowMap_4, 8);
+SAMPLER2D(s_randomTexture, 9);
 
 
 // Material
@@ -69,7 +72,7 @@ vec2 get_shadow_offsets(vec3 normal, vec3 lightDir) {
 uint getShadowCascadeIdx(float fragDepth) {
     UNROLL
     for (uint i = 0; i < NUM_CASCADES; ++i) {
-        if (fragDepth < u_cascadeDepths[i]) {
+        if (fragDepth < u_cascadeBounds[i].z) {
             return i;
         }
     }
@@ -77,18 +80,31 @@ uint getShadowCascadeIdx(float fragDepth) {
 }
 
 
-float sampleLightDepth(uint cascadeIdx, vec2 texCoords) {
+float sampleLightDepth(
+    uint cascadeIdx,
+    vec2 texCoords,
+    vec2 diskRotation,
+    float lightDepth,
+    uint i, uint j
+) {
+    vec2 diskOffset = (
+        diskRotation.x * u_samplingDisk[i][j] - diskRotation.y * u_samplingDisk[i][j+1],
+        diskRotation.y * u_samplingDisk[i][j] + diskRotation.x * u_samplingDisk[i][j+1]
+    );
+    // vec2 diskOffset = (u_samplingDisk[i][j], u_samplingDisk[i][j+1]);
+    vec2 uv = texCoords + u_diskSize * diskOffset / u_cascadeBounds[cascadeIdx].xy;
+    float sampledLightDepth;
     if (cascadeIdx == 0) {
-        return texture2D(s_shadowMap_1, texCoords).r;
+        sampledLightDepth = texture2D(s_shadowMap_1, uv).r;
     } else if (cascadeIdx == 1) {
-        return texture2D(s_shadowMap_2, texCoords).r;
+        sampledLightDepth = texture2D(s_shadowMap_2, uv).r;
     } else if (cascadeIdx == 2) {
-        return texture2D(s_shadowMap_3, texCoords).r;
+        sampledLightDepth = texture2D(s_shadowMap_3, uv).r;
     } else {
-        return texture2D(s_shadowMap_4, texCoords).r;
+        sampledLightDepth = texture2D(s_shadowMap_4, uv).r;
     }
+    return step(lightDepth, sampledLightDepth);
 }
-
 
 void main()
 {
@@ -104,24 +120,38 @@ void main()
     // From the MikkTSpace docs! (check mikktspace.h)
     normal = normalize(normal.x * v_tangent + normal.y * v_bitangent + normal.z * v_normal);
 
-    // SHADOWING
-    vec2 offsets = u_shadowMapParams.zy * get_shadow_offsets(normal, u_lightDir);
-    // Move along normal in world space
-    vec3 samplePosition = v_position + v_normal * offsets.x;
+    float selfOcclusion = clampDot(normal, -u_lightDir);
+    float shadowVisibility = 0.0;
 
-    uint cascadeIdx = getShadowCascadeIdx(gl_FragCoord.z);
-    // Transform to light space
-    vec4 lightClip = mul(u_lightViewProj[cascadeIdx], vec4(samplePosition, 1.0));
-    vec3 lightUVDepth = lightClip.xyz / lightClip.w;
-#if BGFX_SHADER_LANGUAGE_GLSL
-    lightUVDepth = 0.5 * lightClip + 0.5;
-#else
-    lightUVDepth.xy = 0.5 * lightUVDepth.xy + 0.5;
-    lightUVDepth.y = 1.0 - lightUVDepth.y;
-#endif
-    float lightDepth = lightUVDepth.z - u_shadowBias;
-    float sampledLightDepth = sampleLightDepth(cascadeIdx, lightUVDepth.xy) + offsets.y;
-    float visibility = step(lightDepth, sampledLightDepth);
+    if (selfOcclusion > 0.0) {
+        // SHADOWING
+        uint cascadeIdx = getShadowCascadeIdx(gl_FragCoord.z);
+        vec2 offsets = u_shadowMapParams.zy * get_shadow_offsets(normal, u_lightDir);
+
+        // Move along normal in world space
+        vec3 samplePosition = v_position + v_normal * offsets.x;
+        // Transform to light space
+        vec4 lightClip = mul(u_lightViewProj[cascadeIdx], vec4(samplePosition, 1.0));
+        vec3 lightUVDepth = lightClip.xyz / lightClip.w;
+    #if BGFX_SHADER_LANGUAGE_GLSL
+        lightUVDepth = 0.5 * lightClip + 0.5;
+    #else
+        lightUVDepth.xy = 0.5 * lightUVDepth.xy + 0.5;
+        lightUVDepth.y = 1.0 - lightUVDepth.y;
+    #endif
+
+        float lightDepth = lightUVDepth.z - u_shadowBias - offsets.y;
+        // Red is cos theta, green is sin theta
+        vec2 diskRotation = texture2D(s_randomTexture, 0.5 * gl_FragCoord.xy + 0.5).rg;
+
+        UNROLL
+        for (uint i = 0; i < 8; i++) {
+            shadowVisibility += sampleLightDepth(cascadeIdx, lightUVDepth.xy, diskRotation, lightDepth, i, 0);
+            shadowVisibility += sampleLightDepth(cascadeIdx, lightUVDepth.xy, diskRotation, lightDepth, i, 2);
+        }
+        shadowVisibility /= 16.0;
+    }
+
 
     vec3 viewDir = normalize(u_cameraPos.xyz - v_position);
 
@@ -130,7 +160,7 @@ void main()
     float metallic = roughnessMetal.y * u_metallicFactor;
     float occlusion = texture2D(s_occlusion, v_texcoord).x;
     vec3 emissive = toLinear(texture2D(s_emissive, v_texcoord)).xyz * u_emissiveFactor;
-    vec3 light = visibility * u_lightIntesity * u_lightColor * clampDot(normal, -u_lightDir);
+    vec3 light = shadowVisibility * u_lightIntesity * u_lightColor * selfOcclusion;
 
     vec3 color = 0.1 * diffuseColor(baseColor.xyz, metallic) + (
         diffuseColor(baseColor.xyz, metallic) +

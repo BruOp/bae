@@ -29,6 +29,25 @@ namespace example
     constexpr size_t NUM_CASCADES = 4;
     constexpr uint16_t numDepthUniforms = NUM_CASCADES / 4u + (NUM_CASCADES % 4u > 0u ? 1u : 0u);
 
+    static glm::vec2 poissonPattern[16]{
+        { 0.0f, 0.0f },
+        {  0.17109937f,  0.2446258f },
+        { -0.21000639f,  0.2215623f },
+        { -0.21870295f, -0.4121470f },
+        {  0.47603912f,  0.1545703f },
+        {  0.07101892f,  0.5738609f },
+        { -0.58473243f, -0.0193209f },
+        {  0.20808589f, -0.5909251f },
+        { -0.50123549f,  0.4462842f },
+        { -0.35330381f,  0.7264391f },
+        { -0.32911544f, -0.8395201f },
+        { -0.58613963f, -0.7026365f },
+        {  0.90719804f,  0.1760366f },
+        {  0.16860312f, -0.9280076f },
+        {  0.56421436f, -0.8211315f },
+        {  0.99490413f, -0.1008254f },
+    };
+
     struct DirectionalLight
     {
         glm::vec3 m_color = glm::vec3{ 1.0f, 1.0f, 1.0f };
@@ -36,20 +55,25 @@ namespace example
         glm::vec4 m_direction = glm::normalize(glm::vec4{ 1.0, -3.0f, 1.0f, 0.0 });
 
         glm::mat4 m_cascadeTransforms[NUM_CASCADES];
-        float m_cascadeBoundaries[NUM_CASCADES];
+        glm::vec4 m_cascadeBounds[NUM_CASCADES];
 
         bgfx::UniformHandle u_directionalLightParams = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_lightViewProj = BGFX_INVALID_HANDLE;
-        bgfx::UniformHandle u_cascadeDepths = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_samplingDisk = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_cascadeBounds = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_shadowMaps[NUM_CASCADES] = { BGFX_INVALID_HANDLE };
     };
 
     void init(DirectionalLight& light)
     {
+        // We cheat a bit and store the disk size in the cascadeBounds:
+        light.m_cascadeBounds[0].w = 0.035;
+
         light.u_directionalLightParams = bgfx::createUniform("u_directionalLightParams", bgfx::UniformType::Vec4, 2);
         light.u_lightViewProj = bgfx::createUniform("u_lightViewProj", bgfx::UniformType::Mat4, NUM_CASCADES);
+        light.u_samplingDisk = bgfx::createUniform("u_samplingDisk", bgfx::UniformType::Vec4, 4u);
         // Uniform will be vec4, but we're storing a min and max for each cascade
-        light.u_cascadeDepths = bgfx::createUniform("u_cascadeDepths", bgfx::UniformType::Vec4, numDepthUniforms);
+        light.u_cascadeBounds = bgfx::createUniform("u_cascadeBounds", bgfx::UniformType::Vec4, numDepthUniforms);
         for (size_t i = 0; i < NUM_CASCADES; i++)
         {
             char name[] = "s_shadowMap_x";
@@ -57,13 +81,13 @@ namespace example
             light.s_shadowMaps[i] = bgfx::createUniform(name, bgfx::UniformType::Sampler);
 
         }
-
     }
 
     void destroy(DirectionalLight& light) {
         bgfx::destroy(light.u_directionalLightParams);
         bgfx::destroy(light.u_lightViewProj);
-        bgfx::destroy(light.u_cascadeDepths);
+        bgfx::destroy(light.u_samplingDisk);
+        bgfx::destroy(light.u_cascadeBounds);
         for (bgfx::UniformHandle shadowMap : light.s_shadowMaps)
         {
             bgfx::destroy(shadowMap);
@@ -73,7 +97,8 @@ namespace example
     void bindUniforms(const DirectionalLight& light, const bgfx::TextureHandle shadowMapTextures[NUM_CASCADES]) {
         bgfx::setUniform(light.u_directionalLightParams, &light, 2);
         bgfx::setUniform(light.u_lightViewProj, glm::value_ptr(light.m_cascadeTransforms[0]), NUM_CASCADES);
-        bgfx::setUniform(light.u_cascadeDepths, light.m_cascadeBoundaries, numDepthUniforms);
+        bgfx::setUniform(light.u_samplingDisk, glm::value_ptr(poissonPattern[0]), 8u);
+        bgfx::setUniform(light.u_cascadeBounds, light.m_cascadeBounds, NUM_CASCADES);
         for (uint8_t i = 0; i < NUM_CASCADES; i++)
         {
             bgfx::setTexture(i + 5, light.s_shadowMaps[i], shadowMapTextures[i], BGFX_SAMPLER_UVW_CLAMP);
@@ -139,29 +164,34 @@ namespace example
     struct SceneUniforms
     {
         float manualBias = 0.000;
-        float slopeScaleBias = 0.000;
-        float normalOffsetFactor = 0.020;
+        float slopeScaleBias = 0.001;
+        float normalOffsetFactor = 0.010;
         float texelSize = 0.0;
-
+        bgfx::TextureHandle m_randomTexture = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_shadowMapParams = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_cameraPos = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_randomTexture = BGFX_INVALID_HANDLE;
     };
 
     void init(SceneUniforms& uniforms)
     {
         uniforms.u_shadowMapParams = bgfx::createUniform("u_shadowMapParams", bgfx::UniformType::Vec4);
         uniforms.u_cameraPos = bgfx::createUniform("u_cameraPos", bgfx::UniformType::Vec4);
+        uniforms.s_randomTexture = bgfx::createUniform("s_randomTexture", bgfx::UniformType::Sampler);
     }
 
     void destroy(SceneUniforms& uniforms) {
+        bgfx::destroy(uniforms.m_randomTexture);
         bgfx::destroy(uniforms.u_shadowMapParams);
         bgfx::destroy(uniforms.u_cameraPos);
+        bgfx::destroy(uniforms.s_randomTexture);
     }
 
     void bindUniforms(const SceneUniforms& uniforms, const bx::Vec3 cameraPos)
     {
         bgfx::setUniform(uniforms.u_shadowMapParams, &uniforms.manualBias);
         bgfx::setUniform(uniforms.u_cameraPos, &cameraPos);
+        bgfx::setTexture(9, uniforms.s_randomTexture, uniforms.m_randomTexture);
     }
 
     struct DepthReductionUniforms
@@ -240,7 +270,9 @@ namespace example
             example::init(m_sceneUniforms);
             example::init(m_directionalLight);
             example::init(m_depthReductionUniforms);
+            
             m_shadowMapDebugSampler = bgfx::createUniform("s_input", bgfx::UniformType::Sampler);
+            m_sceneUniforms.m_randomTexture = loadTexture("textures/random.png");
 
             m_toneMapParams.width = m_width;
             m_toneMapParams.width = m_height;
@@ -432,12 +464,20 @@ namespace example
             ImGui::Begin("Settings", NULL, 0);
 
             ImGui::DragFloat("Total Brightness", &m_directionalLight.m_intensity, 0.5f, 0.0f, 250.0f);
-            ImGui::SliderFloat3("Light Direction", glm::value_ptr(m_directionalLight.m_direction), -1.0f, 1.0f);
-            m_directionalLight.m_direction = glm::normalize(m_directionalLight.m_direction);
+            ImGui::Checkbox("Update Lights", &m_updateLights);
+
+            if (!m_updateLights) {
+                ImGui::SliderFloat3("Light Direction", glm::value_ptr(m_directionalLight.m_direction), -1.0f, 1.0f);
+                m_directionalLight.m_direction = glm::normalize(m_directionalLight.m_direction);
+            }
 
             ImGui::SliderFloat("Manual Bias", &m_sceneUniforms.manualBias, 0.0f, 0.01f);
-            ImGui::SliderFloat("Slope Scale Bias Factor", &m_sceneUniforms.slopeScaleBias, 0.0f, 0.01f);
-            ImGui::SliderFloat("Normal Offset Bias", &m_sceneUniforms.normalOffsetFactor, 0.0f, 0.05f);
+            ImGui::Text("Slope Scale Bias Factor");
+            ImGui::SliderFloat("Slope", &m_sceneUniforms.slopeScaleBias, 0.0f, 0.01f);
+            ImGui::Text("Normal Offset Bias");
+            ImGui::SliderFloat("Normal", &m_sceneUniforms.normalOffsetFactor, 0.0f, 0.05f);
+            ImGui::Text("Poisson Disk Size");
+            ImGui::SliderFloat("Disk", &m_directionalLight.m_cascadeBounds[0].w, 0.001f, 0.1f);
 
             ImGui::End();
 
@@ -480,6 +520,15 @@ namespace example
             float fov = 60.0f;
             float proj[16];
             bx::mtxProj(proj, fov, float(m_width) / float(m_height), NEAR_PLANE, FAR_PLANE, bgfx::getCaps()->homogeneousDepth);
+
+            if (m_updateLights) {
+                m_directionalLight.m_direction = glm::normalize(glm::vec4{
+                    bx::cos(0.2f * m_time),
+                    -bx::abs(bx::sin(0.2f * m_time)),
+                    bx::cos(0.2f * m_time) * 0.2f,
+                    0.0f,
+                });
+            }
 
             // Update camera
             float view[16];
@@ -552,8 +601,8 @@ namespace example
                 }
 
                 for (int cascadeIdx = 0; cascadeIdx < NUM_CASCADES; ++cascadeIdx) {
-                    // Store NDC depths of near and far corners for use in our shader
-                    m_directionalLight.m_cascadeBoundaries[cascadeIdx] = (proj[10] * cascadeMinMax[cascadeIdx].y + proj[14]) / (proj[11] * cascadeMinMax[cascadeIdx].y);
+                    // Store NDC dpeths of near and far corners for use in our shader
+                    m_directionalLight.m_cascadeBounds[cascadeIdx].z = (proj[10] * cascadeMinMax[cascadeIdx].y + proj[14]) / (proj[11] * cascadeMinMax[cascadeIdx].y);
                 }
 
                 // In clip space:
@@ -636,9 +685,10 @@ namespace example
                     min.z = bx::min(bbMin.z, min.z);
                     max.z = bx::max(bbMax.z, max.z);
 
+                    // NOTE: There's a bug somewhere in this code that means I need to cull CW rather than CCW like the rest of the code!
                     uint64_t stateShadowMapping = 0
                         | BGFX_STATE_WRITE_Z
-                        | BGFX_STATE_CULL_CCW
+                        | BGFX_STATE_CULL_CW
                         | BGFX_STATE_DEPTH_TEST_LESS;
 
                     //m_sceneUniforms.texelSize = bx::max(2.0f * (right - left), 2.0f * (top - bottom)) / m_shadowMapWidth;
@@ -650,9 +700,12 @@ namespace example
                         min.y, // bottom
                         max.y, // top,
                         max.z, // near
-                        min.z - max.z, // far
+                        min.z, // far
                         0.0, m_caps->homogeneousDepth);
                     glm::mat4 orthoProjection = glm::make_mat4(orthoProjectionRaw);
+
+                    m_directionalLight.m_cascadeBounds[cascadeIdx].x = max.x - min.x;
+                    m_directionalLight.m_cascadeBounds[cascadeIdx].y = max.y - min.y;
 
                     lightView = glm::lookAt(glm::vec3(center - m_directionalLight.m_direction), glm::vec3(center), up);
 
@@ -763,6 +816,7 @@ namespace example
         const bgfx::Caps* m_caps;
 
         bool m_computeSupported = true;
+        bool m_updateLights = true;
         uint16_t m_depthData[2] = { 0, bx::kHalfFloatOne };
     };
 
