@@ -76,20 +76,17 @@ namespace bae
     glm::mat4 processTransform(const tinygltf::Node& node, const glm::mat4& parentTransform)
     {
         glm::mat4 localTransform = glm::identity<glm::mat4>();
-        if (node.scale.size() == 3)
-        {
+        if (node.scale.size() == 3) {
             localTransform = glm::scale(localTransform, glm::vec3{ node.scale[0], node.scale[0], node.scale[0] });
         }
 
-        if (node.rotation.size() == 4)
-        {
+        if (node.rotation.size() == 4) {
             // Quaternion
             glm::quat rotation = glm::make_quat(node.rotation.data());
             localTransform = glm::toMat4(rotation) * localTransform;
         }
 
-        if (node.translation.size() == 3)
-        {
+        if (node.translation.size() == 3) {
             localTransform = glm::translate(
                 localTransform,
                 glm::vec3{
@@ -108,21 +105,42 @@ namespace bae
     {
         Mesh mesh{};
         VertexData vertData{};
+        std::vector<uint16_t> indexData{}; // Only used if we need to convert the index data to the appropriate format
 
         // Get indices
         {
             const tinygltf::Accessor& indexAccessor = gltf_model.accessors[primitive.indices];
-            if (indexAccessor.type != TINYGLTF_TYPE_SCALAR || indexAccessor.componentType != TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT)
-            {
-                throw std::runtime_error("Don't know how to handle non uint16_t indices");
-            }
+
             vertData.numFaces = indexAccessor.count / 3u;
 
             const tinygltf::BufferView& bufferView = gltf_model.bufferViews[indexAccessor.bufferView];
             const tinygltf::Buffer& buffer = gltf_model.buffers[bufferView.buffer];
-            const bgfx::Memory* indexMemory = bgfx::copy(&buffer.data.at(0) + bufferView.byteOffset, bufferView.byteLength);
-            mesh.indexHandle = bgfx::createIndexBuffer(indexMemory);
-            vertData.p_indices = (uint16_t*)(buffer.data.data() + bufferView.byteOffset);
+
+            if (indexAccessor.type != TINYGLTF_TYPE_SCALAR) {
+                throw std::runtime_error("Don't know how to handle non uint indices");
+            }
+            else if (indexAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
+                const bgfx::Memory* indexMemory = bgfx::copy(&buffer.data.at(0) + bufferView.byteOffset, bufferView.byteLength);
+                mesh.indexHandle = bgfx::createIndexBuffer(indexMemory);
+                vertData.p_indices = (uint16_t*)(buffer.data.data() + bufferView.byteOffset);
+            }
+            else if (indexAccessor.componentType == TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE) {
+                // Store uint8_t data in uint16_t array
+                indexData.resize(indexAccessor.count);
+                for (size_t i = 0; i < indexAccessor.count; ++i) {
+                    uint8_t indexDatum = *static_cast<const uint8_t*>(
+                        &buffer.data.at(0) + bufferView.byteOffset + (i * sizeof(uint8_t))
+                    );
+                    indexData[i] = uint16_t{ indexDatum };
+                }
+                const bgfx::Memory* indexMemory = bgfx::copy(indexData.data(), indexData.size() * sizeof(uint16_t));
+                mesh.indexHandle = bgfx::createIndexBuffer(indexMemory);
+                vertData.p_indices = indexData.data();
+            }
+            else {
+                throw std::runtime_error("Don't know how to handle non uint8 or uint16 indices");
+            }
+
         }
 
         const std::string ATTRIBUTE_NAMES[] = {
@@ -133,18 +151,14 @@ namespace bae
 
         bgfx::VertexDecl decls[BX_COUNTOF(ATTRIBUTE_NAMES)];
 
-        for (size_t i = 0; i < BX_COUNTOF(ATTRIBUTE_NAMES); ++i)
-        {
+        for (size_t i = 0; i < BX_COUNTOF(ATTRIBUTE_NAMES); ++i) {
             const std::string& attrName = ATTRIBUTE_NAMES[i];
 
-            if (primitive.attributes.count(attrName) == 0)
-            {
-                if (attrName != "TANGENT")
-                {
+            if (primitive.attributes.count(attrName) == 0) {
+                if (attrName != "TANGENT") {
                     throw std::runtime_error("Cannot handle meshes without " + attrName + " attribute");
                 }
-                else
-                {
+                else {
                     // Skip tangents for now, we can calculate later
                     continue;
                 }
@@ -157,8 +171,7 @@ namespace bae
             const tinygltf::BufferView& bufferView{ gltf_model.bufferViews[accessor.bufferView] };
             tinygltf::Buffer& buffer{ gltf_model.buffers[bufferView.buffer] };
 
-            if (attrName == "POSITION")
-            {
+            if (attrName == "POSITION") {
                 vertData.numVertices = bufferView.byteLength / sizeof(glm::vec3);
 
             }
@@ -177,8 +190,7 @@ namespace bae
 
         // If our tangents are missing, calculate them
         std::vector<glm::vec4> tangentData{};
-        if (vertData.data[2] == nullptr)
-        {
+        if (vertData.data[2] == nullptr) {
             tangentData.resize(vertData.numVertices);
             vertData.byteLengths[2] = vertData.numVertices * sizeof(glm::vec4);
             vertData.data[2] = (unsigned char*)tangentData.data();
@@ -187,8 +199,7 @@ namespace bae
             decls[2].begin().add(bgfx::Attrib::Tangent, 4, bgfx::AttribType::Float, false).end();
         }
 
-        for (size_t i = 0; i < BX_COUNTOF(ATTRIBUTE_NAMES); ++i)
-        {
+        for (size_t i = 0; i < BX_COUNTOF(ATTRIBUTE_NAMES); ++i) {
             mesh.addVertexHandle(
                 bgfx::createVertexBuffer(
                     bgfx::copy(vertData.data[i], vertData.byteLengths[i]),
@@ -226,14 +237,11 @@ namespace bae
         glm::mat4 transform = processTransform(node, parentTransform);
 
         // Process the mesh (resulting in a Mesh, Material, RenderState and Transform?)
-        if (node.mesh != -1)
-        {
+        if (node.mesh != -1) {
             const tinygltf::Mesh& mesh = gltf_model.meshes[node.mesh];
 
-            for (const tinygltf::Primitive& primitive : mesh.primitives)
-            {
-                if (primitive.material != -1)
-                {
+            for (const tinygltf::Primitive& primitive : mesh.primitives) {
+                if (primitive.material != -1) {
                     Mesh newMesh = processPrimitive(gltf_model, primitive);
                     AABB boundingBox = getBoundingBox(gltf_model, primitive);
                     boundingBox.min = glm::vec3{ transform * glm::vec4{ boundingBox.min, 1.0f } };
@@ -242,16 +250,13 @@ namespace bae
 
                     output_model.boundingBox = { glm::min(output_model.boundingBox.min, boundingBox.min), glm::max(output_model.boundingBox.max, boundingBox.max) };
                     MeshGroup* meshGroup = nullptr;
-                    if (materialModePair.second == TransparencyMode::BLENDED)
-                    {
+                    if (materialModePair.second == TransparencyMode::BLENDED) {
                         meshGroup = &output_model.transparentMeshes;
                     }
-                    else if (materialModePair.second == TransparencyMode::MASKED)
-                    {
+                    else if (materialModePair.second == TransparencyMode::MASKED) {
                         meshGroup = &output_model.maskedMeshes;
                     }
-                    else
-                    {
+                    else {
                         meshGroup = &output_model.opaqueMeshes;
                     }
 
@@ -263,8 +268,7 @@ namespace bae
             }
         }
 
-        for (int child_idx : node.children)
-        {
+        for (int child_idx : node.children) {
             // Process the children (using the Transform) recursively
             loadModelNode(output_model, gltf_model, gltf_model.nodes[child_idx], transform, materials_list);
         }
@@ -280,18 +284,15 @@ namespace bae
         tinygltf::Model gltf_model;
         bool res = loader.LoadASCIIFromFile(&gltf_model, &err, &warn, assetPath + fileName);
 
-        if (!warn.empty())
-        {
+        if (!warn.empty()) {
             std::cout << warn << std::endl;
         }
 
-        if (!err.empty())
-        {
+        if (!err.empty()) {
             std::cout << err << std::endl;
         }
 
-        if (!res)
-        {
+        if (!res) {
             throw std::runtime_error("Failed to load GLTF Model");
         }
 
@@ -308,14 +309,12 @@ namespace bae
 
         // The plus 3 is due to our dummy textures
         output_model.textures.reserve(gltf_model.textures.size() + DUMMY_TEXTURE_COUNT);
-        for (const auto& dummyFile : dummyFiles)
-        {
+        for (const auto& dummyFile : dummyFiles) {
             bgfx::TextureHandle handle = loadTexture(dummyFile.c_str());
             output_model.textures.push_back(handle);
         }
         // TEXTURES
-        for (const tinygltf::Texture& texture : gltf_model.textures)
-        {
+        for (const tinygltf::Texture& texture : gltf_model.textures) {
             const std::string& uri = assetPath + gltf_model.images[texture.source].uri;
 
             // Ignore the sampling options for filter -- always use mag: LINEAR and min: LINEAR_MIPMAP_LINEAR
@@ -330,12 +329,10 @@ namespace bae
                 flag UNLESS it's to access the LINEAR_MIPMAP_* flags...
                 */
 
-            if (texture.sampler != -1)
-            {
+            if (texture.sampler != -1) {
                 const tinygltf::Sampler& sampler = gltf_model.samplers[texture.sampler];
 
-                switch (sampler.wrapS)
-                {
+                switch (sampler.wrapS) {
                 case TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE:
                     flags |= BGFX_SAMPLER_U_CLAMP;
                 case TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT:
@@ -344,8 +341,7 @@ namespace bae
                     // Default is repeat
                     break;
                 }
-                switch (sampler.wrapT)
-                {
+                switch (sampler.wrapT) {
                 case TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE:
                     flags |= BGFX_SAMPLER_V_CLAMP;
                 case TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT:
@@ -364,8 +360,7 @@ namespace bae
         materials_list.reserve(gltf_model.materials.size());
 
         // MATERIALS
-        for (const tinygltf::Material& material : gltf_model.materials)
-        {
+        for (const tinygltf::Material& material : gltf_model.materials) {
             // NOTE: We do not respect texCoord values other than the default 0... sorry!
             // Set default values
             PBRMaterial materialData{
@@ -384,14 +379,12 @@ namespace bae
 
             auto valuesEnd = material.values.end();
             auto p_keyValue = material.values.find("baseColorTexture");
-            if (p_keyValue != valuesEnd)
-            {
+            if (p_keyValue != valuesEnd) {
                 materialData.baseColorTexture = output_model.textures[p_keyValue->second.TextureIndex() + DUMMY_TEXTURE_COUNT];
             };
 
             p_keyValue = material.values.find("baseColorFactor");
-            if (p_keyValue != valuesEnd)
-            {
+            if (p_keyValue != valuesEnd) {
                 const auto& data = p_keyValue->second.ColorFactor();
                 materialData.baseColorFactor = glm::vec4{
                     static_cast<float>(data[0]),
@@ -402,14 +395,12 @@ namespace bae
             }
 
             p_keyValue = material.values.find("metallicRoughnessTexture");
-            if (p_keyValue != valuesEnd)
-            {
+            if (p_keyValue != valuesEnd) {
                 materialData.metallicRoughnessTexture = output_model.textures[p_keyValue->second.TextureIndex() + DUMMY_TEXTURE_COUNT];
             }
 
             p_keyValue = material.values.find("metallicFactor");
-            if (p_keyValue != valuesEnd)
-            {
+            if (p_keyValue != valuesEnd) {
                 materialData.metallicFactor = static_cast<float>(p_keyValue->second.Factor());
             }
 
@@ -417,18 +408,15 @@ namespace bae
 
             valuesEnd = material.additionalValues.end();
             p_keyValue = material.additionalValues.find("normalTexture");
-            if (p_keyValue != valuesEnd)
-            {
+            if (p_keyValue != valuesEnd) {
                 materialData.normalTexture = output_model.textures[p_keyValue->second.TextureIndex() + DUMMY_TEXTURE_COUNT];
             }
 
             p_keyValue = material.additionalValues.find("emissiveTexture");
-            if (p_keyValue != valuesEnd)
-            {
+            if (p_keyValue != valuesEnd) {
                 materialData.emissiveTexture = output_model.textures[p_keyValue->second.TextureIndex() + DUMMY_TEXTURE_COUNT];
 
-                if (material.additionalValues.find("emissiveFactor") != valuesEnd)
-                {
+                if (material.additionalValues.find("emissiveFactor") != valuesEnd) {
                     const auto& data = material.additionalValues.at("emissiveFactor").ColorFactor();
                     materialData.emissiveFactor = glm::vec4(
                         static_cast<float>(data[0]),
@@ -439,33 +427,27 @@ namespace bae
             };
 
             p_keyValue = material.additionalValues.find("occlusionTexture");
-            if (p_keyValue != valuesEnd)
-            {
+            if (p_keyValue != valuesEnd) {
                 materialData.occlusionTexture = output_model.textures[p_keyValue->second.TextureIndex() + DUMMY_TEXTURE_COUNT];
             }
 
             p_keyValue = material.additionalValues.find("metallicRoughnessTexture");
-            if (p_keyValue != valuesEnd)
-            {
+            if (p_keyValue != valuesEnd) {
                 materialData.metallicRoughnessTexture = output_model.textures[p_keyValue->second.TextureIndex() + DUMMY_TEXTURE_COUNT];
             }
 
             p_keyValue = material.additionalValues.find("alphaMode");
-            if (p_keyValue != valuesEnd)
-            {
-                if (p_keyValue->second.string_value == "BLEND")
-                {
+            if (p_keyValue != valuesEnd) {
+                if (p_keyValue->second.string_value == "BLEND") {
                     transparency_mode = TransparencyMode::BLENDED;
                 }
-                else if (p_keyValue->second.string_value == "MASK")
-                {
+                else if (p_keyValue->second.string_value == "MASK") {
                     transparency_mode = TransparencyMode::MASKED;
                 }
             }
 
             p_keyValue = material.additionalValues.find("alphaCutoff");
-            if (p_keyValue != valuesEnd)
-            {
+            if (p_keyValue != valuesEnd) {
                 materialData.alphaCutoff = static_cast<float>(p_keyValue->second.Factor());
             }
 
@@ -473,8 +455,7 @@ namespace bae
         }
 
         // For each node in the scene
-        for (const int node_idx : scene.nodes)
-        {
+        for (const int node_idx : scene.nodes) {
             loadModelNode(output_model, gltf_model, gltf_model.nodes[node_idx], glm::identity<glm::mat4>(), materials_list);
         }
 
