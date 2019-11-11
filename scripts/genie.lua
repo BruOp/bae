@@ -267,7 +267,8 @@ exampleProject(
     "02-forward-rendering",
     "03-deferred-rendering",
     "04-pbr-ibl",
-    "05-shadow-mapping"
+    "05-shadow-mapping",
+    "06-skinning"
 )
 
 group "tools"
