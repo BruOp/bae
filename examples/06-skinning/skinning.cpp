@@ -299,7 +299,7 @@ namespace example
 
             m_brdfLutCreator.init();
 
-            m_envMap = loadTexture("textures/pisa_with_mips.ktx");
+            m_envMap = loadTexture("textures/papermill_with_mips.ktx");
             m_prefilteredEnvMapCreator.sourceCubeMap = m_envMap;
             m_prefilteredEnvMapCreator.width = 1024u; // Based off size of pisa_with_mips.ktx
             m_prefilteredEnvMapCreator.init();
@@ -311,9 +311,9 @@ namespace example
 
             // Init camera
             cameraCreate();
-            cameraSetPosition({ -3.5f, 0.0f, 7.0f });
-            cameraSetHorizontalAngle(bx::atan2(3.5f, -7.0f));
-            cameraSetVerticalAngle(bx::toRad(-10.0f));
+            cameraSetPosition({ -0.75f, 0.5f, 2.0f });
+            cameraSetHorizontalAngle(bx::atan2(0.75f, -2.0f));
+            cameraSetVerticalAngle(bx::toRad(-12.0f));
 
             m_oldWidth = 0;
             m_oldHeight = 0;
@@ -430,6 +430,12 @@ namespace example
             }
         }
 
+        //// TODO: Map our skins vector to a list of joint transforms
+        //void updateSkins(const bae::Model& model)
+        //{
+
+        //}
+
         bool update() override
         {
 
@@ -524,7 +530,7 @@ namespace example
 
             // Update camera
             float view[16];
-            cameraUpdate(0.5f * deltaTime, m_mouseState);
+            cameraUpdate(0.1f * deltaTime, m_mouseState);
             cameraGetViewMtx(view);
             bx::Vec3 cameraPos = cameraGetPosition();
 

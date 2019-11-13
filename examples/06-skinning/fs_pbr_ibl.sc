@@ -54,7 +54,7 @@ void main()
     float roughness = max(roughnessMetal.x * u_roughnessFactor, MIN_ROUGHNESS);
     float metallic = roughnessMetal.y * u_metallicFactor;
     float occlusion = texture2D(s_occlusion, v_texcoord).x;
-    vec3 emissive = toLinear(texture2D(s_emissive, v_texcoord)).xyz * u_emissiveFactor;
+    vec3 emissive = toLinear(texture2D(s_emissive, v_texcoord)).xyz * u_emissiveFactor.xyz;
 
     // From GLTF spec
     vec3 c_diff = diffuseColor(baseColor.rgb, metallic);
